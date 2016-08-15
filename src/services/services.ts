@@ -5250,9 +5250,11 @@ namespace ts {
 
             const entries: ReferenceEntry[] = [];
             const node = getTouchingPropertyName(getValidSourceFile(fileName), position);
+            const typeChecker = program.getTypeChecker();
 
-            if (node.kind === SyntaxKind.SuperKeyword || node.kind === SyntaxKind.ThisKeyword || isSuperPropertyOrElementAccess(node.parent)) {
-                // Implementation should be the same as the definition
+            const symbol = typeChecker.getSymbolAtLocation(node);
+
+            if (definitionIsImplementation(node, typeChecker)) {
                 const definitions = getDefinitionAtPosition(fileName, position);
                 forEach(definitions, (definition: DefinitionInfo) => {
                     const defNode = getTokenAtPosition(getValidSourceFile(definition.fileName), definition.textSpan.start);
@@ -5268,11 +5270,45 @@ namespace ts {
                 // Do a search for all references and filter them down to implementations only
                 const result = getReferencedSymbolsForNode(node, program.getSourceFiles(), /*findInStrings*/false, /*findInComments*/false, /*implementations*/true);
 
-                forEach(result, (ref) => ref.references && entries.push(...ref.references));
+                forEach(result, (ref) => {
+                    if (ref.references) {
+                        entries.push(...ref.references);
+                    }
+                });
             }
 
             return entries;
         }
+
+        /**
+         * Returns true if the implementation for this node is the same as its definition
+         */
+        function definitionIsImplementation(node: Node, typeChecker: TypeChecker) {
+            if (node.kind === SyntaxKind.SuperKeyword || node.kind === SyntaxKind.ThisKeyword) {
+                return true;
+            }
+
+            if (node.parent.kind === SyntaxKind.PropertyAccessExpression || node.parent.kind === SyntaxKind.ElementAccessExpression) {
+                const expression = (<ElementAccessExpression | PropertyAccessExpression>node.parent).expression;
+                if (expression.kind === SyntaxKind.SuperKeyword || expression.kind === SyntaxKind.ThisKeyword) {
+                    return true;
+                }
+
+                // Check to see if this is a property that can have multiple implementations by determining
+                // if the parent is an interface (or class, or union/intersection)
+                const type = typeChecker.getTypeAtLocation(expression);
+                return !(type.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
+
+            }
+
+            const symbol = typeChecker.getSymbolAtLocation(node);
+            return !isClassOrInterfaceReference(symbol) && !(symbol.parent && isClassOrInterfaceReference(symbol.parent));
+        }
+
+        function isClassOrInterfaceReference(toCheck: Symbol) {
+            return toCheck.getFlags() & (SymbolFlags.Class | SymbolFlags.Interface);
+        }
+
         function isIdentifierOfImplementation(node: Identifier): boolean {
             const parent = node.parent;
 
@@ -5296,7 +5332,16 @@ namespace ts {
                 return !!parent.initializer;
             }
 
-            return false;
+            return isIdentifierOfClass(node) || isIdentifierOfEnumDeclaration(node);
+        }
+
+        function isIdentifierOfClass(node: Identifier) {
+            return (node.parent.kind === SyntaxKind.ClassDeclaration || node.parent.kind === SyntaxKind.ClassExpression) &&
+                (<ClassLikeDeclaration>node.parent).name === node;
+        }
+
+        function isIdentifierOfEnumDeclaration(node: Identifier) {
+            return node.parent.kind === SyntaxKind.EnumDeclaration && (<EnumDeclaration>node.parent).name === node;
         }
 
         function isTypeAssertionExpression(node: Node): node is TypeAssertion {
@@ -5309,7 +5354,8 @@ namespace ts {
         function isImplementationExpression(node: Expression) {
             return node.kind === SyntaxKind.ArrowFunction ||
                 node.kind === SyntaxKind.FunctionExpression ||
-                node.kind === SyntaxKind.ObjectLiteralExpression;
+                node.kind === SyntaxKind.ObjectLiteralExpression ||
+                node.kind === SyntaxKind.ClassExpression;
         }
 
 
@@ -6502,8 +6548,8 @@ namespace ts {
             function filterToImplementations(node: Node, searchSymbol: Symbol, refs: ReferencedSymbol[], indexToSymbol: {[index: number]: Symbol}): ReferencedSymbol[] {
                 if (isPropertyAccessExpression(node.parent)) {
                     const type = typeChecker.getTypeAtLocation(node.parent.expression);
-                    const parentSymbol = type.symbol;
-                    if (parentSymbol.getFlags() & SymbolFlags.Class) {
+
+                    if (type.getFlags() & TypeFlags.Class) {
                         // The search results in refs will contain all implementations of the property. This includes
                         // all implementations in classes that parentSymbol extends from and sibling implementations
                         // (i.e. implementations in classes with common ancestors that declare the property). We need to
@@ -6511,7 +6557,7 @@ namespace ts {
                         // in any sub-classes
                         return filterToClassMemberImplementations(node.parent, searchSymbol, refs, indexToSymbol);
                     }
-                    else if (parentSymbol.getFlags() & SymbolFlags.Interface) {
+                    else if (type.getFlags() & (TypeFlags.UnionOrIntersection | TypeFlags.Interface)) {
                         // If parentSymbol did not declare the property being accessed, then the search results
                         // in refs will also contain references to the interfaces that parentSymbol inherits from.
                         // We need to filter out any implementations of those parent interfaces in addition to filtering out the
