@@ -5312,7 +5312,11 @@ namespace ts {
 
             if (node.parent.kind === SyntaxKind.PropertyAccessExpression || node.parent.kind === SyntaxKind.ElementAccessExpression) {
                 const expression = (<ElementAccessExpression | PropertyAccessExpression>node.parent).expression;
-                if (expression.kind === SyntaxKind.SuperKeyword || expression.kind === SyntaxKind.ThisKeyword) {
+
+                // Members of "this" and "super" only have one possible implementation, so no need to find
+                // all references. Similarly, for the left hand side of the expression it only really
+                // makes sense to return the definition
+                if (node === expression || expression.kind === SyntaxKind.SuperKeyword || expression.kind === SyntaxKind.ThisKeyword) {
                     return true;
                 }
 
@@ -6568,7 +6572,7 @@ namespace ts {
             }
 
             function filterToImplementations(node: Node, searchSymbol: Symbol, refs: ReferencedSymbol[], indexToSymbol: {[index: number]: Symbol}): ReferencedSymbol[] {
-                if (isPropertyAccessExpression(node.parent)) {
+                if (isPropertyAccessExpression(node.parent) && node.parent.name === node) {
                     const type = typeChecker.getTypeAtLocation(node.parent.expression);
 
                     if (type.getFlags() & TypeFlags.Class) {
