@@ -354,7 +354,27 @@ namespace ts.server {
         }
 
         getImplementationAtPosition(fileName: string, position: number): ReferenceEntry[] {
-            throw new Error('Not yet implemented!');
+            const lineOffset = this.positionToOneBasedLineOffset(fileName, position);
+            const args: protocol.FileLocationRequestArgs = {
+                file: fileName,
+                line: lineOffset.line,
+                offset: lineOffset.offset,
+            };
+
+            const request = this.processRequest<protocol.ImplementationRequest>(CommandNames.Implementation, args);
+            const response = this.processResponse<protocol.ImplementationResponse>(request);
+
+            return response.body.map(entry => {
+                const fileName = entry.file;
+                const start = this.lineOffsetToPosition(fileName, entry.start);
+                const end = this.lineOffsetToPosition(fileName, entry.end);
+                return {
+                    fileName,
+                    textSpan: ts.createTextSpanFromBounds(start, end),
+                    isWriteAccess: false,
+                    isDefinition: false
+                };
+            });
         }
 
         findReferences(fileName: string, position: number): ReferencedSymbol[] {

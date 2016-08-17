@@ -5276,8 +5276,6 @@ namespace ts {
             const node = getTouchingPropertyName(getValidSourceFile(fileName), position);
             const typeChecker = program.getTypeChecker();
 
-            const symbol = typeChecker.getSymbolAtLocation(node);
-
             if (definitionIsImplementation(node, typeChecker)) {
                 const definitions = getDefinitionAtPosition(fileName, position);
                 forEach(definitions, (definition: DefinitionInfo) => {
@@ -6747,7 +6745,7 @@ namespace ts {
 
             function getClassHierarchy(symbol: Symbol) {
                 const classes: Symbol[] = [];
-                getClassHierarchyRecursive(symbol, classes, {});
+                getClassHierarchyRecursive(symbol, classes, createMap<Symbol>());
                 return classes;
 
                 function getClassHierarchyRecursive(symbol: Symbol, result: Symbol[], previousIterationSymbolsCache: SymbolTable) {
