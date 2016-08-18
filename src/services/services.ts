@@ -5415,9 +5415,10 @@ namespace ts {
         }
 
 
-        function isIdentifierOfHeritageClause (node: Identifier) {
+        function isIdentifierOfClassHeritageClause (node: Identifier) {
             return node.parent.kind === SyntaxKind.ExpressionWithTypeArguments &&
-                node.parent.parent.kind === SyntaxKind.HeritageClause;
+                node.parent.parent.kind === SyntaxKind.HeritageClause &&
+                isClassLike(node.parent.parent.parent);
         }
 
         function getOccurrencesAtPosition(fileName: string, position: number): ReferenceEntry[] {
@@ -6741,7 +6742,7 @@ namespace ts {
                         return getReferenceEntryFromNode(refNode.parent);
                     }
                     // Check if the node is within an extends or implements clause
-                    else if (isIdentifierOfHeritageClause(<Identifier>refNode)) {
+                    else if (isIdentifierOfClassHeritageClause(<Identifier>refNode)) {
                         return getReferenceEntryFromNode(refNode.parent.parent.parent);
                     }
                     // If we got a type reference, try and see if the reference applies to any object literals

@@ -6,6 +6,8 @@
 ////     hello: () => void
 //// }
 ////
+//// interface Baz extends Foo {}
+////
 //// var bar: Foo = [|{ hello: helloImpl /**0*/ }|];
 ////
 //// function helloImpl () {}
