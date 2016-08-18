@@ -5402,7 +5402,12 @@ namespace ts {
         /**
          * Returns true if this is an expression that could be used to implement an interface.
          */
-        function isImplementationExpression(node: Expression) {
+        function isImplementationExpression(node: Expression): boolean {
+            // Unwrap parentheses
+            if (node.kind === SyntaxKind.ParenthesizedExpression) {
+                return isImplementationExpression((<ParenthesizedExpression>node).expression);
+            }
+
             return node.kind === SyntaxKind.ArrowFunction ||
                 node.kind === SyntaxKind.FunctionExpression ||
                 node.kind === SyntaxKind.ObjectLiteralExpression ||
@@ -6619,9 +6624,9 @@ namespace ts {
                                 const entryNode = getTokenAtPosition(getValidSourceFile(entry.fileName), entry.textSpan.start);
                                 const element = getContainingObjectLiteralElement(entryNode);
                                 if (element && element.parent && element.parent.kind === SyntaxKind.ObjectLiteralExpression) {
-                                    const objType = getDeclaredTypeOfObjectLiteralExpression(<ObjectLiteralExpression>element.parent);
+                                    const objType = getDeclaredTypeOfObjectLiteralExpression(element.parent);
 
-                                    if (typeChecker.isTypeSubtypeOf(objType, type)) {
+                                    if (objType && typeChecker.isTypeSubtypeOf(objType, type)) {
                                         return impl;
                                     }
                                 }
@@ -6642,14 +6647,21 @@ namespace ts {
                 return filterReferenceEntries(refs, getImplementationFromEntry);
             }
 
-            function getDeclaredTypeOfObjectLiteralExpression(node: ObjectLiteralExpression): Type {
+            function getDeclaredTypeOfObjectLiteralExpression(node: Node): Type {
                 if (node && node.parent) {
+                    if (node.parent.kind === SyntaxKind.ParenthesizedExpression) {
+                        return getDeclaredTypeOfObjectLiteralExpression(node.parent);
+                    }
+
                     if (isVariableLike(node.parent) && node.parent.type) {
                         return typeChecker.getTypeAtLocation(node.parent.type);
                     }
                     else if (node.parent.kind === SyntaxKind.ReturnStatement) {
                         const containerSig = typeChecker.getSignatureFromDeclaration(getContainingFunction(node));
                         return typeChecker.getReturnTypeOfSignature(containerSig);
+                    }
+                    else if (node.parent.kind === SyntaxKind.TypeAssertionExpression) {
+                        return typeChecker.getTypeAtLocation((<TypeAssertion>node.parent).type);
                     }
                 }
                 return undefined;
