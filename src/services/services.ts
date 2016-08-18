@@ -5276,7 +5276,10 @@ namespace ts {
             const node = getTouchingPropertyName(getValidSourceFile(fileName), position);
             const typeChecker = program.getTypeChecker();
 
-            if (definitionIsImplementation(node, typeChecker)) {
+            if (node.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
+                return [getReferenceEntryForShorthandPropertyAssignment(node, typeChecker)];
+            }
+            else if (definitionIsImplementation(node, typeChecker)) {
                 const definitions = getDefinitionAtPosition(fileName, position);
                 forEach(definitions, (definition: DefinitionInfo) => {
                     const defNode = getTokenAtPosition(getValidSourceFile(definition.fileName), definition.textSpan.start);
@@ -5324,11 +5327,33 @@ namespace ts {
                 // if the parent is an interface (or class, or union/intersection)
                 const type = typeChecker.getTypeAtLocation(expression);
                 return type && !(type.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
-
             }
 
             const symbol = typeChecker.getSymbolAtLocation(node);
             return symbol && !isClassOrInterfaceReference(symbol) && !(symbol.parent && isClassOrInterfaceReference(symbol.parent));
+        }
+
+        function getReferenceEntryForShorthandPropertyAssignment(node: Node, typeChecker: TypeChecker) {
+            const refSymbol = typeChecker.getSymbolAtLocation(node);
+            const shorthandSymbol = typeChecker.getShorthandAssignmentValueSymbol(refSymbol.valueDeclaration);
+
+            if (shorthandSymbol) {
+                const shorthandDeclarations = shorthandSymbol.getDeclarations();
+                if (shorthandDeclarations.length === 1) {
+                    return getReferenceEntryFromNode(shorthandDeclarations[0]);
+                }
+                else if (shorthandDeclarations.length > 1) {
+                    // This can happen when the property being assigned is a constructor for a
+                    // class that also has interface declarations with the same name. We just want
+                    // the class itself
+
+                    return forEach(shorthandDeclarations, declaration => {
+                        if (declaration.kind === SyntaxKind.ClassDeclaration)  {
+                            return getReferenceEntryFromNode(declaration);
+                        }
+                    });
+                }
+            }
         }
 
         function isClassOrInterfaceReference(toCheck: Symbol) {
@@ -6724,6 +6749,10 @@ namespace ts {
                         else if (isTypeAssertionExpression(parent) && isImplementationExpression(parent.expression)) {
                             return getReferenceEntryFromNode(parent.expression);
                         }
+                    }
+                    else if (refNode.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
+                        // Go ahead and dereference the shorthand assignment by going to its definition
+                        return getReferenceEntryForShorthandPropertyAssignment(refNode, typeChecker);
                     }
                 }
             }
