@@ -1608,6 +1608,15 @@ namespace FourSlash {
             assertFn(actualCount, expectedCount, this.messageAtLastKnownMarker("Type definitions Count"));
         }
 
+        public verifyImplementationsCount(negative: boolean, expectedCount: number) {
+            const assertFn = negative ? assert.notEqual : assert.equal;
+
+            const implementations = this.languageService.getImplementationAtPosition(this.activeFile.fileName, this.currentCaretPosition);
+            const actualCount = implementations && implementations.length || 0;
+
+            assertFn(actualCount, expectedCount, this.messageAtLastKnownMarker("Implementations Count"));
+        }
+
         public verifyDefinitionsName(negative: boolean, expectedName: string, expectedContainerName: string) {
             const definitions = this.languageService.getDefinitionAtPosition(this.activeFile.fileName, this.currentCaretPosition);
             const actualDefinitionName = definitions && definitions.length ? definitions[0].name : "";
@@ -2925,6 +2934,10 @@ namespace FourSlashInterface {
 
         public typeDefinitionCountIs(expectedCount: number) {
             this.state.verifyTypeDefinitionsCount(this.negative, expectedCount);
+        }
+
+        public implementationCountIs(expectedCount: number) {
+            this.state.verifyImplementationsCount(this.negative, expectedCount);
         }
 
         public definitionLocationExists() {

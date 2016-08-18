@@ -5323,12 +5323,12 @@ namespace ts {
                 // Check to see if this is a property that can have multiple implementations by determining
                 // if the parent is an interface (or class, or union/intersection)
                 const type = typeChecker.getTypeAtLocation(expression);
-                return !(type.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
+                return type && !(type.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
 
             }
 
             const symbol = typeChecker.getSymbolAtLocation(node);
-            return !isClassOrInterfaceReference(symbol) && !(symbol.parent && isClassOrInterfaceReference(symbol.parent));
+            return symbol && !isClassOrInterfaceReference(symbol) && !(symbol.parent && isClassOrInterfaceReference(symbol.parent));
         }
 
         function isClassOrInterfaceReference(toCheck: Symbol) {

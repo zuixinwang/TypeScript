@@ -135,6 +135,7 @@ declare namespace FourSlashInterface {
         quickInfoExists(): void;
         definitionCountIs(expectedCount: number): void;
         typeDefinitionCountIs(expectedCount: number): void;
+        implementationCountIs(expectedCount: number): void;
         definitionLocationExists(): void;
         verifyDefinitionsName(name: string, containerName: string): void;
         isValidBraceCompletionAtPosition(openingBrace?: string): void;
