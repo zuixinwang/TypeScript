@@ -2,10 +2,14 @@
 
 // Should return implementations in a simple class
 
-//// interface Foo { hel/*declaration*/lo(): void }
+//// interface Foo {
+////     hel/*declaration*/lo(): void;
+////     okay?: number;
+//// }
 ////
 //// class Bar implements Foo {
-////     [|hello () {}|]
+////     [|hello() {}|]
+////     public sure() {}
 //// }
 ////
 //// function whatever(a: Foo) {

@@ -6627,7 +6627,7 @@ namespace ts {
                                 if (element && element.parent && element.parent.kind === SyntaxKind.ObjectLiteralExpression) {
                                     const objType = getDeclaredTypeOfObjectLiteralExpression(element.parent);
 
-                                    if (objType && typeChecker.isTypeSubtypeOf(objType, type)) {
+                                    if (objType && typeChecker.isTypeAssignableTo(objType, type)) {
                                         return impl;
                                     }
                                 }
@@ -6635,7 +6635,7 @@ namespace ts {
                                     const defClass = getContainingClass(entryNode);
                                     if (defClass) {
                                         const classType = typeChecker.getTypeAtLocation(defClass);
-                                        if (typeChecker.isTypeSubtypeOf(classType, type)) {
+                                        if (typeChecker.isTypeAssignableTo(classType, type)) {
                                             return impl;
                                         }
                                     }
@@ -6783,7 +6783,7 @@ namespace ts {
                     const referenceParentDeclarations = referenceSymbol.parent.getDeclarations();
                     if (referenceParentDeclarations.length) {
                         const referenceParentType = typeChecker.getTypeAtLocation(referenceParentDeclarations[0]);
-                        return typeChecker.isTypeSubtypeOf(referenceParentType, base);
+                        return typeChecker.isTypeAssignableTo(referenceParentType, base);
                     }
                 }
                 return false;
