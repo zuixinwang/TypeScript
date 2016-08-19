@@ -5325,8 +5325,14 @@ namespace ts {
 
                 // Check to see if this is a property that can have multiple implementations by determining
                 // if the parent is an interface (or class, or union/intersection)
-                const type = typeChecker.getTypeAtLocation(expression);
-                return type && !(type.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
+                const expressionType = typeChecker.getTypeAtLocation(expression);
+                if (expressionType && expressionType.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection)) {
+                    return false;
+                }
+
+                // Also check the right hand side to see if this is a type being accessed on a namespace/module
+                const rightHandType = typeChecker.getTypeAtLocation(node);
+                return rightHandType && !(rightHandType.getFlags() & (TypeFlags.Class | TypeFlags.Interface | TypeFlags.UnionOrIntersection));
             }
 
             const symbol = typeChecker.getSymbolAtLocation(node);
@@ -5397,28 +5403,6 @@ namespace ts {
 
         function isTypeAssertionExpression(node: Node): node is TypeAssertion {
             return node.kind === SyntaxKind.TypeAssertionExpression;
-        }
-
-        /**
-         * Returns true if this is an expression that could be used to implement an interface.
-         */
-        function isImplementationExpression(node: Expression): boolean {
-            // Unwrap parentheses
-            if (node.kind === SyntaxKind.ParenthesizedExpression) {
-                return isImplementationExpression((<ParenthesizedExpression>node).expression);
-            }
-
-            return node.kind === SyntaxKind.ArrowFunction ||
-                node.kind === SyntaxKind.FunctionExpression ||
-                node.kind === SyntaxKind.ObjectLiteralExpression ||
-                node.kind === SyntaxKind.ClassExpression;
-        }
-
-
-        function isIdentifierOfClassHeritageClause (node: Identifier) {
-            return node.parent.kind === SyntaxKind.ExpressionWithTypeArguments &&
-                node.parent.parent.kind === SyntaxKind.HeritageClause &&
-                isClassLike(node.parent.parent.parent);
         }
 
         function getOccurrencesAtPosition(fileName: string, position: number): ReferenceEntry[] {
@@ -6741,18 +6725,25 @@ namespace ts {
                     if (isIdentifierOfImplementation(<Identifier>refNode)) {
                         return getReferenceEntryFromNode(refNode.parent);
                     }
-                    // Check if the node is within an extends or implements clause
-                    else if (isIdentifierOfClassHeritageClause(<Identifier>refNode)) {
-                        return getReferenceEntryFromNode(refNode.parent.parent.parent);
+                    else if (refNode.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
+                        // Go ahead and dereference the shorthand assignment by going to its definition
+                        return getReferenceEntryForShorthandPropertyAssignment(refNode, typeChecker);
                     }
-                    // If we got a type reference, try and see if the reference applies to any object literals
-                    else if (refNode.parent.kind === SyntaxKind.TypeReference) {
-                        const typeNode = refNode.parent;
-                        const parent = typeNode.parent;
-                        if (isVariableLike(parent) && parent.type === typeNode && parent.initializer && isImplementationExpression(parent.initializer)) {
+
+                    // Check if the node is within an extends or implements clause
+                    const containingHeritageClause = getContainingClassHeritageClause(refNode);
+                    if (containingHeritageClause) {
+                        return getReferenceEntryFromNode(containingHeritageClause.parent);
+                    }
+
+                    // If we got a type reference, try and see if the reference applies to any expressions that can implement an interface
+                    const containingTypeReference = getContainingTypeReference(refNode);
+                    if (containingTypeReference) {
+                        const parent = containingTypeReference.parent;
+                        if (isVariableLike(parent) && parent.type === containingTypeReference && parent.initializer && isImplementationExpression(parent.initializer)) {
                             return getReferenceEntryFromNode(parent.initializer);
                         }
-                        else if (isFunctionLike(parent) && parent.type === typeNode && parent.body && parent.body.kind === SyntaxKind.Block) {
+                        else if (isFunctionLike(parent) && parent.type === containingTypeReference && parent.body && parent.body.kind === SyntaxKind.Block) {
                             return forEachReturnStatement(<Block>parent.body, (returnStatement) => {
                                 if (returnStatement.expression && isImplementationExpression(returnStatement.expression)) {
                                     return getReferenceEntryFromNode(returnStatement.expression);
@@ -6762,10 +6753,6 @@ namespace ts {
                         else if (isTypeAssertionExpression(parent) && isImplementationExpression(parent.expression)) {
                             return getReferenceEntryFromNode(parent.expression);
                         }
-                    }
-                    else if (refNode.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
-                        // Go ahead and dereference the shorthand assignment by going to its definition
-                        return getReferenceEntryForShorthandPropertyAssignment(refNode, typeChecker);
                     }
                 }
             }
@@ -6787,6 +6774,49 @@ namespace ts {
                     }
                 }
                 return false;
+            }
+
+            function getContainingTypeReference(node: Node): Node {
+                if (node) {
+                    if (node.kind === SyntaxKind.TypeReference) {
+                        return node;
+                    }
+
+                    if (node.kind === SyntaxKind.Identifier || node.kind === SyntaxKind.QualifiedName) {
+                        return getContainingTypeReference(node.parent);
+                    }
+                }
+                return undefined;
+            }
+
+            function getContainingClassHeritageClause(node: Node): HeritageClause {
+                if (node) {
+                    if (node.kind === SyntaxKind.ExpressionWithTypeArguments
+                        && node.parent.kind === SyntaxKind.HeritageClause
+                        && isClassLike(node.parent.parent)) {
+                        return <HeritageClause>node.parent;
+                    }
+
+                    else if (node.kind === SyntaxKind.Identifier || node.kind === SyntaxKind.PropertyAccessExpression) {
+                        return getContainingClassHeritageClause(node.parent);
+                    }
+                }
+                return undefined;
+            }
+
+            /**
+             * Returns true if this is an expression that could be used to implement an interface.
+             */
+            function isImplementationExpression(node: Expression): boolean {
+                // Unwrap parentheses
+                if (node.kind === SyntaxKind.ParenthesizedExpression) {
+                    return isImplementationExpression((<ParenthesizedExpression>node).expression);
+                }
+
+                return node.kind === SyntaxKind.ArrowFunction ||
+                    node.kind === SyntaxKind.FunctionExpression ||
+                    node.kind === SyntaxKind.ObjectLiteralExpression ||
+                    node.kind === SyntaxKind.ClassExpression;
             }
 
             function getClassHierarchy(symbol: Symbol) {
