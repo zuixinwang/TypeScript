@@ -1025,7 +1025,7 @@ namespace ts {
         }
 
         function getDeclarationOfAliasSymbol(symbol: Symbol): Declaration {
-            return find(symbol.declarations, d => isAliasSymbolDeclaration(d) ? d : undefined);
+            return findMap(symbol.declarations, d => isAliasSymbolDeclaration(d) ? d : undefined);
         }
 
         function getTargetOfImportEqualsDeclaration(node: ImportEqualsDeclaration): Symbol {
@@ -1362,7 +1362,14 @@ namespace ts {
 
             if (moduleNotFoundError) {
                 // report errors only if it was requested
-                error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                const tsExtension = tryExtractTypeScriptExtension(moduleName);
+                if (tsExtension) {
+                    const diag = Diagnostics.An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead;
+                    error(moduleReferenceLiteral, diag, tsExtension, removeExtension(moduleName, tsExtension));
+                }
+                else {
+                    error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                }
             }
             return undefined;
         }
@@ -3084,7 +3091,7 @@ namespace ts {
 
             // If the declaration specifies a binding pattern, use the type implied by the binding pattern
             if (isBindingPattern(declaration.name)) {
-                return getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ false);
+                return getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ false, /*reportErrors*/ true);
             }
 
             // No type specified and nothing can be inferred
@@ -3094,23 +3101,21 @@ namespace ts {
         // Return the type implied by a binding pattern element. This is the type of the initializer of the element if
         // one is present. Otherwise, if the element is itself a binding pattern, it is the type implied by the binding
         // pattern. Otherwise, it is the type any.
-        function getTypeFromBindingElement(element: BindingElement, includePatternInType?: boolean): Type {
+        function getTypeFromBindingElement(element: BindingElement, includePatternInType?: boolean, reportErrors?: boolean): Type {
             if (element.initializer) {
-                const type = checkExpressionCached(element.initializer);
-                reportErrorsFromWidening(element, type);
-                return getWidenedType(type);
+                return checkExpressionCached(element.initializer);
             }
             if (isBindingPattern(element.name)) {
-                return getTypeFromBindingPattern(<BindingPattern>element.name, includePatternInType);
+                return getTypeFromBindingPattern(<BindingPattern>element.name, includePatternInType, reportErrors);
             }
-            if (compilerOptions.noImplicitAny && !declarationBelongsToPrivateAmbientMember(element)) {
+            if (reportErrors && compilerOptions.noImplicitAny && !declarationBelongsToPrivateAmbientMember(element)) {
                 reportImplicitAnyError(element, anyType);
             }
             return anyType;
         }
 
         // Return the type implied by an object binding pattern
-        function getTypeFromObjectBindingPattern(pattern: BindingPattern, includePatternInType: boolean): Type {
+        function getTypeFromObjectBindingPattern(pattern: BindingPattern, includePatternInType: boolean, reportErrors: boolean): Type {
             const members = createMap<Symbol>();
             let hasComputedProperties = false;
             forEach(pattern.elements, e => {
@@ -3124,7 +3129,7 @@ namespace ts {
                 const text = getTextOfPropertyName(name);
                 const flags = SymbolFlags.Property | SymbolFlags.Transient | (e.initializer ? SymbolFlags.Optional : 0);
                 const symbol = <TransientSymbol>createSymbol(flags, text);
-                symbol.type = getTypeFromBindingElement(e, includePatternInType);
+                symbol.type = getTypeFromBindingElement(e, includePatternInType, reportErrors);
                 symbol.bindingElement = e;
                 members[symbol.name] = symbol;
             });
@@ -3139,13 +3144,13 @@ namespace ts {
         }
 
         // Return the type implied by an array binding pattern
-        function getTypeFromArrayBindingPattern(pattern: BindingPattern, includePatternInType: boolean): Type {
+        function getTypeFromArrayBindingPattern(pattern: BindingPattern, includePatternInType: boolean, reportErrors: boolean): Type {
             const elements = pattern.elements;
             if (elements.length === 0 || elements[elements.length - 1].dotDotDotToken) {
                 return languageVersion >= ScriptTarget.ES6 ? createIterableType(anyType) : anyArrayType;
             }
             // If the pattern has at least one element, and no rest element, then it should imply a tuple type.
-            const elementTypes = map(elements, e => e.kind === SyntaxKind.OmittedExpression ? anyType : getTypeFromBindingElement(e, includePatternInType));
+            const elementTypes = map(elements, e => e.kind === SyntaxKind.OmittedExpression ? anyType : getTypeFromBindingElement(e, includePatternInType, reportErrors));
             if (includePatternInType) {
                 const result = createNewTupleType(elementTypes);
                 result.pattern = pattern;
@@ -3161,10 +3166,10 @@ namespace ts {
         // used as the contextual type of an initializer associated with the binding pattern. Also, for a destructuring
         // parameter with no type annotation or initializer, the type implied by the binding pattern becomes the type of
         // the parameter.
-        function getTypeFromBindingPattern(pattern: BindingPattern, includePatternInType?: boolean): Type {
+        function getTypeFromBindingPattern(pattern: BindingPattern, includePatternInType?: boolean, reportErrors?: boolean): Type {
             return pattern.kind === SyntaxKind.ObjectBindingPattern
-                ? getTypeFromObjectBindingPattern(pattern, includePatternInType)
-                : getTypeFromArrayBindingPattern(pattern, includePatternInType);
+                ? getTypeFromObjectBindingPattern(pattern, includePatternInType, reportErrors)
+                : getTypeFromArrayBindingPattern(pattern, includePatternInType, reportErrors);
         }
 
         // Return the type associated with a variable, parameter, or property declaration. In the simple case this is the type
@@ -5547,6 +5552,12 @@ namespace ts {
                 case SyntaxKind.NullKeyword:
                     return nullType;
                 case SyntaxKind.NeverKeyword:
+                    return neverType;
+                case SyntaxKind.JSDocNullKeyword:
+                    return nullType;
+                case SyntaxKind.JSDocUndefinedKeyword:
+                    return undefinedType;
+                case SyntaxKind.JSDocNeverKeyword:
                     return neverType;
                 case SyntaxKind.ThisType:
                 case SyntaxKind.ThisKeyword:
@@ -9415,7 +9426,7 @@ namespace ts {
                     }
                 }
                 if (isBindingPattern(declaration.name)) {
-                    return getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ true);
+                    return getTypeFromBindingPattern(<BindingPattern>declaration.name, /*includePatternInType*/ true, /*reportErrors*/ false);
                 }
                 if (isBindingPattern(declaration.parent)) {
                     const parentDeclaration = declaration.parent.parent;
@@ -14122,12 +14133,7 @@ namespace ts {
                 checkSignatureDeclaration(node);
                 if (node.kind === SyntaxKind.GetAccessor) {
                     if (!isInAmbientContext(node) && nodeIsPresent(node.body) && (node.flags & NodeFlags.HasImplicitReturn)) {
-                        if (node.flags & NodeFlags.HasExplicitReturn) {
-                            if (compilerOptions.noImplicitReturns) {
-                                error(node.name, Diagnostics.Not_all_code_paths_return_a_value);
-                            }
-                        }
-                        else {
+                        if (!(node.flags & NodeFlags.HasExplicitReturn)) {
                             error(node.name, Diagnostics.A_get_accessor_must_return_a_value);
                         }
                     }
@@ -14157,7 +14163,10 @@ namespace ts {
                         checkAccessorDeclarationTypesIdentical(node, otherAccessor, getThisTypeOfDeclaration, Diagnostics.get_and_set_accessor_must_have_the_same_this_type);
                     }
                 }
-                getTypeOfAccessors(getSymbolOfNode(node));
+                const returnType = getTypeOfAccessors(getSymbolOfNode(node));
+                if (node.kind === SyntaxKind.GetAccessor) {
+                    checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                }
             }
             if (node.parent.kind !== SyntaxKind.ObjectLiteralExpression) {
                 checkSourceElement(node.body);

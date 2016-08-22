@@ -351,6 +351,9 @@ namespace ts {
         JSDocPropertyTag,
         JSDocTypeLiteral,
         JSDocLiteralType,
+        JSDocNullKeyword,
+        JSDocUndefinedKeyword,
+        JSDocNeverKeyword,
 
         // Synthesized list
         SyntaxList,
@@ -383,7 +386,7 @@ namespace ts {
         FirstJSDocNode = JSDocTypeExpression,
         LastJSDocNode = JSDocLiteralType,
         FirstJSDocTagNode = JSDocComment,
-        LastJSDocTagNode = JSDocLiteralType
+        LastJSDocTagNode = JSDocNeverKeyword
     }
 
     export const enum NodeFlags {
@@ -2767,7 +2770,7 @@ namespace ts {
 
     /* @internal */
     export interface CommandLineOptionOfCustomType extends CommandLineOptionBase {
-        type: Map<number | string>;             // an object literal mapping named values to actual values
+        type: Map<number | string>;  // an object literal mapping named values to actual values
     }
 
     /* @internal */
