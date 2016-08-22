@@ -1213,7 +1213,7 @@ namespace ts {
 
         getDefinitionAtPosition(fileName: string, position: number): DefinitionInfo[];
         getTypeDefinitionAtPosition(fileName: string, position: number): DefinitionInfo[];
-        getImplementationAtPosition(fileName: string, position: number): ReferenceEntry[];
+        getImplementationAtPosition(fileName: string, position: number): ImplementationLocation[];
 
         getReferencesAtPosition(fileName: string, position: number): ReferenceEntry[];
         findReferences(fileName: string, position: number): ReferencedSymbol[];
@@ -5269,25 +5269,26 @@ namespace ts {
         }
 
          /// Goto implementation
-        function getImplementationAtPosition(fileName: string, position: number): ReferenceEntry[] {
+        function getImplementationAtPosition(fileName: string, position: number): ImplementationLocation[] {
             synchronizeHostData();
 
-            const entries: ReferenceEntry[] = [];
+            const entries: ImplementationLocation[] = [];
             const node = getTouchingPropertyName(getValidSourceFile(fileName), position);
             const typeChecker = program.getTypeChecker();
 
             if (node.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
-                return [getReferenceEntryForShorthandPropertyAssignment(node, typeChecker)];
+                const entry = getReferenceEntryForShorthandPropertyAssignment(node, typeChecker);
+                entries.push({
+                    textSpan: entry.textSpan,
+                    fileName: entry.fileName
+                });
             }
             else if (definitionIsImplementation(node, typeChecker)) {
                 const definitions = getDefinitionAtPosition(fileName, position);
                 forEach(definitions, (definition: DefinitionInfo) => {
-                    const defNode = getTokenAtPosition(getValidSourceFile(definition.fileName), definition.textSpan.start);
                     entries.push({
                         textSpan: definition.textSpan,
-                        fileName: definition.fileName,
-                        isWriteAccess: isWriteAccess(defNode),
-                        isDefinition: true
+                        fileName: definition.fileName
                     });
                 });
             }
@@ -5295,9 +5296,14 @@ namespace ts {
                 // Do a search for all references and filter them down to implementations only
                 const result = getReferencedSymbolsForNode(node, program.getSourceFiles(), /*findInStrings*/false, /*findInComments*/false, /*implementations*/true);
 
-                forEach(result, (ref) => {
-                    if (ref.references) {
-                        entries.push(...ref.references);
+                forEach(result, referencedSymbol => {
+                    if (referencedSymbol.references) {
+                        forEach(referencedSymbol.references, entry => {
+                            entries.push({
+                                textSpan: entry.textSpan,
+                                fileName: entry.fileName
+                            });
+                        });
                     }
                 });
             }

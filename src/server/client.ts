@@ -353,7 +353,7 @@ namespace ts.server {
             });
         }
 
-        getImplementationAtPosition(fileName: string, position: number): ReferenceEntry[] {
+        getImplementationAtPosition(fileName: string, position: number): ImplementationLocation[] {
             const lineOffset = this.positionToOneBasedLineOffset(fileName, position);
             const args: protocol.FileLocationRequestArgs = {
                 file: fileName,
@@ -370,9 +370,7 @@ namespace ts.server {
                 const end = this.lineOffsetToPosition(fileName, entry.end);
                 return {
                     fileName,
-                    textSpan: ts.createTextSpanFromBounds(start, end),
-                    isWriteAccess: false,
-                    isDefinition: false
+                    textSpan: ts.createTextSpanFromBounds(start, end)
                 };
             });
         }

@@ -408,7 +408,7 @@ namespace Harness.LanguageService {
         getTypeDefinitionAtPosition(fileName: string, position: number): ts.DefinitionInfo[] {
             return unwrapJSONCallResult(this.shim.getTypeDefinitionAtPosition(fileName, position));
         }
-        getImplementationAtPosition(fileName: string, position: number): ts.ReferenceEntry[] {
+        getImplementationAtPosition(fileName: string, position: number): ts.ImplementationLocation[] {
             return unwrapJSONCallResult(this.shim.getImplementationAtPosition(fileName, position));
         }
         getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[] {
