@@ -8360,7 +8360,10 @@ namespace ts {
                     sourceFile: sourceFile,
                     span: { start, length: end - start },
                     checker: checker,
-                    newLineCharacter: getNewLineOrDefaultFromHost(host)
+                    newLineCharacter: getNewLineOrDefaultFromHost(host),
+                    readFile: (path: string) => host.readFile(path),
+                    useCaseSensitiveFileNames: host.useCaseSensitiveFileNames ? host.useCaseSensitiveFileNames() : false,
+                    allFiles: program.getSourceFiles()
                 };
 
                 const fixes = codeFixProvider.getFixes(context);

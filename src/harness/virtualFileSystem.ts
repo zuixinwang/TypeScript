@@ -144,16 +144,21 @@ namespace Utils {
         traversePath(path: string) {
             path = ts.normalizePath(path);
             let directory: VirtualDirectory = this.root;
-            for (const component of ts.getNormalizedPathComponents(path, this.currentDirectory)) {
-                const entry = directory.getFileSystemEntry(component);
+            const components = ts.getNormalizedPathComponents(path, this.currentDirectory);
+            for (let i = 0; i < components.length; i++) {
+                const entry = directory.getFileSystemEntry(components[i]);
                 if (entry === undefined) {
                     return undefined;
                 }
                 else if (entry.isDirectory()) {
                     directory = <VirtualDirectory>entry;
                 }
-                else {
+                else if (i === components.length - 1) {
                     return entry;
+                }
+                else {
+                    // The path is trying to access a directory that is actually a file entry
+                    return undefined;
                 }
             }
 

@@ -12,10 +12,13 @@ namespace ts {
         span: TextSpan;
         checker: TypeChecker;
         newLineCharacter: string;
+        readFile(path: string): string;
+        allFiles: SourceFile[];
+        useCaseSensitiveFileNames: boolean;
     }
 
     export namespace codeFix {
-        const codeFixes: Map<CodeFix[]> = {};
+        const codeFixes: Map<CodeFix[]> = createMap<CodeFix[]>();
 
         export function registerCodeFix(action: CodeFix) {
             forEach(action.errorCodes, error => {
@@ -30,7 +33,7 @@ namespace ts {
 
         export class CodeFixProvider {
             public static getSupportedErrorCodes() {
-                return getKeys(codeFixes);
+                return codeFixes ? Object.keys(codeFixes) : [];
             }
 
             public getFixes(context: CodeFixContext): CodeAction[] {
