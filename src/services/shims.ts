@@ -67,6 +67,10 @@ namespace ts {
         getProjectVersion?(): string;
         useCaseSensitiveFileNames?(): boolean;
 
+        readDirectory(rootDir: string, extension: string, basePaths?: string, excludeEx?: string, includeFileEx?: string, includeDirEx?: string, depth?: number): string;
+        readFile(path: string, encoding?: string): string;
+        fileExists(path: string): boolean;
+
         getModuleResolutionsForFile?(fileName: string): string;
         getTypeReferenceDirectiveResolutionsForFile?(fileName: string): string;
         directoryExists(directoryName: string): boolean;
@@ -136,6 +140,7 @@ namespace ts {
         getEncodedSemanticClassifications(fileName: string, start: number, length: number): string;
 
         getCompletionsAtPosition(fileName: string, position: number): string;
+        getImportModuleCompletionsAtPosition(fileName: string, position: number): string;
         getCompletionEntryDetails(fileName: string, position: number, entryName: string): string;
 
         getQuickInfoAtPosition(fileName: string, position: number): string;
@@ -314,9 +319,9 @@ namespace ts {
             // 'in' does not have this effect.
             if ("getModuleResolutionsForFile" in this.shimHost) {
                 this.resolveModuleNames = (moduleNames: string[], containingFile: string) => {
-                    const resolutionsInFile = <Map<string>>JSON.parse(this.shimHost.getModuleResolutionsForFile(containingFile));
+                    const resolutionsInFile = <MapLike<string>>JSON.parse(this.shimHost.getModuleResolutionsForFile(containingFile));
                     return map(moduleNames, name => {
-                        const result = lookUp(resolutionsInFile, name);
+                        const result = getProperty(resolutionsInFile, name);
                         return result ? { resolvedFileName: result } : undefined;
                     });
                 };
@@ -326,8 +331,8 @@ namespace ts {
             }
             if ("getTypeReferenceDirectiveResolutionsForFile" in this.shimHost) {
                 this.resolveTypeReferenceDirectives = (typeDirectiveNames: string[], containingFile: string) => {
-                    const typeDirectivesForFile = <Map<ResolvedTypeReferenceDirective>>JSON.parse(this.shimHost.getTypeReferenceDirectiveResolutionsForFile(containingFile));
-                    return map(typeDirectiveNames, name => lookUp(typeDirectivesForFile, name));
+                    const typeDirectivesForFile = <MapLike<ResolvedTypeReferenceDirective>>JSON.parse(this.shimHost.getTypeReferenceDirectiveResolutionsForFile(containingFile));
+                    return map(typeDirectiveNames, name => getProperty(typeDirectivesForFile, name));
                 };
             }
         }
@@ -423,6 +428,28 @@ namespace ts {
 
         public getDefaultLibFileName(options: CompilerOptions): string {
             return this.shimHost.getDefaultLibFileName(JSON.stringify(options));
+        }
+
+        public readDirectory(path: string, extensions?: string[], exclude?: string[], include?: string[], depth?: number): string[] {
+            const pattern = getFileMatcherPatterns(path, extensions, exclude, include,
+                this.shimHost.useCaseSensitiveFileNames(), this.shimHost.getCurrentDirectory());
+            return JSON.parse(this.shimHost.readDirectory(
+                path,
+                JSON.stringify(extensions),
+                JSON.stringify(pattern.basePaths),
+                pattern.excludePattern,
+                pattern.includeFilePattern,
+                pattern.includeDirectoryPattern,
+                depth
+            ));
+        }
+
+        public readFile(path: string, encoding?: string): string {
+            return this.shimHost.readFile(path, encoding);
+        }
+
+        public fileExists(path: string): boolean {
+            return this.shimHost.fileExists(path);
         }
     }
 
@@ -862,6 +889,13 @@ namespace ts {
             );
         }
 
+        getImportModuleCompletionsAtPosition(fileName: string, position: number): string {
+            return this.forwardJSONCall(
+                `getImportModuleCompletionsAtPosition('${fileName}', ${position})`,
+                () => this.languageService.getImportModuleCompletionsAtPosition(fileName, position)
+            );
+        }
+
         /** Get a string based representation of a completion list entry details */
         public getCompletionEntryDetails(fileName: string, position: number, entryName: string) {
             return this.forwardJSONCall(
@@ -1222,6 +1256,6 @@ namespace TypeScript.Services {
 // TODO: it should be moved into a namespace though.
 
 /* @internal */
-const toolsVersion = "1.9";
+const toolsVersion = "2.1";
 
 /* tslint:enable:no-unused-variable */

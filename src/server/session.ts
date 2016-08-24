@@ -103,6 +103,7 @@ namespace ts.server {
         export const Change = "change";
         export const Close = "close";
         export const Completions = "completions";
+        export const ImportModuleCompletions = "importModuleCompletions";
         export const CompletionDetails = "completionEntryDetails";
         export const Configure = "configure";
         export const Definition = "definition";
@@ -1061,7 +1062,7 @@ namespace ts.server {
             return { response, responseRequired: true };
         }
 
-        private handlers: Map<(request: protocol.Request) => { response?: any, responseRequired?: boolean }> = {
+        private handlers = createMap<(request: protocol.Request) => { response?: any, responseRequired?: boolean }>({
             [CommandNames.Exit]: () => {
                 this.exit();
                 return { responseRequired: false };
@@ -1198,9 +1199,10 @@ namespace ts.server {
                 this.reloadProjects();
                 return { responseRequired: false };
             }
-        };
+        });
+
         public addProtocolHandler(command: string, handler: (request: protocol.Request) => { response?: any, responseRequired: boolean }) {
-            if (this.handlers[command]) {
+            if (command in this.handlers) {
                 throw new Error(`Protocol handler already exists for command "${command}"`);
             }
             this.handlers[command] = handler;

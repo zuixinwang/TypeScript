@@ -976,7 +976,7 @@ namespace ts {
         }
 
         private computeNamedDeclarations(): Map<Declaration[]> {
-            const result: Map<Declaration[]> = {};
+            const result = createMap<Declaration[]>();
 
             forEachChild(this, visit);
 
@@ -991,7 +991,7 @@ namespace ts {
             }
 
             function getDeclarations(name: string) {
-                return getProperty(result, name) || (result[name] = []);
+                return result[name] || (result[name] = []);
             }
 
             function getDeclarationName(declaration: Declaration) {
@@ -1159,6 +1159,10 @@ namespace ts {
         error?(s: string): void;
         useCaseSensitiveFileNames?(): boolean;
 
+        readDirectory(path: string, extensions?: string[], exclude?: string[], include?: string[]): string[];
+        readFile(path: string, encoding?: string): string;
+        fileExists(path: string): boolean;
+
         /*
          * LS host can optionally implement this method if it wants to be completely in charge of module name resolution.
          * if implementation is omitted then language service will use built-in module resolution logic and get answers to
@@ -1167,6 +1171,11 @@ namespace ts {
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
         resolveTypeReferenceDirectives?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeReferenceDirective[];
         directoryExists?(directoryName: string): boolean;
+
+        /*
+         * getDirectories is also required for full import and type reference completions. Without it defined, certain
+         * completions will not be provided
+         */
         getDirectories?(directoryName: string): string[];
     }
 
@@ -1199,6 +1208,7 @@ namespace ts {
         getEncodedSemanticClassifications(fileName: string, span: TextSpan): Classifications;
 
         getCompletionsAtPosition(fileName: string, position: number): CompletionInfo;
+        getImportModuleCompletionsAtPosition(fileName: string, position: number): ImportCompletionInfo;
         getCompletionEntryDetails(fileName: string, position: number, entryName: string): CompletionEntryDetails;
 
         getQuickInfoAtPosition(fileName: string, position: number): QuickInfo;
@@ -1485,6 +1495,17 @@ namespace ts {
         sortText: string;
     }
 
+    export interface ImportCompletionInfo {
+        textSpan: TextSpan;
+        entries: ImportCompletionEntry[];
+    }
+
+    export interface ImportCompletionEntry {
+        name: string;
+        kind: string;            // see ScriptElementKind
+        sortText: string;
+    }
+
     export interface CompletionEntryDetails {
         name: string;
         kind: string;            // see ScriptElementKind
@@ -1765,6 +1786,10 @@ namespace ts {
         export const constElement = "const";
 
         export const letElement = "let";
+
+        export const directory = "directory";
+
+        export const externalModuleName = "external module name";
     }
 
     export namespace ScriptElementKindModifier {
@@ -1851,6 +1876,11 @@ namespace ts {
         // registry.
         languageServiceRefCount: number;
         owners: string[];
+    }
+
+    interface VisibleModuleInfo {
+        moduleName: string;
+        moduleDir: string;
     }
 
     export interface DisplayPartsSymbolWriter extends SymbolWriter {
@@ -2044,7 +2074,7 @@ namespace ts {
         fileName?: string;
         reportDiagnostics?: boolean;
         moduleName?: string;
-        renamedDependencies?: Map<string>;
+        renamedDependencies?: MapLike<string>;
     }
 
     export interface TranspileOutput {
@@ -2053,7 +2083,13 @@ namespace ts {
         sourceMapText?: string;
     }
 
-
+    /**
+     * Matches a triple slash reference directive with an incomplete string literal for its path. Used
+     * to determine if the caret is currently within the string literal and capture the literal fragment
+     * for completions.
+     * For example, this matches /// <reference path="fragment
+     */
+    const tripleSlashDirectiveFragmentRegex = /^(\/\/\/\s*<reference\s+(path|types)\s*=\s*(?:'|"))([^\3]*)$/;
 
     let commandLineOptionsStringToEnum: CommandLineOptionOfCustomType[];
 
@@ -2061,7 +2097,7 @@ namespace ts {
     function fixupCompilerOptions(options: CompilerOptions, diagnostics: Diagnostic[]): CompilerOptions {
         // Lazily create this value to fix module loading errors.
         commandLineOptionsStringToEnum = commandLineOptionsStringToEnum || <CommandLineOptionOfCustomType[]>filter(optionDeclarations, o =>
-            typeof o.type === "object" && !forEachValue(<Map<any>>o.type, v => typeof v !== "number"));
+            typeof o.type === "object" && !forEachProperty(o.type, v => typeof v !== "number"));
 
         options = clone(options);
 
@@ -2077,7 +2113,7 @@ namespace ts {
                 options[opt.name] = parseCustomTypeOption(opt, value, diagnostics);
             }
             else {
-                if (!forEachValue(opt.type, v => v === value)) {
+                if (!forEachProperty(opt.type, v => v === value)) {
                     // Supplied value isn't a valid enum value.
                     diagnostics.push(createCompilerDiagnosticForInvalidCustomType(opt));
                 }
@@ -2136,7 +2172,9 @@ namespace ts {
             sourceFile.moduleName = transpileOptions.moduleName;
         }
 
-        sourceFile.renamedDependencies = transpileOptions.renamedDependencies;
+        if (transpileOptions.renamedDependencies) {
+            sourceFile.renamedDependencies = createMap(transpileOptions.renamedDependencies);
+        }
 
         const newLine = getNewLineCharacter(options);
 
@@ -2262,7 +2300,7 @@ namespace ts {
     export function createDocumentRegistry(useCaseSensitiveFileNames?: boolean, currentDirectory = ""): DocumentRegistry {
         // Maps from compiler setting target (ES3, ES5, etc.) to all the cached documents we have
         // for those settings.
-        const buckets: Map<FileMap<DocumentRegistryEntry>> = {};
+        const buckets = createMap<FileMap<DocumentRegistryEntry>>();
         const getCanonicalFileName = createGetCanonicalFileName(!!useCaseSensitiveFileNames);
 
         function getKeyForCompilationSettings(settings: CompilerOptions): DocumentRegistryBucketKey {
@@ -2270,7 +2308,7 @@ namespace ts {
         }
 
         function getBucketForCompilationSettings(key: DocumentRegistryBucketKey, createIfMissing: boolean): FileMap<DocumentRegistryEntry> {
-            let bucket = lookUp(buckets, key);
+            let bucket = buckets[key];
             if (!bucket && createIfMissing) {
                 buckets[key] = bucket = createFileMap<DocumentRegistryEntry>();
             }
@@ -2279,7 +2317,7 @@ namespace ts {
 
         function reportStats() {
             const bucketInfoArray = Object.keys(buckets).filter(name => name && name.charAt(0) === "_").map(name => {
-                const entries = lookUp(buckets, name);
+                const entries = buckets[name];
                 const sourceFiles: { name: string; refCount: number; references: string[]; }[] = [];
                 entries.forEachValue((key, entry) => {
                     sourceFiles.push({
@@ -2879,11 +2917,15 @@ namespace ts {
 
     function isNameOfExternalModuleImportOrDeclaration(node: Node): boolean {
         if (node.kind === SyntaxKind.StringLiteral) {
-            return isNameOfModuleDeclaration(node) ||
-                (isExternalModuleImportEqualsDeclaration(node.parent.parent) && getExternalModuleImportEqualsDeclarationExpression(node.parent.parent) === node);
+            return isNameOfModuleDeclaration(node) || isExpressionOfExternalModuleImportEqualsDeclaration(node);
         }
 
         return false;
+    }
+
+    function isExpressionOfExternalModuleImportEqualsDeclaration(node: Node) {
+        return isExternalModuleImportEqualsDeclaration(node.parent.parent) &&
+            getExternalModuleImportEqualsDeclarationExpression(node.parent.parent) === node;
     }
 
     /** Returns true if the position is within a comment */
@@ -3119,7 +3161,7 @@ namespace ts {
                  oldSettings.allowJs !== newSettings.allowJs ||
                  oldSettings.disableSizeLimit !== oldSettings.disableSizeLimit ||
                  oldSettings.baseUrl !== newSettings.baseUrl ||
-                 !mapIsEqualTo(oldSettings.paths, newSettings.paths));
+                 !equalOwnProperties(oldSettings.paths, newSettings.paths));
 
             // Now create a new compiler
             const compilerHost: CompilerHost = {
@@ -3133,9 +3175,7 @@ namespace ts {
                 writeFile: (fileName, data, writeByteOrderMark) => { },
                 getCurrentDirectory: () => currentDirectory,
                 fileExists: (fileName): boolean => {
-                    // stub missing host functionality
-                    Debug.assert(!host.resolveModuleNames || !host.resolveTypeReferenceDirectives);
-                    return hostCache.getOrCreateEntry(fileName) !== undefined;
+                    return host.fileExists(fileName);
                 },
                 readFile: (fileName): string => {
                     // stub missing host functionality
@@ -3808,7 +3848,11 @@ namespace ts {
                     // other than those within the declared type.
                     isNewIdentifierLocation = true;
 
+                    // If the object literal is being assigned to something of type 'null | { hello: string }',
+                    // it clearly isn't trying to satisfy the 'null' type. So we grab the non-nullable type if possible.
                     typeForObject = typeChecker.getContextualType(<ObjectLiteralExpression>objectLikeContainer);
+                    typeForObject = typeForObject && typeForObject.getNonNullableType();
+
                     existingMembers = (<ObjectLiteralExpression>objectLikeContainer).properties;
                 }
                 else if (objectLikeContainer.kind === SyntaxKind.ObjectBindingPattern) {
@@ -3820,7 +3864,7 @@ namespace ts {
                         // We don't want to complete using the type acquired by the shape
                         // of the binding pattern; we are only interested in types acquired
                         // through type declaration or inference.
-                        // Also proceed if rootDeclaration is parameter and if its containing function expression\arrow function is contextually typed -
+                        // Also proceed if rootDeclaration is a parameter and if its containing function expression/arrow function is contextually typed -
                         // type of parameter will flow in from the contextual type of the function
                         let canGetType = !!(rootDeclaration.initializer || rootDeclaration.type);
                         if (!canGetType && rootDeclaration.kind === SyntaxKind.Parameter) {
@@ -4122,7 +4166,7 @@ namespace ts {
              *          do not occur at the current position and have not otherwise been typed.
              */
             function filterNamedImportOrExportCompletionItems(exportsOfModule: Symbol[], namedImportsOrExports: ImportOrExportSpecifier[]): Symbol[] {
-                const existingImportsOrExports: Map<boolean> = {};
+                const existingImportsOrExports = createMap<boolean>();
 
                 for (const element of namedImportsOrExports) {
                     // If this is the current item we are editing right now, do not filter it out
@@ -4134,11 +4178,11 @@ namespace ts {
                     existingImportsOrExports[name.text] = true;
                 }
 
-                if (isEmpty(existingImportsOrExports)) {
+                if (!someProperties(existingImportsOrExports)) {
                     return filter(exportsOfModule, e => e.name !== "default");
                 }
 
-                return filter(exportsOfModule, e => e.name !== "default" && !lookUp(existingImportsOrExports, e.name));
+                return filter(exportsOfModule, e => e.name !== "default" && !existingImportsOrExports[e.name]);
             }
 
             /**
@@ -4152,7 +4196,7 @@ namespace ts {
                     return contextualMemberSymbols;
                 }
 
-                const existingMemberNames: Map<boolean> = {};
+                const existingMemberNames = createMap<boolean>();
                 for (const m of existingMembers) {
                     // Ignore omitted expressions for missing members
                     if (m.kind !== SyntaxKind.PropertyAssignment &&
@@ -4185,7 +4229,7 @@ namespace ts {
                     existingMemberNames[existingName] = true;
                 }
 
-                return filter(contextualMemberSymbols, m => !lookUp(existingMemberNames, m.name));
+                return filter(contextualMemberSymbols, m => !existingMemberNames[m.name]);
             }
 
             /**
@@ -4195,7 +4239,7 @@ namespace ts {
              *          do not occur at the current position and have not otherwise been typed.
              */
             function filterJsxAttributes(symbols: Symbol[], attributes: NodeArray<JsxAttribute | JsxSpreadAttribute>): Symbol[] {
-                const seenNames: Map<boolean> = {};
+                const seenNames = createMap<boolean>();
                 for (const attr of attributes) {
                     // If this is the current item we are editing right now, do not filter it out
                     if (attr.getStart() <= position && position <= attr.getEnd()) {
@@ -4207,7 +4251,7 @@ namespace ts {
                     }
                 }
 
-                return filter(symbols, a => !lookUp(seenNames, a.name));
+                return filter(symbols, a => !seenNames[a.name]);
             }
         }
 
@@ -4267,7 +4311,7 @@ namespace ts {
                 addRange(entries, keywordCompletions);
             }
 
-            return { isMemberCompletion, isNewIdentifierLocation, entries };
+            return { isMemberCompletion, isNewIdentifierLocation: isNewIdentifierLocation || isSourceFileJavaScript(sourceFile), entries };
 
             function getJavaScriptCompletionEntries(sourceFile: SourceFile, position: number, uniqueNames: Map<string>): CompletionEntry[] {
                 const entries: CompletionEntry[] = [];
@@ -4337,13 +4381,13 @@ namespace ts {
 
             function getCompletionEntriesFromSymbols(symbols: Symbol[], entries: CompletionEntry[], location: Node, performCharacterChecks: boolean): Map<string> {
                 const start = timestamp();
-                const uniqueNames: Map<string> = {};
+                const uniqueNames = createMap<string>();
                 if (symbols) {
                     for (const symbol of symbols) {
                         const entry = createCompletionEntry(symbol, location, performCharacterChecks);
                         if (entry) {
                             const id = escapeIdentifier(entry.name);
-                            if (!lookUp(uniqueNames, id)) {
+                            if (!uniqueNames[id]) {
                                 entries.push(entry);
                                 uniqueNames[id] = id;
                             }
@@ -4476,6 +4520,468 @@ namespace ts {
                         });
                     }
                 }
+            }
+        }
+
+        function getImportModuleCompletionsAtPosition(fileName: string, position: number): ImportCompletionInfo {
+            synchronizeHostData();
+
+            const sourceFile = getValidSourceFile(fileName);
+            if (isInReferenceComment(sourceFile, position)) {
+                return getTripleSlashReferenceCompletion(sourceFile, position);
+            }
+            else if (isInString(sourceFile, position)) {
+                const node = findPrecedingToken(position, sourceFile);
+                if (!node || node.kind !== SyntaxKind.StringLiteral) {
+                    return undefined;
+                }
+
+                if (node.parent.kind === SyntaxKind.ImportDeclaration || isExpressionOfExternalModuleImportEqualsDeclaration(node) || isRequireCall(node.parent, false)) {
+                    // Get all known external module names or complete a path to a module
+                    return {
+                        entries: getStringLiteralCompletionEntriesFromModuleNames(<StringLiteral>node),
+                        textSpan: getDirectoryFragmentTextSpan((<StringLiteral>node).text, node.getStart() + 1)
+                    };
+                }
+            }
+
+            return undefined;
+
+            function getStringLiteralCompletionEntriesFromModuleNames(node: StringLiteral) {
+                const literalValue = normalizeSlashes(node.text);
+
+                const scriptPath = node.getSourceFile().path;
+                const scriptDirectory = getDirectoryPath(scriptPath);
+                if (isPathRelativeToScript(literalValue) || isRootedDiskPath(literalValue)) {
+                    const compilerOptions = program.getCompilerOptions();
+                    if (compilerOptions.rootDirs) {
+                        return getCompletionEntriesForDirectoryFragmentWithRootDirs(
+                            compilerOptions.rootDirs, literalValue, scriptDirectory, getSupportedExtensions(program.getCompilerOptions()), /*includeExtensions*/false, scriptPath);
+                    }
+                    else {
+                        return getCompletionEntriesForDirectoryFragment(
+                            literalValue, scriptDirectory, getSupportedExtensions(program.getCompilerOptions()), /*includeExtensions*/false, scriptPath);
+                    }
+                }
+                else {
+                    // Check for node modules
+                    return getCompletionEntriesForNonRelativeModules(literalValue, scriptDirectory);
+                }
+            }
+
+            /**
+             * Takes a script path and returns paths for all potential folders that could be merged with its
+             * containing folder via the "rootDirs" compiler option
+             */
+            function getBaseDirectoriesFromRootDirs(rootDirs: string[], basePath: string, scriptPath: string, ignoreCase: boolean): string[] {
+                // Make all paths absolute/normalized if they are not already
+                rootDirs = map(rootDirs, rootDirectory => normalizePath(isRootedDiskPath(rootDirectory) ? rootDirectory : combinePaths(basePath, rootDirectory)));
+
+                // Determine the path to the directory containing the script relative to the root directory it is contained within
+                let relativeDirectory: string;
+                for (const rootDirectory of rootDirs) {
+                    if (containsPath(rootDirectory, scriptPath, basePath, ignoreCase)) {
+                        relativeDirectory = scriptPath.substr(rootDirectory.length);
+                        break;
+                    }
+                }
+
+                // Now find a path for each potential directory that is to be merged with the one containing the script
+                return deduplicate(map(rootDirs, rootDirectory => combinePaths(rootDirectory, relativeDirectory)));
+            }
+
+            function getCompletionEntriesForDirectoryFragmentWithRootDirs(rootDirs: string[], fragment: string, scriptPath: string, extensions: string[], includeExtensions: boolean, exclude?: string): ImportCompletionEntry[] {
+                const basePath = program.getCompilerOptions().project || host.getCurrentDirectory();
+                const ignoreCase = !(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames());
+                const baseDirectories = getBaseDirectoriesFromRootDirs(rootDirs, basePath, scriptPath, ignoreCase);
+
+                const result: ImportCompletionEntry[] = [];
+
+                for (const baseDirectory of baseDirectories) {
+                    getCompletionEntriesForDirectoryFragment(fragment, baseDirectory, extensions, includeExtensions, exclude, result);
+                }
+
+                return result;
+            }
+
+            function getCompletionEntriesForDirectoryFragment(fragment: string, scriptPath: string, extensions: string[], includeExtensions: boolean, exclude?: string, result: ImportCompletionEntry[] = []): ImportCompletionEntry[] {
+                fragment = getDirectoryPath(fragment);
+                if (!fragment) {
+                    fragment = "./";
+                }
+                else {
+                    fragment = ensureTrailingDirectorySeparator(fragment);
+                }
+
+                const absolutePath = normalizeAndPreserveTrailingSlash(isRootedDiskPath(fragment) ? fragment : combinePaths(scriptPath, fragment));
+                const baseDirectory = getDirectoryPath(absolutePath);
+                const ignoreCase = !(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames());
+
+                if (directoryProbablyExists(baseDirectory, host)) {
+                    // Enumerate the available files
+                    const files = host.readDirectory(baseDirectory, extensions, /*exclude*/undefined, /*include*/["./*"]);
+                    for (let filePath of files) {
+                        filePath = normalizePath(filePath);
+                        if (exclude && comparePaths(filePath, exclude, scriptPath, ignoreCase) === Comparison.EqualTo) {
+                            continue;
+                        }
+
+                        const fileName = includeExtensions ? getBaseFileName(filePath) : removeFileExtension(getBaseFileName(filePath));
+                        const duplicate = !includeExtensions && forEach(result, entry => entry.name === fileName);
+
+                        if (!duplicate) {
+                            result.push({
+                                name: fileName,
+                                kind: ScriptElementKind.scriptElement,
+                                sortText: fileName
+                            });
+                        }
+                    }
+
+                    // If possible, get folder completion as well
+                    if (host.getDirectories) {
+                        const directories = host.getDirectories(baseDirectory);
+                        for (const directory of directories) {
+                            const directoryName = getBaseFileName(normalizePath(directory));
+
+                            result.push({
+                                name: directoryName,
+                                kind: ScriptElementKind.directory,
+                                sortText: directoryName
+                            });
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+            /**
+             * Check all of the declared modules and those in node modules. Possible sources of modules:
+             *      Modules that are found by the type checker
+             *      Modules found relative to "baseUrl" compliler options (including patterns from "paths" compiler option)
+             *      Modules from node_modules (i.e. those listed in package.json)
+             *          This includes all files that are found in node_modules/moduleName/ with acceptable file extensions
+             */
+            function getCompletionEntriesForNonRelativeModules(fragment: string, scriptPath: string): ImportCompletionEntry[] {
+                const options = program.getCompilerOptions();
+                const { baseUrl, paths } = options;
+
+                let result: ImportCompletionEntry[];
+
+                if (baseUrl) {
+                    const fileExtensions = getSupportedExtensions(options);
+                    const projectDir = options.project || host.getCurrentDirectory();
+                    const absolute = isRootedDiskPath(baseUrl) ? baseUrl : combinePaths(projectDir, baseUrl);
+                    result = getCompletionEntriesForDirectoryFragment(fragment, normalizePath(absolute), fileExtensions, /*includeExtensions*/false);
+
+                    if (paths) {
+                        for (const path in paths) {
+                            if (paths.hasOwnProperty(path)) {
+                                if (path === "*") {
+                                    if (paths[path]) {
+                                        for (const pattern of paths[path]) {
+                                            for (const match of getModulesForPathsPattern(fragment, baseUrl, pattern, fileExtensions)) {
+                                                result.push(createCompletionEntryForModule(match, ScriptElementKind.externalModuleName));
+                                            }
+                                        }
+                                    }
+                                }
+                                else if (startsWith(path, fragment)) {
+                                    const entry = paths[path] && paths[path].length === 1 && paths[path][0];
+                                    if (entry) {
+                                        result.push(createCompletionEntryForModule(path, ScriptElementKind.externalModuleName));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    result = [];
+                }
+
+                getCompletionEntriesFromTypings(host, options, scriptPath, result);
+
+                for (const moduleName of enumeratePotentialNonRelativeModules(fragment, scriptPath, options)) {
+                    result.push(createCompletionEntryForModule(moduleName, ScriptElementKind.externalModuleName));
+                }
+
+                return result;
+            }
+
+            function getModulesForPathsPattern(fragment: string, baseUrl: string, pattern: string, fileExtensions: string[]): string[] {
+                const parsed = hasZeroOrOneAsteriskCharacter(pattern) ? tryParsePattern(pattern) : undefined;
+                if (parsed) {
+                    // The prefix has two effective parts: the directory path and the base component after the filepath that is not a
+                    // full directory component. For example: directory/path/of/prefix/base*
+                    const normalizedPrefix = normalizeAndPreserveTrailingSlash(parsed.prefix);
+                    const normalizedPrefixDirectory = getDirectoryPath(normalizedPrefix);
+                    const normalizedPrefixBase = getBaseFileName(normalizedPrefix);
+
+                    const fragmentHasPath = fragment.indexOf(directorySeparator) !== -1;
+
+                    // Try and expand the prefix to include any path from the fragment so that we can limit the readDirectory call
+                    const expandedPrefixDirectory = fragmentHasPath ? combinePaths(normalizedPrefixDirectory, normalizedPrefixBase + getDirectoryPath(fragment)) : normalizedPrefixDirectory;
+
+                    const normalizedSuffix = normalizePath(parsed.suffix);
+                    const baseDirectory = combinePaths(baseUrl, expandedPrefixDirectory);
+                    const completePrefix = fragmentHasPath ? baseDirectory : ensureTrailingDirectorySeparator(baseDirectory) + normalizedPrefixBase;
+
+                    // If we have a suffix, then we need to read the directory all the way down. We could create a glob
+                    // that encodes the suffix, but we would have to escape the character "?" which readDirectory
+                    // doesn't support. For now, this is safer but slower
+                    const includeGlob = normalizedSuffix ? "**/*" : "./*";
+
+                    const matches = host.readDirectory(baseDirectory, fileExtensions, undefined, [includeGlob]);
+                    const result: string[] = [];
+
+                    // Trim away prefix and suffix
+                    for (const match of matches) {
+                        const normalizedMatch = normalizePath(match);
+                        if (!endsWith(normalizedMatch, normalizedSuffix) || !startsWith(normalizedMatch, completePrefix)) {
+                            continue;
+                        }
+
+                        const start = completePrefix.length;
+                        const length = normalizedMatch.length - start - normalizedSuffix.length;
+
+                        result.push(removeFileExtension(normalizedMatch.substr(start, length)));
+                    }
+                    return result;
+                }
+
+                return undefined;
+            }
+
+            function enumeratePotentialNonRelativeModules(fragment: string, scriptPath: string, options: CompilerOptions): string[] {
+                // Check If this is a nested module
+                const isNestedModule = fragment.indexOf(directorySeparator) !== -1;
+                const moduleNameFragment = isNestedModule ? fragment.substr(0, fragment.lastIndexOf(directorySeparator)) : undefined;
+
+                // Get modules that the type checker picked up
+                const ambientModules = map(program.getTypeChecker().getAmbientModules(), sym => stripQuotes(sym.name));
+                let nonRelativeModules = filter(ambientModules, moduleName => startsWith(moduleName, fragment));
+
+                // Nested modules of the form "module-name/sub" need to be adjusted to only return the string
+                // after the last '/' that appears in the fragment because that's where the replacement span
+                // starts
+                if (isNestedModule) {
+                    const moduleNameWithSeperator = ensureTrailingDirectorySeparator(moduleNameFragment);
+                    nonRelativeModules = map(nonRelativeModules, moduleName => {
+                        if (startsWith(fragment, moduleNameWithSeperator)) {
+                            return moduleName.substr(moduleNameWithSeperator.length);
+                        }
+                        return moduleName;
+                    });
+                }
+
+
+                if (!options.moduleResolution || options.moduleResolution === ModuleResolutionKind.NodeJs) {
+                    for (const visibleModule of enumerateNodeModulesVisibleToScript(host, scriptPath)) {
+                        if (!isNestedModule) {
+                            nonRelativeModules.push(visibleModule.moduleName);
+                        }
+                        else if (startsWith(visibleModule.moduleName, moduleNameFragment)) {
+                            const nestedFiles = host.readDirectory(visibleModule.moduleDir, supportedTypeScriptExtensions, /*exclude*/undefined, /*include*/["./*"]);
+
+                            for (let f of nestedFiles) {
+                                f = normalizePath(f);
+                                const nestedModule = removeFileExtension(getBaseFileName(f));
+                                nonRelativeModules.push(nestedModule);
+                            }
+                        }
+                    }
+                }
+
+                return deduplicate(nonRelativeModules);
+            }
+
+            function getTripleSlashReferenceCompletion(sourceFile: SourceFile, position: number): ImportCompletionInfo {
+                const token = getTokenAtPosition(sourceFile, position);
+                if (!token) {
+                    return undefined;
+                }
+                const commentRanges: CommentRange[] = getLeadingCommentRanges(sourceFile.text, token.pos);
+
+                if (!commentRanges || !commentRanges.length) {
+                    return undefined;
+                }
+
+                const range = forEach(commentRanges, commentRange => position >= commentRange.pos && position <= commentRange.end && commentRange);
+
+                if (!range) {
+                    return undefined;
+                }
+
+                const text = sourceFile.text.substr(range.pos, position - range.pos);
+
+                const match = tripleSlashDirectiveFragmentRegex.exec(text);
+                if (match) {
+                    const prefix = match[1];
+                    const kind = match[2];
+                    const toComplete = match[3];
+
+                    const scriptPath = getDirectoryPath(sourceFile.path);
+                    if (kind === "path") {
+                        // Give completions for a relative path
+                        const textSpan: TextSpan = getDirectoryFragmentTextSpan(toComplete, range.pos + prefix.length);
+                        return {
+                            entries: getCompletionEntriesForDirectoryFragment(toComplete, scriptPath, getSupportedExtensions(program.getCompilerOptions()), /*includeExtensions*/true, sourceFile.path),
+                            textSpan
+                        };
+                    }
+                    else {
+                        // Give completions based on the typings available
+                        const textSpan: TextSpan = { start: range.pos + prefix.length, length: match[0].length - prefix.length };
+                        return {
+                            entries: getCompletionEntriesFromTypings(host, program.getCompilerOptions(), scriptPath),
+                            textSpan
+                        };
+                    }
+                }
+
+                return undefined;
+            }
+
+            function getCompletionEntriesFromTypings(host: LanguageServiceHost, options: CompilerOptions, scriptPath: string, result: ImportCompletionEntry[] = []): ImportCompletionEntry[] {
+                // Check for typings specified in compiler options
+                if (options.types) {
+                    for (const moduleName of options.types){
+                        result.push(createCompletionEntryForModule(moduleName, ScriptElementKind.externalModuleName));
+                    }
+                }
+                else if (host.getDirectories && options.typeRoots) {
+                    const absoluteRoots = map(options.typeRoots, rootDirectory => {
+                        if (isRootedDiskPath(rootDirectory)) {
+                            return normalizePath(rootDirectory);
+                        }
+
+                        const basePath = options.project || host.getCurrentDirectory();
+                        return normalizePath(combinePaths(basePath, rootDirectory));
+                    });
+                    for (const absoluteRoot of absoluteRoots) {
+                        getCompletionEntriesFromDirectories(host, options, absoluteRoot, result);
+                    }
+                }
+
+                if (host.getDirectories) {
+                    // Also get all @types typings installed in visible node_modules directories
+                    for (const package of findPackageJsons(scriptPath)) {
+                        const typesDir = combinePaths(getDirectoryPath(package), "node_modules/@types");
+                        getCompletionEntriesFromDirectories(host, options, typesDir, result);
+                    }
+                }
+
+                return result;
+            }
+
+            function getCompletionEntriesFromDirectories(host: LanguageServiceHost, options: CompilerOptions, directory: string, result: ImportCompletionEntry[]) {
+                if (host.getDirectories && directoryProbablyExists(directory, host)) {
+                    for (let typeDirectory of host.getDirectories(directory)) {
+                        typeDirectory = normalizePath(typeDirectory);
+                        result.push(createCompletionEntryForModule(getBaseFileName(typeDirectory), ScriptElementKind.externalModuleName));
+                    }
+                }
+            }
+
+            function findPackageJsons(currentDir: string): string[] {
+                const paths: string[] = [];
+                let currentConfigPath: string;
+                while (true) {
+                    currentConfigPath = findConfigFile(currentDir, (f) => host.fileExists(f), "package.json");
+                    if (currentConfigPath) {
+                        paths.push(currentConfigPath);
+
+                        currentDir = getDirectoryPath(currentConfigPath);
+                        const parent = getDirectoryPath(currentDir);
+                        if (currentDir === parent) {
+                            break;
+                        }
+                        currentDir = parent;
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                return paths;
+            }
+
+
+            function enumerateNodeModulesVisibleToScript(host: LanguageServiceHost, scriptPath: string) {
+                const result: VisibleModuleInfo[] = [];
+                for (const packageJson of findPackageJsons(scriptPath)) {
+                    const package = tryReadingPackageJson(packageJson);
+                    if (!package) {
+                        return;
+                    }
+
+                    const nodeModulesDir = combinePaths(getDirectoryPath(packageJson), "node_modules");
+                    const foundModuleNames: string[] = [];
+
+                    if (package.dependencies) {
+                        addPotentialPackageNames(package.dependencies, foundModuleNames);
+                    }
+                    if (package.devDependencies) {
+                        addPotentialPackageNames(package.devDependencies, foundModuleNames);
+                    }
+
+                    for (const moduleName of foundModuleNames) {
+                        const moduleDir = combinePaths(nodeModulesDir, moduleName);
+                        result.push({
+                            moduleName,
+                            moduleDir
+                        });
+                    }
+                }
+
+                return result;
+
+                function tryReadingPackageJson(filePath: string) {
+                    try {
+                        const fileText = host.readFile(filePath);
+                        return JSON.parse(fileText);
+                    }
+                    catch (e) {
+                        return undefined;
+                    }
+                }
+
+                // Add all the package names that are not in the @types scope
+                function addPotentialPackageNames(dependencies: any, result: string[]) {
+                    for (const dep in dependencies) {
+                        if (dependencies.hasOwnProperty(dep) && !startsWith(dep, "@types/")) {
+                            result.push(dep);
+                        }
+                    }
+                }
+            }
+
+            function createCompletionEntryForModule(name: string, kind: string): ImportCompletionEntry {
+                return { name, kind, sortText: name };
+            }
+
+            // Replace everything after the last directory seperator that appears
+            // FIXME: do we care about the other seperator?
+            function getDirectoryFragmentTextSpan(text: string, textStart: number): TextSpan {
+                const index = text.lastIndexOf(directorySeparator);
+                const offset = index !== -1 ? index + 1 : 0;
+                return { start: textStart + offset, length: text.length - offset };
+            }
+
+            // Returns true if the path is explicitly relative to the script (i.e. relative to . or ..)
+            function isPathRelativeToScript(path: string) {
+                if (path && path.length >= 2 && path.charCodeAt(0) === CharacterCodes.dot) {
+                    const slashIndex = path.length >= 3 && path.charCodeAt(1) === CharacterCodes.dot ? 2 : 1;
+                    const slashCharCode = path.charCodeAt(slashIndex);
+                    return slashCharCode === CharacterCodes.slash || slashCharCode === CharacterCodes.backslash;
+                }
+                return false;
+            }
+
+            function normalizeAndPreserveTrailingSlash(path: string) {
+                return hasTrailingDirectorySeparator(path) ? ensureTrailingDirectorySeparator(normalizePath(path)) : normalizePath(path);
             }
         }
 
@@ -5171,7 +5677,7 @@ namespace ts {
             // Type reference directives
             const typeReferenceDirective = findReferenceInPosition(sourceFile.typeReferenceDirectives, position);
             if (typeReferenceDirective) {
-                const referenceFile = lookUp(program.getResolvedTypeReferenceDirectives(), typeReferenceDirective.fileName);
+                const referenceFile = program.getResolvedTypeReferenceDirectives()[typeReferenceDirective.fileName];
                 if (referenceFile && referenceFile.resolvedFileName) {
                     return [getDefinitionInfoForFileReference(typeReferenceDirective.fileName, referenceFile.resolvedFileName)];
                 }
@@ -5338,12 +5844,12 @@ namespace ts {
                         return undefined;
                     }
 
-                    const fileNameToDocumentHighlights: Map<DocumentHighlights> = {};
+                    const fileNameToDocumentHighlights = createMap<DocumentHighlights>();
                     const result: DocumentHighlights[] = [];
                     for (const referencedSymbol of referencedSymbols) {
                         for (const referenceEntry of referencedSymbol.references) {
                             const fileName = referenceEntry.fileName;
-                            let documentHighlights = getProperty(fileNameToDocumentHighlights, fileName);
+                            let documentHighlights = fileNameToDocumentHighlights[fileName];
                             if (!documentHighlights) {
                                 documentHighlights = { fileName, highlightSpans: [] };
 
@@ -6088,7 +6594,7 @@ namespace ts {
 
                     const nameTable = getNameTable(sourceFile);
 
-                    if (lookUp(nameTable, internedName) !== undefined) {
+                    if (nameTable[internedName] !== undefined) {
                         result = result || [];
                         getReferencesInNode(sourceFile, symbol, declaredName, node, searchMeaning, findInStrings, findInComments, result, symbolToIndex);
                     }
@@ -6359,7 +6865,6 @@ namespace ts {
                 symbolToIndex: number[]): void {
 
                 const sourceFile = container.getSourceFile();
-                const tripleSlashDirectivePrefixRegex = /^\/\/\/\s*</;
 
                 const start = findInComments ? container.getFullStart() : container.getStart();
                 const possiblePositions = getPossibleSymbolReferencePositions(sourceFile, searchText, start, container.getEnd());
@@ -6440,15 +6945,6 @@ namespace ts {
                     }
 
                     return result[index];
-                }
-
-                function isInNonReferenceComment(sourceFile: SourceFile, position: number): boolean {
-                    return isInCommentHelper(sourceFile, position, isNonReferenceComment);
-
-                    function isNonReferenceComment(c: CommentRange): boolean {
-                        const commentText = sourceFile.text.substring(c.pos, c.end);
-                        return !tripleSlashDirectivePrefixRegex.test(commentText);
-                    }
                 }
             }
 
@@ -6733,7 +7229,7 @@ namespace ts {
 
                     // Add symbol of properties/methods of the same name in base classes and implemented interfaces definitions
                     if (rootSymbol.parent && rootSymbol.parent.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
-                        getPropertySymbolsFromBaseTypes(rootSymbol.parent, rootSymbol.getName(), result, /*previousIterationSymbolsCache*/ {});
+                        getPropertySymbolsFromBaseTypes(rootSymbol.parent, rootSymbol.getName(), result, /*previousIterationSymbolsCache*/ createMap<Symbol>());
                     }
                 });
 
@@ -6765,7 +7261,7 @@ namespace ts {
                 // the function will add any found symbol of the property-name, then its sub-routine will call
                 // getPropertySymbolsFromBaseTypes again to walk up any base types to prevent revisiting already
                 // visited symbol, interface "C", the sub-routine will pass the current symbol as previousIterationSymbol.
-                if (hasProperty(previousIterationSymbolsCache, symbol.name)) {
+                if (symbol.name in previousIterationSymbolsCache) {
                     return;
                 }
 
@@ -6854,7 +7350,7 @@ namespace ts {
                     // see if any is in the list
                     if (rootSymbol.parent && rootSymbol.parent.flags & (SymbolFlags.Class | SymbolFlags.Interface)) {
                         const result: Symbol[] = [];
-                        getPropertySymbolsFromBaseTypes(rootSymbol.parent, rootSymbol.getName(), result, /*previousIterationSymbolsCache*/ {});
+                        getPropertySymbolsFromBaseTypes(rootSymbol.parent, rootSymbol.getName(), result, /*previousIterationSymbolsCache*/ createMap<Symbol>());
                         return forEach(result, s => searchSymbols.indexOf(s) >= 0 ? s : undefined);
                     }
 
@@ -8322,6 +8818,7 @@ namespace ts {
             getEncodedSyntacticClassifications,
             getEncodedSemanticClassifications,
             getCompletionsAtPosition,
+            getImportModuleCompletionsAtPosition,
             getCompletionEntryDetails,
             getSignatureHelpItems,
             getQuickInfoAtPosition,
@@ -8363,7 +8860,7 @@ namespace ts {
     }
 
     function initializeNameTable(sourceFile: SourceFile): void {
-        const nameTable: Map<number> = {};
+        const nameTable = createMap<number>();
 
         walk(sourceFile);
         sourceFile.nameTable = nameTable;

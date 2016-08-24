@@ -21,7 +21,7 @@ namespace ts.server {
 
     export class SessionClient implements LanguageService {
         private sequence: number = 0;
-        private lineMaps: ts.Map<number[]> = {};
+        private lineMaps: ts.Map<number[]> = ts.createMap<number[]>();
         private messages: string[] = [];
         private lastRenameEntry: RenameEntry;
 
@@ -37,7 +37,7 @@ namespace ts.server {
         }
 
         private getLineMap(fileName: string): number[] {
-            let lineMap = ts.lookUp(this.lineMaps, fileName);
+            let lineMap = this.lineMaps[fileName];
             if (!lineMap) {
                 const scriptSnapshot = this.host.getScriptSnapshot(fileName);
                 lineMap = this.lineMaps[fileName] = ts.computeLineStarts(scriptSnapshot.getText(0, scriptSnapshot.getLength()));
@@ -216,6 +216,27 @@ namespace ts.server {
             return {
                 isMemberCompletion: false,
                 isNewIdentifierLocation: false,
+                entries: response.body
+            };
+        }
+
+        getImportModuleCompletionsAtPosition(fileName: string, position: number): ImportCompletionInfo {
+            const lineOffset = this.positionToOneBasedLineOffset(fileName, position);
+            const args: protocol.CompletionsRequestArgs = {
+                file: fileName,
+                line: lineOffset.line,
+                offset: lineOffset.offset,
+                prefix: undefined
+            };
+
+            const request = this.processRequest<protocol.ImportModuleCompletionsRequest>(CommandNames.ImportModuleCompletions, args);
+            const response = this.processResponse<protocol.ImportModuleCompletionsResponse>(request);
+
+            const startPosition = this.lineOffsetToPosition(fileName, response.span.start);
+            const endPosition = this.lineOffsetToPosition(fileName, response.span.end);
+
+            return {
+                textSpan: ts.createTextSpanFromBounds(startPosition, endPosition),
                 entries: response.body
             };
         }
