@@ -1,6 +1,6 @@
 /* @internal */
 namespace ts.codeFix {
-    const nodeModulesDir = directorySeparator + "node_modules" + directorySeparator;
+    const nodeModulesDir = "node_modules";
 
     registerCodeFix({
         name: getLocaleSpecificMessage(Diagnostics.Add_missing_import_for_unknown_identifier),
@@ -14,28 +14,28 @@ namespace ts.codeFix {
             // Get existing ImportDeclarations from the source file
             const imports: ImportDeclaration[] = [];
             if (sourceFile.statements) {
-                forEach(sourceFile.statements, (statement) => {
+                for (const statement of sourceFile.statements) {
                     if (statement.kind === SyntaxKind.ImportDeclaration) {
                         imports.push(<ImportDeclaration>statement);
                     }
-                });
+                }
             }
 
             const allActions: CodeAction[] = [];
 
             // Check if a matching symbol is exported by any ambient modules that have been declared
             const ambientModules = checker.getAmbientModules();
-            forEach(ambientModules, (moduleSymbol) => {
+            for (const moduleSymbol of ambientModules) {
                 const exports = checker.getExportsOfModule(moduleSymbol) || [];
-                forEach(exports, (exported) => {
+                for (const exported of exports) {
                     if (exported.name === name) {
                         allActions.push(getCodeActionForImport(removeQuotes(moduleSymbol.getName())));
                     }
-                });
-            });
+                }
+            }
 
             // Check if a matching symbol is exported by any files known to the compiler
-            forEach(context.allFiles, (file) => {
+            for (const file of context.allFiles) {
                 const exports = file.symbol && file.symbol.exports;
                 if (exports) {
                     for (const exported in exports) {
@@ -66,7 +66,7 @@ namespace ts.codeFix {
                         }
                     }
                 }
-            });
+            }
 
             return allActions;
 
@@ -166,13 +166,13 @@ namespace ts.codeFix {
         // Try to insert after any existing imports
         let lastDeclaration: ImportDeclaration;
         let lastEnd: number;
-        forEach(existing, (declaration) => {
+        for (const declaration of existing) {
             const end  = declaration.getEnd();
             if (!lastDeclaration || end > lastEnd) {
                 lastDeclaration = declaration;
                 lastEnd = end;
             }
-        });
+        }
 
         let newText = `import { ${tokenName} } from "${moduleName}";`;
         newText = lastDeclaration ? context.newLineCharacter + newText : newText + context.newLineCharacter;
@@ -254,6 +254,10 @@ namespace ts.codeFix {
         return moduleSpecifier;
     }
 
+    function isReferenceToNodeModule(path: string, scriptPath: string) {
+        const components = getNormalizedPathComponents(path, scriptPath);
+    }
+
     function removeQuotes(name: string): string {
         if ((startsWith(name, "\"") && endsWith(name, "\"")) || (startsWith(name, "'") && endsWith(name, "'"))) {
             return name.substr(1, name.length - 2);
@@ -262,19 +266,17 @@ namespace ts.codeFix {
         }
     }
 
-    /**
-     * Paths to modules can be relative or absolute and may optionally include the file
-     * extension of the module
-     */
     function compareModuleSpecifiers(a: string, b: string, basePath: string, useCaseSensitiveFileNames: boolean): Comparison {
+        // Paths to modules can be relative or absolute and may optionally include the file
+        // extension of the module
         a = removeFileExtension(a);
         b = removeFileExtension(b);
         return comparePaths(a, b, basePath, !useCaseSensitiveFileNames);
     }
 
-    function createCodeAction(description: DiagnosticMessage, dArgs: string[], newText: string, span: TextSpan, fileName: string): CodeAction {
+    function createCodeAction(description: DiagnosticMessage, diagnosticArgs: string[], newText: string, span: TextSpan, fileName: string): CodeAction {
         return {
-            description: formatMessage.apply(undefined, [undefined, description].concat(<any[]>dArgs)),
+            description: formatMessage.apply(undefined, [undefined, description].concat(<any[]>diagnosticArgs)),
             changes: [{
                 fileName,
                 textChanges: [{
