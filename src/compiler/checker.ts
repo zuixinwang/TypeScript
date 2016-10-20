@@ -4545,6 +4545,68 @@ namespace ts {
             return type;
         }
 
+        function createIntersectionProperty(types: Type[], name: string) {
+            let props: Symbol[];
+            // Flags we want to propagate to the result if they exist in all source symbols
+            let commonFlags = SymbolFlags.Optional;
+            let isReadonly = false;
+            let isPartial = false;
+            for (const current of types) {
+                const type = getApparentType(current);
+                if (type !== unknownType) {
+                    const prop = getPropertyOfType(type, name);
+                    if (prop && !(getDeclarationModifierFlagsFromSymbol(prop) & (ModifierFlags.Private | ModifierFlags.Protected))) {
+                        commonFlags &= prop.flags;
+                        if (!props) {
+                            props = [prop];
+                        }
+                        else if (!contains(props, prop)) {
+                            props.push(prop);
+                        }
+                        if (isReadonlySymbol(prop)) {
+                            isReadonly = true;
+                        }
+
+                    }
+                }
+            }
+            if (!props) {
+                return undefined;
+            }
+            if (props.length === 1 && !isPartial) {
+                return props[0];
+            }
+            const propTypes: Type[] = [];
+            const declarations: Declaration[] = [];
+            let commonType: Type = undefined;
+            let hasNonUniformType = false;
+            for (const prop of props) {
+                if (prop.declarations) {
+                    addRange(declarations, prop.declarations);
+                }
+                const type = getTypeOfSymbol(prop);
+                if (!commonType) {
+                    commonType = type;
+                }
+                else if (type !== commonType) {
+                    hasNonUniformType = true;
+                }
+                propTypes.push(type);
+            }
+            const result = <TransientSymbol>createSymbol(SymbolFlags.Property | SymbolFlags.Transient | SymbolFlags.SyntheticProperty | commonFlags, name);
+            result.syntheticKind === SyntheticSymbolKind.UnionOrIntersection;
+            result.containingType = undefined; // !! containingType;
+            result.hasNonUniformType = hasNonUniformType;
+            result.isPartial = isPartial;
+            result.declarations = declarations;
+            if (declarations.length) {
+                result.valueDeclaration = declarations[0];
+            }
+            result.isReadonly = isReadonly;
+            result.type = getIntersectionType(propTypes);
+            return result;
+        }
+
         function createUnionOrIntersectionProperty(containingType: UnionOrIntersectionType, name: string) {
             const types = containingType.types;
             let props: Symbol[];
@@ -5476,6 +5538,7 @@ namespace ts {
             containsString?: boolean;
             containsNumber?: boolean;
             containsStringOrNumberLiteral?: boolean;
+            areNotAllObject?: boolean;
         }
 
         function binarySearchTypes(types: Type[], type: Type): number {
@@ -5661,6 +5724,9 @@ namespace ts {
         }
 
         function addTypeToIntersection(typeSet: TypeSet, type: Type) {
+            if (!(type.flags & TypeFlags.ObjectType && !couldContainTypeParameters(type))) {
+                typeSet.areNotAllObject = true;
+            }
             if (type.flags & TypeFlags.Intersection) {
                 addTypesToIntersection(typeSet, (<IntersectionType>type).types);
             }
@@ -5696,6 +5762,36 @@ namespace ts {
             }
             if (typeSet.length === 1) {
                 return typeSet[0];
+            }
+            if (!typeSet.areNotAllObject) {
+                // TODO: Create an anonymous type
+                // The members and properties collections are empty for intersection types. To get all properties of an
+                // intersection type use getPropertiesOfType (only the language service uses this).
+                let callSignatures: Signature[] = emptyArray;
+                let constructSignatures: Signature[] = emptyArray;
+                let stringIndexInfo: IndexInfo = undefined;
+                let numberIndexInfo: IndexInfo = undefined;
+                const properties = createMap<Symbol>();
+                for (const t of typeSet) {
+                    callSignatures = concatenate(callSignatures, getSignaturesOfType(t, SignatureKind.Call));
+                    constructSignatures = concatenate(constructSignatures, getSignaturesOfType(t, SignatureKind.Construct));
+                    stringIndexInfo = intersectIndexInfos(stringIndexInfo, getIndexInfoOfType(t, IndexKind.String));
+                    numberIndexInfo = intersectIndexInfos(numberIndexInfo, getIndexInfoOfType(t, IndexKind.Number));
+                }
+
+                for (const current of typeSet) {
+                    for (const prop of getPropertiesOfType(current)) {
+                        let property = properties[prop.name];
+                        if (!property) {
+                            property = createIntersectionProperty(typeSet, prop.name);
+                            if (property) {
+                                properties[prop.name] = property;
+                            }
+                        }
+                    }
+                }
+                return createAnonymousType(undefined, properties, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo);
+
             }
             const id = getTypeListId(typeSet);
             let type = intersectionTypes[id];
