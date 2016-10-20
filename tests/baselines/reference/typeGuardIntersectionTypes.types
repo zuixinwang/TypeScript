@@ -71,10 +71,10 @@ function f1(obj: Object) {
 >obj : X
 >isZ(obj) : boolean
 >isZ : (obj: any) => obj is Z
->obj : X & Y
+>obj : { x: string; y: string; }
 
         obj;
->obj : X & Y & Z
+>obj : { x: string; y: string; z: string; }
     }
 }
 
@@ -112,7 +112,7 @@ function isB(toTest: any): toTest is B {
 
 // a function that turns an A into an A & B
 function union(a: A): A & B | null {
->union : (a: A) => (A & B) | null
+>union : (a: A) => { a: string; b: string; } | null
 >a : A
 >A : A
 >A : A
@@ -125,7 +125,7 @@ function union(a: A): A & B | null {
 >a : A
 
     return a;
->a : A & B
+>a : { a: string; b: string; }
 
   } else {
     return null;
@@ -204,7 +204,7 @@ function identifyBeast(beast: Beast) {
             if (beast.legs === 4) {
 >beast.legs === 4 : boolean
 >beast.legs : number
->beast : Legged & Winged
+>beast : { legs: number; wings: boolean; }
 >legs : number
 >4 : 4
 
@@ -216,7 +216,7 @@ function identifyBeast(beast: Beast) {
             else if (beast.legs === 2) {
 >beast.legs === 2 : boolean
 >beast.legs : number
->beast : Legged & Winged
+>beast : { legs: number; wings: boolean; }
 >legs : number
 >2 : 2
 
@@ -231,7 +231,7 @@ function identifyBeast(beast: Beast) {
 >log : (s: string) => void
 >`unknown - ${beast.legs} legs, wings` : string
 >beast.legs : number
->beast : Legged & Winged
+>beast : { legs: number; wings: boolean; }
 >legs : number
             }
         }
@@ -284,7 +284,7 @@ function beastFoo(beast: Object) {
 >beast : Winged
 
         beast;  // Winged & Legged
->beast : Winged & Legged
+>beast : { wings: boolean; legs: number; }
     }
     else {
         beast;
@@ -301,6 +301,6 @@ function beastFoo(beast: Object) {
 >beast : Legged
 
         beast;  // Legged & Winged
->beast : Legged & Winged
+>beast : { legs: number; wings: boolean; }
     }
 }

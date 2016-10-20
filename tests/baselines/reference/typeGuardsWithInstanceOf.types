@@ -26,6 +26,6 @@ if (!(result instanceof RegExp)) {
 } else if (!result.global) {
 >!result.global : boolean
 >result.global : string & boolean
->result : I & RegExp
+>result : { readonly global: string & boolean; exec(string: string): RegExpExecArray; test(string: string): boolean; readonly source: string; readonly ignoreCase: boolean; readonly multiline: boolean; lastIndex: number; compile(): RegExp; }
 >global : string & boolean
 }

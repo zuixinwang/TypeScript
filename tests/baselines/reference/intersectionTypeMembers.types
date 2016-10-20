@@ -15,7 +15,7 @@ interface C { c: string }
 >c : string
 
 var abc: A & B & C;
->abc : A & B & C
+>abc : { a: string; b: string; c: string; }
 >A : A
 >B : B
 >C : C
@@ -23,21 +23,21 @@ var abc: A & B & C;
 abc.a = "hello";
 >abc.a = "hello" : "hello"
 >abc.a : string
->abc : A & B & C
+>abc : { a: string; b: string; c: string; }
 >a : string
 >"hello" : "hello"
 
 abc.b = "hello";
 >abc.b = "hello" : "hello"
 >abc.b : string
->abc : A & B & C
+>abc : { a: string; b: string; c: string; }
 >b : string
 >"hello" : "hello"
 
 abc.c = "hello";
 >abc.c = "hello" : "hello"
 >abc.c : string
->abc : A & B & C
+>abc : { a: string; b: string; c: string; }
 >c : string
 >"hello" : "hello"
 
@@ -57,7 +57,7 @@ interface Z { x: C }
 >C : C
 
 var xyz: X & Y & Z;
->xyz : X & Y & Z
+>xyz : { x: { a: string; b: string; c: string; }; }
 >X : X
 >Y : Y
 >Z : Z
@@ -65,27 +65,27 @@ var xyz: X & Y & Z;
 xyz.x.a = "hello";
 >xyz.x.a = "hello" : "hello"
 >xyz.x.a : string
->xyz.x : A & B & C
->xyz : X & Y & Z
->x : A & B & C
+>xyz.x : { a: string; b: string; c: string; }
+>xyz : { x: { a: string; b: string; c: string; }; }
+>x : { a: string; b: string; c: string; }
 >a : string
 >"hello" : "hello"
 
 xyz.x.b = "hello";
 >xyz.x.b = "hello" : "hello"
 >xyz.x.b : string
->xyz.x : A & B & C
->xyz : X & Y & Z
->x : A & B & C
+>xyz.x : { a: string; b: string; c: string; }
+>xyz : { x: { a: string; b: string; c: string; }; }
+>x : { a: string; b: string; c: string; }
 >b : string
 >"hello" : "hello"
 
 xyz.x.c = "hello";
 >xyz.x.c = "hello" : "hello"
 >xyz.x.c : string
->xyz.x : A & B & C
->xyz : X & Y & Z
->x : A & B & C
+>xyz.x : { a: string; b: string; c: string; }
+>xyz : { x: { a: string; b: string; c: string; }; }
+>x : { a: string; b: string; c: string; }
 >c : string
 >"hello" : "hello"
 
@@ -135,7 +135,7 @@ interface E {
 >g : number
 }
 const de: D & E = {
->de : D & E
+>de : { nested: { doublyNested: { d: string; }; different: { e: number; }; } & { doublyNested: { f: string; }; other: { g: number; }; }; }
 >D : D
 >E : E
 >{    nested: {        doublyNested: {            d: 'yes',            f: 'no'        },        different: { e: 12 },        other: { g: 101 }    }} : { nested: { doublyNested: { d: string; f: string; }; different: { e: number; }; other: { g: number; }; }; }

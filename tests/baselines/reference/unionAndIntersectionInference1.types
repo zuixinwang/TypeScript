@@ -206,21 +206,21 @@ declare function pigify<T>(y: T & Bear): T & Pig;
 >Pig : Pig
 
 declare var mbp: Man & Bear;
->mbp : Man & Bear
+>mbp : { walks: boolean; roars: boolean; }
 >Man : Man
 >Bear : Bear
 
 pigify(mbp).oinks; // OK, mbp is treated as Pig
 >pigify(mbp).oinks : boolean
->pigify(mbp) : Man & Pig
+>pigify(mbp) : { walks: boolean; roars: boolean; oinks: boolean; }
 >pigify : <T>(y: T & Bear) => T & Pig
->mbp : Man & Bear
+>mbp : { walks: boolean; roars: boolean; }
 >oinks : boolean
 
 pigify(mbp).walks; // Ok, mbp is treated as Man
 >pigify(mbp).walks : boolean
->pigify(mbp) : Man & Pig
+>pigify(mbp) : { walks: boolean; roars: boolean; oinks: boolean; }
 >pigify : <T>(y: T & Bear) => T & Pig
->mbp : Man & Bear
+>mbp : { walks: boolean; roars: boolean; }
 >walks : boolean
 

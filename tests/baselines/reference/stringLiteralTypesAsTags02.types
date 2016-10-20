@@ -110,6 +110,6 @@ if (!hasKind(x, "B")) {
 }
 else {
     let d = x;
->d : A & B
->x : A & B
+>d : { kind: "A" & "B"; a: number; b: string; }
+>x : { kind: "A" & "B"; a: number; b: string; }
 }

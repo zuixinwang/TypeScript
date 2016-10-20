@@ -13,51 +13,51 @@ interface C { c: string }
 
 // A & B is equivalent to B & A.
 var y: A & B;
->y : A & B
+>y : { a: string; b: string; }
 >A : A
 >B : B
 
 var y : B & A;
->y : A & B
+>y : { a: string; b: string; }
 >B : B
 >A : A
 
 // AB & C is equivalent to A & BC, where AB is A & B and BC is B & C.
 var z : A & B & C;
->z : A & B & C
+>z : { a: string; b: string; c: string; }
 >A : A
 >B : B
 >C : C
 
 var z : (A & B) & C;
->z : A & B & C
+>z : { a: string; b: string; c: string; }
 >A : A
 >B : B
 >C : C
 
 var z : A & (B & C);
->z : A & B & C
+>z : { a: string; b: string; c: string; }
 >A : A
 >B : B
 >C : C
 
 var ab : A & B;
->ab : A & B
+>ab : { a: string; b: string; }
 >A : A
 >B : B
 
 var bc : B & C;
->bc : B & C
+>bc : { b: string; c: string; }
 >B : B
 >C : C
 
 var z1: typeof ab & C;
->z1 : A & B & C
->ab : A & B
+>z1 : { a: string; b: string; c: string; }
+>ab : { a: string; b: string; }
 >C : C
 
 var z1: A & typeof bc;
->z1 : A & B & C
+>z1 : { a: string; b: string; c: string; }
 >A : A
->bc : B & C
+>bc : { b: string; c: string; }
 
