@@ -724,6 +724,20 @@ namespace FourSlash {
             }
         }
 
+        public verifyCompletionList(symbols: string[]) {
+            const completions = this.getCompletionListAtCaret();
+            if (completions) {
+                //neater
+                this.verifyMemberListCount(symbols.length, /*negative*/false);
+                for (const symbol of symbols) {
+                    this.assertItemInCompletionList(completions.entries, symbol);
+                }
+            }
+            else {
+                this.raiseError(`No completions at position '${this.currentCaretPosition}' when looking for '${symbols}'.`);
+            }
+        }
+
         public verifyCompletionListContains(symbol: string, text?: string, documentation?: string, kind?: string, spanIndex?: number) {
             const completions = this.getCompletionListAtCaret();
             if (completions) {
@@ -3074,6 +3088,16 @@ namespace FourSlashInterface {
 
         public memberListCount(expectedCount: number) {
             this.state.verifyMemberListCount(expectedCount, this.negative);
+        }
+
+        public completionList(symbols: string[]) {
+            if (this.negative) {
+                //todo
+                ts.Debug.assert(false);
+            }
+            else {
+                this.state.verifyCompletionList(symbols);
+            }
         }
 
         // Verifies the completion list contains the specified symbol. The
