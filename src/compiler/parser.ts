@@ -1226,12 +1226,12 @@ namespace ts {
             if (token() === SyntaxKind.ExportKeyword) {
                 nextToken();
                 if (token() === SyntaxKind.DefaultKeyword) {
-                    return lookAhead(nextTokenIsClassOrFunctionOrAsync);
+                    return lookAhead(nextTokenFollowsDefault);
                 }
                 return token() !== SyntaxKind.AsteriskToken && token() !== SyntaxKind.AsKeyword && token() !== SyntaxKind.OpenBraceToken && canFollowModifier();
             }
             if (token() === SyntaxKind.DefaultKeyword) {
-                return nextTokenIsClassOrFunctionOrAsync();
+                return nextTokenFollowsDefault();
             }
             if (token() === SyntaxKind.StaticKeyword) {
                 nextToken();
@@ -1253,9 +1253,15 @@ namespace ts {
                 || isLiteralPropertyName();
         }
 
-        function nextTokenIsClassOrFunctionOrAsync(): boolean {
+        /** Whether a token may follow the `default` keyword */
+        function nextTokenFollowsDefault(): boolean {
             nextToken();
-            return token() === SyntaxKind.ClassKeyword || token() === SyntaxKind.FunctionKeyword ||
+            return token() === SyntaxKind.ClassKeyword ||
+                token() === SyntaxKind.FunctionKeyword ||
+                token() === SyntaxKind.InterfaceKeyword ||
+                token() === SyntaxKind.TypeKeyword ||
+                token() === SyntaxKind.EnumKeyword ||
+                token() === SyntaxKind.ConstKeyword || // For `const enum`
                 (token() === SyntaxKind.AsyncKeyword && lookAhead(nextTokenIsFunctionKeywordOnSameLine));
         }
 

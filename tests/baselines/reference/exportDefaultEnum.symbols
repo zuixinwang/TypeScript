@@ -1,0 +1,18 @@
+=== tests/cases/compiler/boolean.ts ===
+export default enum Boolean { TRUE, FALSE, FILE_NOT_FOUND }
+>Boolean : Symbol(Boolean, Decl(boolean.ts, 0, 0))
+>TRUE : Symbol(Boolean.TRUE, Decl(boolean.ts, 0, 29))
+>FALSE : Symbol(Boolean.FALSE, Decl(boolean.ts, 0, 35))
+>FILE_NOT_FOUND : Symbol(Boolean.FILE_NOT_FOUND, Decl(boolean.ts, 0, 42))
+
+=== tests/cases/compiler/user.ts ===
+import Boolean from "./boolean";
+>Boolean : Symbol(Boolean, Decl(user.ts, 0, 6))
+
+const b: Boolean = Boolean.FILE_NOT_FOUND;
+>b : Symbol(b, Decl(user.ts, 1, 5))
+>Boolean : Symbol(Boolean, Decl(user.ts, 0, 6))
+>Boolean.FILE_NOT_FOUND : Symbol(Boolean.FILE_NOT_FOUND, Decl(boolean.ts, 0, 42))
+>Boolean : Symbol(Boolean, Decl(user.ts, 0, 6))
+>FILE_NOT_FOUND : Symbol(Boolean.FILE_NOT_FOUND, Decl(boolean.ts, 0, 42))
+

@@ -1,0 +1,13 @@
+=== tests/cases/compiler/a.ts ===
+export default type T = number;
+>T : number
+
+=== tests/cases/compiler/b.ts ===
+import T from "./a";
+>T : any
+
+const x: T = 0;
+>x : number
+>T : number
+>0 : 0
+

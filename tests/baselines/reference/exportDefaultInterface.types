@@ -1,0 +1,19 @@
+=== tests/cases/compiler/interface.ts ===
+export default interface I {
+>I : I
+
+    x: number;
+>x : number
+}
+
+=== tests/cases/compiler/user.ts ===
+import I from "./interface";
+>I : any
+
+const x: I = { x: 0 };
+>x : I
+>I : I
+>{ x: 0 } : { x: number; }
+>x : number
+>0 : 0
+

@@ -1,0 +1,18 @@
+=== tests/cases/compiler/boolean.ts ===
+export default const enum Boolean { TRUE, FALSE, FILE_NOT_FOUND }
+>Boolean : Boolean
+>TRUE : Boolean.TRUE
+>FALSE : Boolean.FALSE
+>FILE_NOT_FOUND : Boolean.FILE_NOT_FOUND
+
+=== tests/cases/compiler/user.ts ===
+import Boolean from "./boolean";
+>Boolean : typeof Boolean
+
+const b: Boolean = Boolean.FILE_NOT_FOUND;
+>b : Boolean
+>Boolean : Boolean
+>Boolean.FILE_NOT_FOUND : Boolean.FILE_NOT_FOUND
+>Boolean : typeof Boolean
+>FILE_NOT_FOUND : Boolean.FILE_NOT_FOUND
+
