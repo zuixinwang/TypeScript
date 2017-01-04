@@ -215,6 +215,7 @@ namespace ts {
         TupleType,
         UnionType,
         IntersectionType,
+        DifferenceType,
         ParenthesizedType,
         ThisType,
         TypeOperator,
@@ -882,6 +883,12 @@ namespace ts {
 
     export interface IntersectionTypeNode extends UnionOrIntersectionTypeNode {
         kind: SyntaxKind.IntersectionType;
+    }
+
+    export interface DifferenceTypeNode extends TypeNode {
+        kind: SyntaxKind.DifferenceType;
+        source: TypeNode; // TODO: Just add checkDifferenceType in the checker and make sure that source and remove
+        remove: TypeNode; // are both a string, string literal union or index operator or type parameter constrained to one of those 3
     }
 
     export interface ParenthesizedTypeNode extends TypeNode {
@@ -2785,6 +2792,7 @@ namespace ts {
         ContainsObjectLiteral   = 1 << 22,  // Type is or contains object literal type
         /* @internal */
         ContainsAnyFunctionType = 1 << 23,  // Type is or contains object literal type
+        Difference              = 1 << 25,  // (keyof T - keyof U)
 
         /* @internal */
         Nullable = Undefined | Null,
@@ -2927,6 +2935,11 @@ namespace ts {
     export interface IntersectionType extends UnionOrIntersectionType { }
 
     export type StructuredType = ObjectType | UnionType | IntersectionType;
+
+    export interface DifferenceType extends Type {
+        source: Type; // both should be index type (keyof T), string or string literal union
+        remove: Type; // or a type parameter constrained to one of those 3 types
+    }
 
     /* @internal */
     // An instantiated anonymous type has a target and a mapper
