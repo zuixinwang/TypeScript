@@ -124,6 +124,7 @@ namespace ts {
         const tupleTypes: GenericType[] = [];
         const unionTypes = createMap<UnionType>();
         const intersectionTypes = createMap<IntersectionType>();
+        // const differenceTypes = createMap<DifferenceType>();
         const stringLiteralTypes = createMap<LiteralType>();
         const numericLiteralTypes = createMap<LiteralType>();
         const indexedAccessTypes = createMap<IndexedAccessType>();
@@ -2319,6 +2320,9 @@ namespace ts {
                     else if (type.flags & TypeFlags.UnionOrIntersection) {
                         writeUnionOrIntersectionType(<UnionOrIntersectionType>type, nextFlags);
                     }
+                    else if (type.flags & TypeFlags.Difference) {
+                        writeDifferenceType(type as DifferenceType, nextFlags);
+                    }
                     else if (getObjectFlags(type) & (ObjectFlags.Anonymous | ObjectFlags.Mapped)) {
                         writeAnonymousType(<ObjectType>type, nextFlags);
                     }
@@ -2429,6 +2433,16 @@ namespace ts {
                     else {
                         writeTypeList(type.types, SyntaxKind.AmpersandToken);
                     }
+                    if (flags & TypeFormatFlags.InElementType) {
+                        writePunctuation(writer, SyntaxKind.CloseParenToken);
+                    }
+                }
+
+                function writeDifferenceType(type: DifferenceType, flags: TypeFormatFlags) {
+                    if (flags & TypeFormatFlags.InElementType) {
+                        writePunctuation(writer, SyntaxKind.OpenParenToken);
+                    }
+                    writeTypeList([type.source, type.remove], SyntaxKind.MinusToken);
                     if (flags & TypeFormatFlags.InElementType) {
                         writePunctuation(writer, SyntaxKind.CloseParenToken);
                     }
@@ -6000,6 +6014,41 @@ namespace ts {
             return links.resolvedType;
         }
 
+        function getTypeFromDifferenceTypeNode(node: DifferenceTypeNode): Type {
+            const links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                links.resolvedType = getDifferenceType(getTypeFromTypeNode(node.source), getTypeFromTypeNode(node.remove));
+            }
+            return links.resolvedType;
+        }
+
+        function getDifferenceType(source: Type, remove: Type) {
+            // TODO: Simplifications first (intersection distributes over difference)
+            // if left and right are both string literal union, then return the removal of right's contents from left's
+            //   TODO: Probably should delay or paper over this check, but whatever. I'll write it for now.
+            if ((isStringLiteralUnion(source) || source.flags & TypeFlags.StringLiteral) && isStringLiteralUnion(remove)) {
+                return filterType(source, t => (remove as UnionType).types.indexOf(t) === -1);
+            }
+            if ((isStringLiteralUnion(source) || source.flags & TypeFlags.StringLiteral) && remove.flags & TypeFlags.StringLiteral) {
+                return filterType(source, t => t !== remove);
+            }
+
+            // if either left or right is a type parameter, then return a difference type
+            if (source.flags & TypeFlags.TypeParameter || remove.flags & TypeFlags.TypeParameter) {
+                // return createDifferenceType(source, remove);
+            }
+            // if right is string then return never
+            if ((source.flags & (TypeFlags.String | TypeFlags.StringLiteral) || isStringLiteralUnion(source)) && remove.flags & TypeFlags.String) {
+                return neverType;
+            }
+            // otherwise just return source
+            return source;
+        }
+
+        function isStringLiteralUnion(type: Type) {
+            return type.flags & TypeFlags.Union && every((type as UnionType).types, t => !!(t.flags & TypeFlags.StringLiteral));
+        }
+
         function getIndexTypeForGenericType(type: TypeVariable | UnionOrIntersectionType) {
             if (!type.resolvedIndexType) {
                 type.resolvedIndexType = <IndexType>createType(TypeFlags.Index);
@@ -6435,6 +6484,8 @@ namespace ts {
                 case SyntaxKind.UnionType:
                 case SyntaxKind.JSDocUnionType:
                     return getTypeFromUnionTypeNode(<UnionTypeNode>node);
+                case SyntaxKind.DifferenceType:
+                    return getTypeFromDifferenceTypeNode(node as DifferenceTypeNode);
                 case SyntaxKind.IntersectionType:
                     return getTypeFromIntersectionTypeNode(<IntersectionTypeNode>node);
                 case SyntaxKind.ParenthesizedType:
