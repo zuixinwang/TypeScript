@@ -124,7 +124,7 @@ namespace ts {
         const tupleTypes: GenericType[] = [];
         const unionTypes = createMap<UnionType>();
         const intersectionTypes = createMap<IntersectionType>();
-        // const differenceTypes = createMap<DifferenceType>();
+        const differenceTypes = createMap<DifferenceType>();
         const stringLiteralTypes = createMap<LiteralType>();
         const numericLiteralTypes = createMap<LiteralType>();
         const indexedAccessTypes = createMap<IndexedAccessType>();
@@ -4783,13 +4783,18 @@ namespace ts {
             return type.resolvedApparentType;
         }
 
+        function getApparentTypeOfDifference(type: DifferenceType) {
+            return getDifferenceType(getApparentType(type.source), getApparentType(type.remove));
+        }
+
         /**
          * For a type parameter, return the base constraint of the type parameter. For the string, number,
          * boolean, and symbol primitive types, return the corresponding object types. Otherwise return the
          * type itself. Note that the apparent type of a union type is the union type itself.
          */
         function getApparentType(type: Type): Type {
-            const t = type.flags & TypeFlags.TypeVariable ? getApparentTypeOfTypeVariable(<TypeVariable>type) : type;
+            const t = type.flags & TypeFlags.TypeVariable ? getApparentTypeOfTypeVariable(<TypeVariable>type) :
+                type.flags & TypeFlags.Difference ? getApparentTypeOfDifference(type as DifferenceType) : type;
             return t.flags & TypeFlags.StringLike ? globalStringType :
                 t.flags & TypeFlags.NumberLike ? globalNumberType :
                 t.flags & TypeFlags.BooleanLike ? globalBooleanType :
@@ -6023,6 +6028,11 @@ namespace ts {
         }
 
         function getDifferenceType(source: Type, remove: Type) {
+            //TOOD: Handle any here (if source is any, the result is any; if remove is any, the result is never. or any?!)
+            const id = getTypeListId([source, remove]);
+            if (id in differenceTypes) {
+                return differenceTypes[id];
+            }
             // TODO: Simplifications first (intersection distributes over difference)
             // if left and right are both string literal union, then return the removal of right's contents from left's
             //   TODO: Probably should delay or paper over this check, but whatever. I'll write it for now.
@@ -6035,7 +6045,11 @@ namespace ts {
 
             // if either left or right is a type parameter, then return a difference type
             if (source.flags & TypeFlags.TypeParameter || remove.flags & TypeFlags.TypeParameter) {
-                // return createDifferenceType(source, remove);
+                const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
+                // TODO: Error checking here or later when instantiating ... oh. So, never mind. No error checking.
+                difference.source = source;
+                difference.remove = remove;
+                return difference;
             }
             // if right is string then return never
             if ((source.flags & (TypeFlags.String | TypeFlags.StringLiteral) || isStringLiteralUnion(source)) && remove.flags & TypeFlags.String) {
@@ -6861,6 +6875,10 @@ namespace ts {
             }
             if (type.flags & TypeFlags.Intersection) {
                 return getIntersectionType(instantiateTypes((<IntersectionType>type).types, mapper), type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
+            }
+            if (type.flags & TypeFlags.Difference) {
+                const difference = type as DifferenceType;
+                return getDifferenceType(instantiateType(difference.source, mapper), instantiateType(difference.remove, mapper));
             }
             if (type.flags & TypeFlags.Index) {
                 return getIndexType(instantiateType((<IndexType>type).type, mapper));
