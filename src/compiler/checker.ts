@@ -7512,6 +7512,38 @@ namespace ts {
                         }
                     }
                 }
+                else if (target.flags & TypeFlags.Difference && source.flags & TypeFlags.Difference) {
+                    const srcDiff = source as DifferenceType;
+                    const tgtDiff = target as DifferenceType;
+                    if (!(tgtDiff.remove.flags & TypeFlags.TypeParameter) && !(srcDiff.remove.flags & TypeFlags.TypeParameter)) {
+                        // removes must be string unions. right?
+                        if (srcDiff.source.flags & TypeFlags.TypeParameter && tgtDiff.source.flags & TypeFlags.TypeParameter) {
+                            if (srcDiff.source !== tgtDiff.source) {
+                                if (reportErrors) {
+                                    reportRelationError(headMessage, source, target);
+                                }
+                                return Ternary.False;
+                            }
+                            if (result = isRelatedTo(srcDiff.remove, tgtDiff.remove)) {
+                                return result;
+                            }
+                        }
+                    }
+                    if (tgtDiff.remove.flags & TypeFlags.TypeParameter && srcDiff.remove.flags & TypeFlags.TypeParameter) {
+                        if (tgtDiff.remove !== srcDiff.remove) {
+                            if (reportErrors) {
+                                reportRelationError(headMessage, source, target);
+                            }
+                            return Ternary.False;
+                        }
+                        if (result = isRelatedTo(tgtDiff.source, srcDiff.source)) {
+                            return result;
+                        }
+                    }
+                }
+                else if (target.flags & TypeFlags.Difference && source.flags & TypeFlags.TypeParameter && (target as DifferenceType).source === source) {
+                    return Ternary.True;
+                }
 
                 if (source.flags & TypeFlags.TypeParameter) {
                     // A source type T is related to a target type { [P in keyof T]: X } if T[P] is related to X.
