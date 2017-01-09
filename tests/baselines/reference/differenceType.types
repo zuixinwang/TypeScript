@@ -1,0 +1,73 @@
+=== tests/cases/conformance/types/rest/differenceType.ts ===
+type A = 'a';
+>A : "a"
+
+type B = 'b';
+>B : "b"
+
+type C = 'c';
+>C : "c"
+
+type AB = A | B;
+>AB : AB
+>A : "a"
+>B : "b"
+
+let nothing: A - 'a';
+>nothing : never
+>A : "a"
+
+let none: AB - 'a' | 'b';
+>none : never
+>AB : AB
+
+let over: 'a' - 'a' | 'b';
+>over : never
+
+let under: 'a' | 'b' - 'a';
+>under : "b"
+
+let partial: 'a' | 'b' - 'b' | 'd';
+>partial : "a"
+
+let empty: AB - AB;
+>empty : never
+>AB : AB
+>AB : AB
+
+let nope: string - string;
+>nope : never
+
+let nope2: 'a' | 'b' - string;
+>nope2 : never
+
+let nope3: string - 'a' | 'b';
+>nope3 : string
+
+// TODO: Require a constraint of extends string?
+// or keyof X? Check the mapped type code to decide what to do
+function f<T,U> (t: T, u: U) {
+>f : <T, U>(t: T, u: U) => T - U
+>T : T
+>U : U
+>t : T
+>T : T
+>u : U
+>U : U
+
+    let tsubu: T - U;
+>tsubu : T - U
+>T : T
+>U : U
+
+    return tsubu;
+>tsubu : T - U
+}
+
+const x = f<'a' | 'b', 'b' | 'd'>('a', 'b');
+>x : "a"
+>f<'a' | 'b', 'b' | 'd'>('a', 'b') : "a"
+>f : <T, U>(t: T, u: U) => T - U
+>'a' : "a"
+>'b' : "b"
+

@@ -1,0 +1,62 @@
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(13,5): error TS2322: Type 'T - V' is not assignable to type 'T - U'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(23,5): error TS2322: Type 'T - "c"' is not assignable to type 'T - "a"'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(24,5): error TS2322: Type 'T - AB' is not assignable to type 'T - "a"'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(25,5): error TS2322: Type 'T - "a"' is not assignable to type 'T'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(33,5): error TS2322: Type '"a" - T' is not assignable to type 'AB - T'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(35,5): error TS2322: Type 'AB - T' is not assignable to type 'AB - U'.
+tests/cases/conformance/types/rest/differenceTypeAssignability.ts(36,5): error TS2322: Type 'AC - T' is not assignable to type 'AB - T'.
+
+
+==== tests/cases/conformance/types/rest/differenceTypeAssignability.ts (7 errors) ====
+    type A = 'a';
+    type B = 'b';
+    type C = 'c';
+    type AB = A | B;
+    type AC = A | C;
+    function f<T,U, V> (t: T, u: U, v: V) {
+        let t_u: T - U;
+        let t_v: T - V;
+        let u_t: U - T;
+    
+        t_u = t;   // ok
+        t_u = t_u; // ok
+        t_u = t_v; // error
+        ~~~
+!!! error TS2322: Type 'T - V' is not assignable to type 'T - U'.
+    
+        var t_a: T - A;
+        var t_c: T - C;
+        var t_ab: T - AB;
+    
+        t_a = t_a; // ok
+        t_ab = t_a; // ok
+        t_a = t; // ok
+    
+        t_a = t_c; // error
+        ~~~
+!!! error TS2322: Type 'T - "c"' is not assignable to type 'T - "a"'.
+        t_a = t_ab; // error
+        ~~~
+!!! error TS2322: Type 'T - AB' is not assignable to type 'T - "a"'.
+        t = t_a; // error
+        ~
+!!! error TS2322: Type 'T - "a"' is not assignable to type 'T'.
+    
+        var ab_u: AB - U;
+        var ab_t: AB - T;
+        var a_t: A - T;
+        var ac_t: AC - T;
+    
+        ab_t = ab_t; // ok
+        ab_t = a_t; // error
+        ~~~~
+!!! error TS2322: Type '"a" - T' is not assignable to type 'AB - T'.
+        a_t = ab_t; // ok
+        ab_u = ab_t; // error
+        ~~~~
+!!! error TS2322: Type 'AB - T' is not assignable to type 'AB - U'.
+        ab_t = ac_t // error
+        ~~~~
+!!! error TS2322: Type 'AC - T' is not assignable to type 'AB - T'.
+    }
+    

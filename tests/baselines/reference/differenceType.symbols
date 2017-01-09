@@ -1,0 +1,70 @@
+=== tests/cases/conformance/types/rest/differenceType.ts ===
+type A = 'a';
+>A : Symbol(A, Decl(differenceType.ts, 0, 0))
+
+type B = 'b';
+>B : Symbol(B, Decl(differenceType.ts, 0, 13))
+
+type C = 'c';
+>C : Symbol(C, Decl(differenceType.ts, 1, 13))
+
+type AB = A | B;
+>AB : Symbol(AB, Decl(differenceType.ts, 2, 13))
+>A : Symbol(A, Decl(differenceType.ts, 0, 0))
+>B : Symbol(B, Decl(differenceType.ts, 0, 13))
+
+let nothing: A - 'a';
+>nothing : Symbol(nothing, Decl(differenceType.ts, 4, 3))
+>A : Symbol(A, Decl(differenceType.ts, 0, 0))
+
+let none: AB - 'a' | 'b';
+>none : Symbol(none, Decl(differenceType.ts, 5, 3))
+>AB : Symbol(AB, Decl(differenceType.ts, 2, 13))
+
+let over: 'a' - 'a' | 'b';
+>over : Symbol(over, Decl(differenceType.ts, 6, 3))
+
+let under: 'a' | 'b' - 'a';
+>under : Symbol(under, Decl(differenceType.ts, 7, 3))
+
+let partial: 'a' | 'b' - 'b' | 'd';
+>partial : Symbol(partial, Decl(differenceType.ts, 8, 3))
+
+let empty: AB - AB;
+>empty : Symbol(empty, Decl(differenceType.ts, 9, 3))
+>AB : Symbol(AB, Decl(differenceType.ts, 2, 13))
+>AB : Symbol(AB, Decl(differenceType.ts, 2, 13))
+
+let nope: string - string;
+>nope : Symbol(nope, Decl(differenceType.ts, 10, 3))
+
+let nope2: 'a' | 'b' - string;
+>nope2 : Symbol(nope2, Decl(differenceType.ts, 11, 3))
+
+let nope3: string - 'a' | 'b';
+>nope3 : Symbol(nope3, Decl(differenceType.ts, 12, 3))
+
+// TODO: Require a constraint of extends string?
+// or keyof X? Check the mapped type code to decide what to do
+function f<T,U> (t: T, u: U) {
+>f : Symbol(f, Decl(differenceType.ts, 12, 30))
+>T : Symbol(T, Decl(differenceType.ts, 16, 11))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+>t : Symbol(t, Decl(differenceType.ts, 16, 17))
+>T : Symbol(T, Decl(differenceType.ts, 16, 11))
+>u : Symbol(u, Decl(differenceType.ts, 16, 22))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+
+    let tsubu: T - U;
+>tsubu : Symbol(tsubu, Decl(differenceType.ts, 17, 7))
+>T : Symbol(T, Decl(differenceType.ts, 16, 11))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+
+    return tsubu;
+>tsubu : Symbol(tsubu, Decl(differenceType.ts, 17, 7))
+}
+
+const x = f<'a' | 'b', 'b' | 'd'>('a', 'b');
+>x : Symbol(x, Decl(differenceType.ts, 21, 5))
+>f : Symbol(f, Decl(differenceType.ts, 12, 30))
+
