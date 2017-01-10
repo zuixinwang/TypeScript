@@ -7512,37 +7512,20 @@ namespace ts {
                         }
                     }
                 }
-                else if (target.flags & TypeFlags.Difference && source.flags & TypeFlags.Difference) {
-                    const srcDiff = source as DifferenceType;
-                    const tgtDiff = target as DifferenceType;
-                    if (!(tgtDiff.remove.flags & TypeFlags.TypeParameter) && !(srcDiff.remove.flags & TypeFlags.TypeParameter)) {
-                        // removes must be string unions. right?
-                        if (srcDiff.source.flags & TypeFlags.TypeParameter && tgtDiff.source.flags & TypeFlags.TypeParameter) {
-                            if (srcDiff.source !== tgtDiff.source) {
-                                if (reportErrors) {
-                                    reportRelationError(headMessage, source, target);
-                                }
-                                return Ternary.False;
-                            }
-                            if (result = isRelatedTo(srcDiff.remove, tgtDiff.remove)) {
-                                return result;
-                            }
-                        }
+                else if (target.flags & TypeFlags.Difference) {
+                    if (source.flags & TypeFlags.TypeParameter && (target as DifferenceType).source === source) {
+                        return Ternary.True;
                     }
-                    if (tgtDiff.remove.flags & TypeFlags.TypeParameter && srcDiff.remove.flags & TypeFlags.TypeParameter) {
-                        if (tgtDiff.remove !== srcDiff.remove) {
-                            if (reportErrors) {
-                                reportRelationError(headMessage, source, target);
-                            }
-                            return Ternary.False;
+                    else if (source.flags & TypeFlags.Difference) {
+                        const srcDiff = source as DifferenceType;
+                        const tgtDiff = target as DifferenceType;
+                        if ((result = isRelatedTo(srcDiff.source, tgtDiff.source, reportErrors)) === Ternary.False) {
+                            return result;
                         }
-                        if (result = isRelatedTo(tgtDiff.source, srcDiff.source)) {
+                        if (result = isRelatedTo(srcDiff.remove, tgtDiff.remove, reportErrors)) {
                             return result;
                         }
                     }
-                }
-                else if (target.flags & TypeFlags.Difference && source.flags & TypeFlags.TypeParameter && (target as DifferenceType).source === source) {
-                    return Ternary.True;
                 }
 
                 if (source.flags & TypeFlags.TypeParameter) {
@@ -16115,6 +16098,20 @@ namespace ts {
             forEach(node.types, checkSourceElement);
         }
 
+        function checkDifferenceType(node: DifferenceTypeNode) {
+            // TODO: Probably make sure the remove type is a string or string literal or string literal union?
+            // I'm not sure this is the right place. Probably
+            const t = getTypeFromTypeNode(node) as DifferenceType;
+            if (t.remove.flags & TypeFlags.StringLike) {
+                // ok
+            }
+            else {
+                // error
+            }
+            checkSourceElement(node.source);
+            checkSourceElement(node.remove);
+        }
+
         function checkIndexedAccessType(node: IndexedAccessTypeNode) {
             getTypeFromIndexedAccessTypeNode(node);
         }
@@ -19442,6 +19439,8 @@ namespace ts {
                 case SyntaxKind.UnionType:
                 case SyntaxKind.IntersectionType:
                     return checkUnionOrIntersectionType(<UnionOrIntersectionTypeNode>node);
+                case SyntaxKind.DifferenceType:
+                    return checkDifferenceType(node as DifferenceTypeNode);
                 case SyntaxKind.ParenthesizedType:
                 case SyntaxKind.TypeOperator:
                     return checkSourceElement((<ParenthesizedTypeNode | TypeOperatorNode>node).type);

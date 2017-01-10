@@ -1174,6 +1174,13 @@ namespace ts {
             writeLine();
         }
 
+        function emitDifferenceType(node: DifferenceTypeNode) {
+            emitType(node.source);
+            write("-");
+            emitType(node.remove);
+            writeLine();
+        }
+
         function emitVariableDeclaration(node: VariableDeclaration | PropertyDeclaration | PropertySignature | ParameterDeclaration) {
             // If we are emitting property it isn't moduleElement and hence we already know it needs to be emitted
             // so there is no check needed to see if declaration is visible
@@ -1761,6 +1768,8 @@ namespace ts {
                 case SyntaxKind.GetAccessor:
                 case SyntaxKind.SetAccessor:
                     return emitAccessorDeclaration(<AccessorDeclaration>node);
+                case SyntaxKind.DifferenceType:
+                    return emitDifferenceType(node as DifferenceTypeNode);
                 case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.PropertySignature:
                     return emitPropertyDeclaration(<PropertyDeclaration>node);
