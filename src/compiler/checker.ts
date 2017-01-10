@@ -6029,6 +6029,9 @@ namespace ts {
 
         function getDifferenceType(source: Type, remove: Type) {
             //TOOD: Handle any here (if source is any, the result is any; if remove is any, the result is never. or any?!)
+            if (source.flags & TypeFlags.Any || remove.flags & TypeFlags.Any) {
+                return anyType;
+            }
             const id = getTypeListId([source, remove]);
             if (id in differenceTypes) {
                 return differenceTypes[id];
@@ -6036,23 +6039,23 @@ namespace ts {
             // TODO: Simplifications first (intersection distributes over difference)
             // if left and right are both string literal union, then return the removal of right's contents from left's
             //   TODO: Probably should delay or paper over this check, but whatever. I'll write it for now.
-            if ((isStringLiteralUnion(source) || source.flags & TypeFlags.StringLiteral) && isStringLiteralUnion(remove)) {
-                return filterType(source, t => (remove as UnionType).types.indexOf(t) === -1);
-            }
-            if ((isStringLiteralUnion(source) || source.flags & TypeFlags.StringLiteral) && remove.flags & TypeFlags.StringLiteral) {
+            if (isStringLiteralUnion(source) && remove.flags & TypeFlags.StringLiteral) {
                 return filterType(source, t => t !== remove);
+            }
+            if (isStringLiteralUnion(source) && isStringLiteralUnion(remove)) {
+                return filterType(source, t => (remove as UnionType).types.indexOf(t) === -1);
             }
 
             // if either left or right is a type parameter, then return a difference type
-            if (source.flags & TypeFlags.TypeParameter || remove.flags & TypeFlags.TypeParameter) {
+            // TODO: Add tests with keyof T
+            if (source.flags & (TypeFlags.TypeParameter | TypeFlags.Index) || remove.flags & (TypeFlags.TypeParameter | TypeFlags.Index)) {
                 const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
-                // TODO: Error checking here or later when instantiating ... oh. So, never mind. No error checking.
                 difference.source = source;
                 difference.remove = remove;
                 return difference;
             }
             // if right is string then return never
-            if ((source.flags & (TypeFlags.String | TypeFlags.StringLiteral) || isStringLiteralUnion(source)) && remove.flags & TypeFlags.String) {
+            if ((source.flags & TypeFlags.StringLike || isStringLiteralUnion(source)) && remove.flags & TypeFlags.String) {
                 return neverType;
             }
             // otherwise just return source
@@ -6060,7 +6063,8 @@ namespace ts {
         }
 
         function isStringLiteralUnion(type: Type) {
-            return type.flags & TypeFlags.Union && every((type as UnionType).types, t => !!(t.flags & TypeFlags.StringLiteral));
+            return type.flags & TypeFlags.StringLiteral ||
+                type.flags & TypeFlags.Union && every((type as UnionType).types, t => !!(t.flags & TypeFlags.StringLiteral));
         }
 
         function getIndexTypeForGenericType(type: TypeVariable | UnionOrIntersectionType) {
@@ -16099,14 +16103,15 @@ namespace ts {
         }
 
         function checkDifferenceType(node: DifferenceTypeNode) {
-            // TODO: Probably make sure the remove type is a string or string literal or string literal union?
-            // I'm not sure this is the right place. Probably
-            const t = getTypeFromTypeNode(node) as DifferenceType;
-            if (t.remove.flags & TypeFlags.StringLike) {
-                // ok
+            const remove = getTypeFromTypeNode(node.remove);
+            if (!(remove.flags & (TypeFlags.Index | TypeFlags.TypeParameter | TypeFlags.String) || isStringLiteralUnion(remove))) {
+                error(node.remove, Diagnostics.The_right_side_of_a_difference_type_must_be_a_string_or_string_literal_union_or_a_type_parameter_constrained_to_one_of_these);
             }
-            else {
-                // error
+            if (remove.flags & TypeFlags.TypeParameter) {
+                const constraint = (remove as TypeParameter).constraint;
+                if (constraint && !(constraint.flags & (TypeFlags.Index | TypeFlags.String) || isStringLiteralUnion(constraint))) {
+                    error(node.remove, Diagnostics.The_right_side_of_a_difference_type_must_be_a_string_or_string_literal_union_or_a_type_parameter_constrained_to_one_of_these);
+                }
             }
             checkSourceElement(node.source);
             checkSourceElement(node.remove);

@@ -887,8 +887,8 @@ namespace ts {
 
     export interface DifferenceTypeNode extends TypeNode {
         kind: SyntaxKind.DifferenceType;
-        source: TypeNode; // TODO: Just add checkDifferenceType in the checker and make sure that source and remove
-        remove: TypeNode; // are both a string, string literal union or index operator or type parameter constrained to one of those 3
+        source: TypeNode;
+        remove: TypeNode;
     }
 
     export interface ParenthesizedTypeNode extends TypeNode {
