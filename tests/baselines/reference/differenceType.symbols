@@ -44,15 +44,21 @@ let nope2: 'a' | 'b' - string;
 let nope3: string - 'a' | 'b';
 >nope3 : Symbol(nope3, Decl(differenceType.ts, 12, 3))
 
-// TODO: Require a constraint of extends string?
-// or keyof X? Check the mapped type code to decide what to do
-function f<T,U> (t: T, u: U) {
->f : Symbol(f, Decl(differenceType.ts, 12, 30))
+type Abcd = { a; b; c; d }
+>Abcd : Symbol(Abcd, Decl(differenceType.ts, 12, 30))
+>a : Symbol(a, Decl(differenceType.ts, 14, 13))
+>b : Symbol(b, Decl(differenceType.ts, 14, 16))
+>c : Symbol(c, Decl(differenceType.ts, 14, 19))
+>d : Symbol(d, Decl(differenceType.ts, 14, 22))
+
+function f<T,U extends keyof Abcd> (t: T, u: U) {
+>f : Symbol(f, Decl(differenceType.ts, 14, 26))
 >T : Symbol(T, Decl(differenceType.ts, 16, 11))
 >U : Symbol(U, Decl(differenceType.ts, 16, 13))
->t : Symbol(t, Decl(differenceType.ts, 16, 17))
+>Abcd : Symbol(Abcd, Decl(differenceType.ts, 12, 30))
+>t : Symbol(t, Decl(differenceType.ts, 16, 36))
 >T : Symbol(T, Decl(differenceType.ts, 16, 11))
->u : Symbol(u, Decl(differenceType.ts, 16, 22))
+>u : Symbol(u, Decl(differenceType.ts, 16, 41))
 >U : Symbol(U, Decl(differenceType.ts, 16, 13))
 
     let tsubu: T - U;
@@ -66,5 +72,5 @@ function f<T,U> (t: T, u: U) {
 
 const x = f<'a' | 'b', 'b' | 'd'>('a', 'b');
 >x : Symbol(x, Decl(differenceType.ts, 21, 5))
->f : Symbol(f, Decl(differenceType.ts, 12, 30))
+>f : Symbol(f, Decl(differenceType.ts, 14, 26))
 

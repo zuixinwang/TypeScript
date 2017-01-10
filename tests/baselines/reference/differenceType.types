@@ -9,7 +9,7 @@ type C = 'c';
 >C : "c"
 
 type AB = A | B;
->AB : AB
+>AB : "a" | "b"
 >A : "a"
 >B : "b"
 
@@ -19,7 +19,7 @@ let nothing: A - 'a';
 
 let none: AB - 'a' | 'b';
 >none : never
->AB : AB
+>AB : "a" | "b"
 
 let over: 'a' - 'a' | 'b';
 >over : never
@@ -32,8 +32,8 @@ let partial: 'a' | 'b' - 'b' | 'd';
 
 let empty: AB - AB;
 >empty : never
->AB : AB
->AB : AB
+>AB : "a" | "b"
+>AB : "a" | "b"
 
 let nope: string - string;
 >nope : never
@@ -44,12 +44,18 @@ let nope2: 'a' | 'b' - string;
 let nope3: string - 'a' | 'b';
 >nope3 : string
 
-// TODO: Require a constraint of extends string?
-// or keyof X? Check the mapped type code to decide what to do
-function f<T,U> (t: T, u: U) {
->f : <T, U>(t: T, u: U) => T - U
+type Abcd = { a; b; c; d }
+>Abcd : Abcd
+>a : any
+>b : any
+>c : any
+>d : any
+
+function f<T,U extends keyof Abcd> (t: T, u: U) {
+>f : <T, U extends "a" | "b" | "d" | "c">(t: T, u: U) => T - U
 >T : T
 >U : U
+>Abcd : Abcd
 >t : T
 >T : T
 >u : U
@@ -67,7 +73,7 @@ function f<T,U> (t: T, u: U) {
 const x = f<'a' | 'b', 'b' | 'd'>('a', 'b');
 >x : "a"
 >f<'a' | 'b', 'b' | 'd'>('a', 'b') : "a"
->f : <T, U>(t: T, u: U) => T - U
+>f : <T, U extends "a" | "b" | "d" | "c">(t: T, u: U) => T - U
 >'a' : "a"
 >'b' : "b"
 

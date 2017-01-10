@@ -5,7 +5,7 @@ type C = 'c';
 type AB = A | B;
 type AC = A | C;
 type BN = { b: number };
-function f<T,U, V> (t: T, u: U, v: V) {
+function f<T extends 'x' | 'y' | 'z', U extends 'u', V extends string> (t: T, u: U, v: V) {
     let t_u: T - U;
     let t_v: T - V;
     let u_t: U - T;

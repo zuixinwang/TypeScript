@@ -13,9 +13,9 @@ let nope: string - string;
 let nope2: 'a' | 'b' - string;
 let nope3: string - 'a' | 'b';
 
-// TODO: Require a constraint of extends string?
-// or keyof X? Check the mapped type code to decide what to do
-function f<T,U> (t: T, u: U) {
+type Abcd = { a; b; c; d }
+
+function f<T,U extends keyof Abcd> (t: T, u: U) {
     let tsubu: T - U;
     return tsubu;
 }
@@ -33,8 +33,6 @@ var empty;
 var nope;
 var nope2;
 var nope3;
-// TODO: Require a constraint of extends string?
-// or keyof X? Check the mapped type code to decide what to do
 function f(t, u) {
     var tsubu;
     return tsubu;
