@@ -61,16 +61,30 @@ function f<T,U extends keyof Abcd> (t: T, u: U) {
 >u : Symbol(u, Decl(differenceType.ts, 16, 41))
 >U : Symbol(U, Decl(differenceType.ts, 16, 13))
 
+    let usubtkey: U - keyof T;
+>usubtkey : Symbol(usubtkey, Decl(differenceType.ts, 17, 7))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+>T : Symbol(T, Decl(differenceType.ts, 16, 11))
+
+    let usubukey: U - keyof U;
+>usubukey : Symbol(usubukey, Decl(differenceType.ts, 18, 7))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+>U : Symbol(U, Decl(differenceType.ts, 16, 13))
+
+    usubtkey = usubtkey;
+>usubtkey : Symbol(usubtkey, Decl(differenceType.ts, 17, 7))
+>usubtkey : Symbol(usubtkey, Decl(differenceType.ts, 17, 7))
+
     let tsubu: T - U;
->tsubu : Symbol(tsubu, Decl(differenceType.ts, 17, 7))
+>tsubu : Symbol(tsubu, Decl(differenceType.ts, 21, 7))
 >T : Symbol(T, Decl(differenceType.ts, 16, 11))
 >U : Symbol(U, Decl(differenceType.ts, 16, 13))
 
     return tsubu;
->tsubu : Symbol(tsubu, Decl(differenceType.ts, 17, 7))
+>tsubu : Symbol(tsubu, Decl(differenceType.ts, 21, 7))
 }
 
 const x = f<'a' | 'b', 'b' | 'd'>('a', 'b');
->x : Symbol(x, Decl(differenceType.ts, 21, 5))
+>x : Symbol(x, Decl(differenceType.ts, 25, 5))
 >f : Symbol(f, Decl(differenceType.ts, 14, 26))
 

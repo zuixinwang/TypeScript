@@ -61,6 +61,21 @@ function f<T,U extends keyof Abcd> (t: T, u: U) {
 >u : U
 >U : U
 
+    let usubtkey: U - keyof T;
+>usubtkey : U - keyof T
+>U : U
+>T : T
+
+    let usubukey: U - keyof U;
+>usubukey : U - keyof U
+>U : U
+>U : U
+
+    usubtkey = usubtkey;
+>usubtkey = usubtkey : U - keyof T
+>usubtkey : U - keyof T
+>usubtkey : U - keyof T
+
     let tsubu: T - U;
 >tsubu : T - U
 >T : T

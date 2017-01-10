@@ -12,3 +12,9 @@ function f<T, U extends 12, V extends Surprise, W extends 'a' & 'b', X extends n
     let bad5: Abc - number;
     return bad1;
 }
+function g<T,U extends keyof Abc> (t: T, u: U) {
+    let usubtkey: U - keyof T;
+    let usubukey: U - keyof U;
+    usubukey = usubtkey;
+    usubtkey = usubukey;
+}

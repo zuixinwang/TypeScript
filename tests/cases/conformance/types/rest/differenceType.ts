@@ -15,6 +15,10 @@ let nope3: string - 'a' | 'b';
 type Abcd = { a; b; c; d }
 
 function f<T,U extends keyof Abcd> (t: T, u: U) {
+    let usubtkey: U - keyof T;
+    let usubukey: U - keyof U;
+    usubtkey = usubtkey;
+
     let tsubu: T - U;
     return tsubu;
 }
