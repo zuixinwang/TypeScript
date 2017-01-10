@@ -28,10 +28,10 @@ function f<T,U, V> (t: T, u: U, v: V) {
     t = t_a; // error, T-a is missing 'a' if T contains 'a'
     t_a = u_a; // error
 
-    var ab_u: AB - U;
-    var ab_t: AB - T;
-    var a_t: A - T;
-    var ac_t: AC - T;
+    var ab_u: { a, b } - U;
+    var ab_t: { a, b } - T;
+    var a_t: { a } - T;
+    var ac_t: { a, c } - T;
 
     ab_t = ab_t; // ok
     a_t = ab_t; // ok
