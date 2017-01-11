@@ -15,5 +15,5 @@ var rest4: { };
 var {...rest4 } = nullAndUndefinedUnion;
 
 declare const unionWithIntersection: ({ n: number } & { s: string }) & undefined | null;
-var rest5: { n: number, s: string };
+var rest5: { n: number, s: string }; // TODO: Pretty sure this is wrong
 var {...rest5 } = unionWithIntersection;
