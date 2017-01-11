@@ -3137,52 +3137,58 @@ namespace ts {
             }
 
             // TODO: Perhaps some more simplifications should go here
-            // see notes for which ones might apply -- I'm not actually sure that union should distribute over the lhs
+            // see notes for which ones might apply
             source = filterType(source, t => !(t.flags & TypeFlags.Nullable));
-            if (source.flags & TypeFlags.Intersection) {
-                source = resolveObjectIntersection(source as IntersectionType);
-            }
-
             if (source.flags & TypeFlags.Never) {
                 return emptyObjectType;
             }
+
+            if (source.flags & TypeFlags.Intersection) {
+                source = resolveObjectIntersection(source as IntersectionType);
+            }
+            // TODO: Spread will behave similarly I think
             if (source.flags & TypeFlags.Union) {
                 return mapType(source, t => getDifferenceType(t, remove));
             }
-            if (source.flags & TypeFlags.Object && isStringLiteralUnion(remove)) {
-                const types = remove.flags & TypeFlags.StringLiteral ? [(remove as LiteralType).text] :
-                    map((remove as UnionType).types, t => (t as LiteralType).text);
-                const names = createMap<true>();
-                for (const name of types) {
-                    names[name] = true;
+
+            // other cases
+            if (source.flags & (TypeFlags.Object | TypeFlags.Primitive | TypeFlags.NonPrimitive) ) {
+                if( isStringLiteralUnion(remove)) {
+                    return createDifferenceType(source, remove);
                 }
-                const members = createMap<Symbol>();
-                for (const prop of getPropertiesOfType(source)) {
-                    const inNamesToRemove = prop.name in names;
-                    const isPrivate = getDeclarationModifierFlagsFromSymbol(prop) & (ModifierFlags.Private | ModifierFlags.Protected);
-                    const isSetOnlyAccessor = prop.flags & SymbolFlags.SetAccessor && !(prop.flags & SymbolFlags.GetAccessor);
-                    if (!inNamesToRemove && !isPrivate && !isClassMethod(prop) && !isSetOnlyAccessor) {
-                        members[prop.name] = prop;
-                    }
+                else if (remove.flags & TypeFlags.String) {
+                    return emptyObjectType;
                 }
-                const stringIndexInfo = getIndexInfoOfType(source, IndexKind.String);
-                const numberIndexInfo = getIndexInfoOfType(source, IndexKind.Number);
-                return createAnonymousType(undefined, members, emptyArray, emptyArray, stringIndexInfo, numberIndexInfo);
+                else if (remove.flags & TypeFlags.Never) {
+                    return source;
+                }
             }
 
-            // if either left or right is a type parameter, then return a difference type
-            if (source.flags & (TypeFlags.TypeParameter | TypeFlags.Index) || remove.flags & (TypeFlags.TypeParameter | TypeFlags.Index)) {
-                const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
-                difference.source = source;
-                difference.remove = remove;
-                return difference;
+            const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
+            difference.source = source;
+            difference.remove = remove;
+            return difference;
+        }
+
+        function createDifferenceType(source: Type, remove: Type) {
+            const literalsToRemove = remove.flags & TypeFlags.StringLiteral ? [(remove as LiteralType).text] :
+                map((remove as UnionType).types, t => (t as LiteralType).text);
+            const namesToRemove = createMap<true>();
+            for (const name of literalsToRemove) {
+                namesToRemove[name] = true;
             }
-            // if right is string then return never
-            if (remove.flags & TypeFlags.String) {
-                return emptyObjectType;
+            const members = createMap<Symbol>();
+            for (const prop of getPropertiesOfType(source)) {
+                const inNamesToRemove = prop.name in namesToRemove;
+                const isPrivate = getDeclarationModifierFlagsFromSymbol(prop) & (ModifierFlags.Private | ModifierFlags.Protected);
+                const isSetOnlyAccessor = prop.flags & SymbolFlags.SetAccessor && !(prop.flags & SymbolFlags.GetAccessor);
+                if (!inNamesToRemove && !isPrivate && !isClassMethod(prop) && !isSetOnlyAccessor) {
+                    members[prop.name] = prop;
+                }
             }
-            // otherwise just return source
-            return source;
+            const stringIndexInfo = getIndexInfoOfType(source, IndexKind.String);
+            const numberIndexInfo = getIndexInfoOfType(source, IndexKind.Number);
+            return createAnonymousType(undefined, members, emptyArray, emptyArray, stringIndexInfo, numberIndexInfo);
         }
 
         function resolveObjectIntersection(intersection: IntersectionType): IntersectionType | ResolvedType {
