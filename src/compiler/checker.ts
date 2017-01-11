@@ -3121,32 +3121,86 @@ namespace ts {
             return name.kind === SyntaxKind.ComputedPropertyName && !isStringOrNumericLiteral((<ComputedPropertyName>name).expression);
         }
 
-        function getRestType(source: Type, properties: PropertyName[], symbol: Symbol): Type {
+        function getRestType(source: Type, properties: PropertyName[]): Type {
+            const expensive = getUnionType(map(properties, p => createLiteralType(TypeFlags.StringLiteral, getTextOfPropertyName(p))));
+            return getDifferenceType(source, expensive);
+        }
+
+        function getDifferenceType(source: Type, remove: Type): Type {
+            if (source.flags & TypeFlags.Any || remove.flags & TypeFlags.Any) {
+                // TODO: If remove is any, then emptyObjectType or source could be correct instead of anyType
+                return anyType;
+            }
+            const id = getTypeListId([source, remove]);
+            if (id in differenceTypes) {
+                return differenceTypes[id];
+            }
+
+            // TODO: Perhaps some more simplifications should go here
+            // see notes for which ones might apply -- I'm not actually sure that union should distribute over the lhs
             source = filterType(source, t => !(t.flags & TypeFlags.Nullable));
+            if (source.flags & TypeFlags.Intersection) {
+                source = resolveObjectIntersection(source as IntersectionType);
+            }
+
             if (source.flags & TypeFlags.Never) {
                 return emptyObjectType;
             }
-
             if (source.flags & TypeFlags.Union) {
-                return mapType(source, t => getRestType(t, properties, symbol));
+                return mapType(source, t => getDifferenceType(t, remove));
+            }
+            if (source.flags & TypeFlags.Object && isStringLiteralUnion(remove)) {
+                const types = remove.flags & TypeFlags.StringLiteral ? [(remove as LiteralType).text] :
+                    map((remove as UnionType).types, t => (t as LiteralType).text);
+                const names = createMap<true>();
+                for (const name of types) {
+                    names[name] = true;
+                }
+                const members = createMap<Symbol>();
+                for (const prop of getPropertiesOfType(source)) {
+                    const inNamesToRemove = prop.name in names;
+                    const isPrivate = getDeclarationModifierFlagsFromSymbol(prop) & (ModifierFlags.Private | ModifierFlags.Protected);
+                    const isSetOnlyAccessor = prop.flags & SymbolFlags.SetAccessor && !(prop.flags & SymbolFlags.GetAccessor);
+                    if (!inNamesToRemove && !isPrivate && !isClassMethod(prop) && !isSetOnlyAccessor) {
+                        members[prop.name] = prop;
+                    }
+                }
+                const stringIndexInfo = getIndexInfoOfType(source, IndexKind.String);
+                const numberIndexInfo = getIndexInfoOfType(source, IndexKind.Number);
+                return createAnonymousType(undefined, members, emptyArray, emptyArray, stringIndexInfo, numberIndexInfo);
             }
 
+            // if either left or right is a type parameter, then return a difference type
+            if (source.flags & (TypeFlags.TypeParameter | TypeFlags.Index) || remove.flags & (TypeFlags.TypeParameter | TypeFlags.Index)) {
+                const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
+                difference.source = source;
+                difference.remove = remove;
+                return difference;
+            }
+            // if right is string then return never
+            if (remove.flags & TypeFlags.String) {
+                return emptyObjectType;
+            }
+            // otherwise just return source
+            return source;
+        }
+
+        function resolveObjectIntersection(intersection: IntersectionType): IntersectionType | ResolvedType {
+            if (find(intersection.types, t => !(t.flags & TypeFlags.Object))) {
+                return intersection;
+            }
             const members = createMap<Symbol>();
-            const names = createMap<true>();
-            for (const name of properties) {
-                names[getTextOfPropertyName(name)] = true;
+            for (const property of getPropertiesOfType(intersection)) {
+                members[property.name] = property;
             }
-            for (const prop of getPropertiesOfType(source)) {
-                const inNamesToRemove = prop.name in names;
-                const isPrivate = getDeclarationModifierFlagsFromSymbol(prop) & (ModifierFlags.Private | ModifierFlags.Protected);
-                const isSetOnlyAccessor = prop.flags & SymbolFlags.SetAccessor && !(prop.flags & SymbolFlags.GetAccessor);
-                if (!inNamesToRemove && !isPrivate && !isClassMethod(prop) && !isSetOnlyAccessor) {
-                    members[prop.name] = prop;
-                }
-            }
-            const stringIndexInfo = getIndexInfoOfType(source, IndexKind.String);
-            const numberIndexInfo = getIndexInfoOfType(source, IndexKind.Number);
-            return createAnonymousType(symbol, members, emptyArray, emptyArray, stringIndexInfo, numberIndexInfo);
+            const stringIndex = getIndexInfoOfType(intersection, IndexKind.String);
+            const numberIndex = getIndexInfoOfType(intersection, IndexKind.Number);
+            return createAnonymousType(undefined, members, emptyArray, emptyArray, stringIndex, numberIndex);
+        }
+
+        function isStringLiteralUnion(type: Type) {
+            return type.flags & TypeFlags.StringLiteral ||
+                type.flags & TypeFlags.Union && every((type as UnionType).types, t => !!(t.flags & TypeFlags.StringLiteral));
         }
 
         /** Return the inferred type for a binding element */
@@ -3180,7 +3234,10 @@ namespace ts {
                             literalMembers.push(element.propertyName || element.name as Identifier);
                         }
                     }
-                    type = getRestType(parentType, literalMembers, declaration.symbol);
+                    type = getRestType(parentType, literalMembers);
+                    if (type.flags & TypeFlags.Object) {
+                        type.symbol = declaration.symbol;
+                    }
                 }
                 else {
                     // Use explicitly specified property name ({ p: xxx } form), or otherwise the implied name ({ p } form)
@@ -6053,46 +6110,6 @@ namespace ts {
                 links.resolvedType = getDifferenceType(getTypeFromTypeNode(node.source), getTypeFromTypeNode(node.remove));
             }
             return links.resolvedType;
-        }
-
-        function getDifferenceType(source: Type, remove: Type) {
-            //TOOD: Handle any here (if source is any, the result is any; if remove is any, the result is never. or any?!)
-            if (source.flags & TypeFlags.Any || remove.flags & TypeFlags.Any) {
-                return anyType;
-            }
-            const id = getTypeListId([source, remove]);
-            if (id in differenceTypes) {
-                return differenceTypes[id];
-            }
-            // TODO: Simplifications first (intersection distributes over difference)
-            // if left and right are both string literal union, then return the removal of right's contents from left's
-            //   TODO: Probably should delay or paper over this check, but whatever. I'll write it for now.
-            if (isStringLiteralUnion(source) && remove.flags & TypeFlags.StringLiteral) {
-                return filterType(source, t => t !== remove);
-            }
-            if (isStringLiteralUnion(source) && isStringLiteralUnion(remove)) {
-                return filterType(source, t => (remove as UnionType).types.indexOf(t) === -1);
-            }
-
-            // if either left or right is a type parameter, then return a difference type
-            // TODO: Add tests with keyof T
-            if (source.flags & (TypeFlags.TypeParameter | TypeFlags.Index) || remove.flags & (TypeFlags.TypeParameter | TypeFlags.Index)) {
-                const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
-                difference.source = source;
-                difference.remove = remove;
-                return difference;
-            }
-            // if right is string then return never
-            if ((source.flags & TypeFlags.StringLike || isStringLiteralUnion(source)) && remove.flags & TypeFlags.String) {
-                return neverType;
-            }
-            // otherwise just return source
-            return source;
-        }
-
-        function isStringLiteralUnion(type: Type) {
-            return type.flags & TypeFlags.StringLiteral ||
-                type.flags & TypeFlags.Union && every((type as UnionType).types, t => !!(t.flags & TypeFlags.StringLiteral));
         }
 
         function getIndexTypeForGenericType(type: TypeVariable | UnionOrIntersectionType) {
@@ -14763,7 +14780,10 @@ namespace ts {
                         nonRestNames.push(allProperties[i].name);
                     }
                 }
-                const type = getRestType(objectLiteralType, nonRestNames, objectLiteralType.symbol);
+                const type = getRestType(objectLiteralType, nonRestNames);
+                if (type.flags & TypeFlags.Object) {
+                    type.symbol = objectLiteralType.symbol;
+                }
                 return checkDestructuringAssignment(property.expression, type);
             }
             else {
