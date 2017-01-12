@@ -8,38 +8,38 @@ type Ab = { a; b };
 >a : any
 >b : any
 
-let nothing: A - 'a';
+let nothing: rest(A, 'a');
 >nothing : {}
 >A : A
 
-let none: Ab - 'a' | 'b';
+let none: rest(Ab, 'a' | 'b');
 >none : {}
 >Ab : Ab
 
-let over: A - 'a' | 'b';
+let over: rest(A, 'a' | 'b');
 >over : {}
 >A : A
 
-let under: Ab - 'a';
+let under: rest(Ab, 'a');
 >under : { b: any; }
 >Ab : Ab
 
-let partial: Ab - 'b' | 'd';
+let partial: rest(Ab, 'b' | 'd');
 >partial : { a: any; }
 >Ab : Ab
 
-let empty: Ab - 'a' | 'b';
+let empty: rest(Ab, 'a' | 'b');
 >empty : {}
 >Ab : Ab
 
-let nope: {} - string;
+let nope: rest({}, string);
 >nope : {}
 
-let nope2: Ab - string;
+let nope2: rest(Ab, string);
 >nope2 : {}
 >Ab : Ab
 
-let nope3: {} - 'a' | 'b';
+let nope3: rest({}, 'a' | 'b');
 >nope3 : {}
 
 type Abcd = { a; b; c; d }
@@ -49,67 +49,38 @@ type Abcd = { a; b; c; d }
 >c : any
 >d : any
 
-function f<T,U extends keyof Abcd, V>(t: T, u: U, v: V): T - U {
->f : <T, U extends "a" | "b" | "d" | "c", V>(t: T, u: U, v: V) => T - U
+function f<T>(t: T) {
+>f : <T>(t: T) => rest(T, "b" | "d")
 >T : T
->U : U
->Abcd : Abcd
->V : V
 >t : T
 >T : T
->u : U
->U : U
->v : V
->V : V
->T : T
->U : U
 
-    let vsubtkey: V - keyof T;
->vsubtkey : V - keyof T
->V : V
+    let tsubu: rest(T, 'b' | 'd');
+>tsubu : rest(T, "b" | "d")
 >T : T
-
-    vsubtkey = vsubtkey;
->vsubtkey = vsubtkey : V - keyof T
->vsubtkey : V - keyof T
->vsubtkey : V - keyof T
-
-    let tsubu: T - U;
->tsubu : T - U
->T : T
->U : U
 
     return tsubu;
->tsubu : T - U
+>tsubu : rest(T, "b" | "d")
 }
 
-const x = f<Ab, 'b' | 'd', A>({ a: 1, b: 2 }, 'b', { a: 3 })
->x : { a: any; }
->f<Ab, 'b' | 'd', A>({ a: 1, b: 2 }, 'b', { a: 3 }) : { a: any; }
->f : <T, U extends "a" | "b" | "d" | "c", V>(t: T, u: U, v: V) => T - U
+const justA = f<Ab>({ a: 1, b: 2 })
+>justA : { a: any; }
+>f<Ab>({ a: 1, b: 2 }) : { a: any; }
+>f : <T>(t: T) => rest(T, "b" | "d")
 >Ab : Ab
->A : A
 >{ a: 1, b: 2 } : { a: number; b: number; }
 >a : number
 >1 : 1
 >b : number
 >2 : 2
->'b' : "b"
->{ a: 3 } : { a: number; }
->a : number
->3 : 3
 
-const y = f({ a: 1, b: 2 }, 'b', { a: 3 })
->y : { a: number; }
->f({ a: 1, b: 2 }, 'b', { a: 3 }) : { a: number; }
->f : <T, U extends "a" | "b" | "d" | "c", V>(t: T, u: U, v: V) => T - U
+const inferred = f({ a: 1, b: 2 })
+>inferred : { a: number; }
+>f({ a: 1, b: 2 }) : { a: number; }
+>f : <T>(t: T) => rest(T, "b" | "d")
 >{ a: 1, b: 2 } : { a: number; b: number; }
 >a : number
 >1 : 1
 >b : number
 >2 : 2
->'b' : "b"
->{ a: 3 } : { a: number; }
->a : number
->3 : 3
 

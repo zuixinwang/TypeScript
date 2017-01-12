@@ -1,28 +1,25 @@
 //// [differenceType.ts]
 type A = { a };
 type Ab = { a; b };
-let nothing: A - 'a';
-let none: Ab - 'a' | 'b';
-let over: A - 'a' | 'b';
-let under: Ab - 'a';
-let partial: Ab - 'b' | 'd';
-let empty: Ab - 'a' | 'b';
-let nope: {} - string;
-let nope2: Ab - string;
-let nope3: {} - 'a' | 'b';
+let nothing: rest(A, 'a');
+let none: rest(Ab, 'a' | 'b');
+let over: rest(A, 'a' | 'b');
+let under: rest(Ab, 'a');
+let partial: rest(Ab, 'b' | 'd');
+let empty: rest(Ab, 'a' | 'b');
+let nope: rest({}, string);
+let nope2: rest(Ab, string);
+let nope3: rest({}, 'a' | 'b');
 
 type Abcd = { a; b; c; d }
 
-function f<T,U extends keyof Abcd, V>(t: T, u: U, v: V): T - U {
-    let vsubtkey: V - keyof T;
-    vsubtkey = vsubtkey;
-
-    let tsubu: T - U;
+function f<T>(t: T) {
+    let tsubu: rest(T, 'b' | 'd');
     return tsubu;
 }
 
-const x = f<Ab, 'b' | 'd', A>({ a: 1, b: 2 }, 'b', { a: 3 })
-const y = f({ a: 1, b: 2 }, 'b', { a: 3 })
+const justA = f<Ab>({ a: 1, b: 2 })
+const inferred = f({ a: 1, b: 2 })
 
 
 //// [differenceType.js]
@@ -35,11 +32,9 @@ var empty;
 var nope;
 var nope2;
 var nope3;
-function f(t, u, v) {
-    var vsubtkey;
-    vsubtkey = vsubtkey;
+function f(t) {
     var tsubu;
     return tsubu;
 }
-var x = f({ a: 1, b: 2 }, 'b', { a: 3 });
-var y = f({ a: 1, b: 2 }, 'b', { a: 3 });
+var justA = f({ a: 1, b: 2 });
+var inferred = f({ a: 1, b: 2 });
