@@ -1174,10 +1174,12 @@ namespace ts {
             writeLine();
         }
 
-        function emitDifferenceType(node: DifferenceTypeNode) {
+        function emitRestType(node: RestTypeNode) {
+            write("rest(");
             emitType(node.source);
-            write("-");
+            write(",");
             emitType(node.remove);
+            write(")");
             writeLine();
         }
 
@@ -1768,8 +1770,8 @@ namespace ts {
                 case SyntaxKind.GetAccessor:
                 case SyntaxKind.SetAccessor:
                     return emitAccessorDeclaration(<AccessorDeclaration>node);
-                case SyntaxKind.DifferenceType:
-                    return emitDifferenceType(node as DifferenceTypeNode);
+                case SyntaxKind.RestType:
+                    return emitRestType(node as RestTypeNode);
                 case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.PropertySignature:
                     return emitPropertyDeclaration(<PropertyDeclaration>node);

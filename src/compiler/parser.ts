@@ -135,9 +135,9 @@ namespace ts {
             case SyntaxKind.UnionType:
             case SyntaxKind.IntersectionType:
                 return visitNodes(cbNodes, (<UnionOrIntersectionTypeNode>node).types);
-            case SyntaxKind.DifferenceType:
-                return visitNode(cbNode, (node as DifferenceTypeNode).source) ||
-                    visitNode(cbNode, (node as DifferenceTypeNode).remove);
+            case SyntaxKind.RestType:
+                return visitNode(cbNode, (node as RestTypeNode).source) ||
+                    visitNode(cbNode, (node as RestTypeNode).remove);
             case SyntaxKind.ParenthesizedType:
             case SyntaxKind.TypeOperator:
                 return visitNode(cbNode, (<ParenthesizedTypeNode | TypeOperatorNode>node).type);
@@ -2623,7 +2623,7 @@ namespace ts {
                 case SyntaxKind.KeyOfKeyword:
                     return parseTypeOperator(SyntaxKind.KeyOfKeyword);
             }
-            return parseArrayTypeOrHigher();
+            return parseRestTypeOrHigher();
         }
 
         function parseUnionOrIntersectionType(kind: SyntaxKind, parseConstituentType: () => TypeNode, operator: SyntaxKind): TypeNode {
@@ -2642,21 +2642,22 @@ namespace ts {
             return type;
         }
 
-        function parseDifferenceTypeOrHigher(): TypeNode {
-            let source = parseUnionTypeOrHigher();
-            // create left-associative difference types as long as the parser sees `-`
-            while (token() === SyntaxKind.MinusToken) {
-                parseTokenNode();
-                // not sure which parsing function to call here maybe just parseType? Or parseTypeOperatorOrHigher?
-                source = makeDifferenceType(source, parseType());
+        function parseRestTypeOrHigher() {
+            switch (token()) {
+                case SyntaxKind.RestKeyword:
+                    return parseRestType();
             }
-            return source;
+            return parseArrayTypeOrHigher();
         }
 
-        function makeDifferenceType(source: TypeNode, remove: TypeNode) {
-            const node = createNode(SyntaxKind.DifferenceType, source.pos) as DifferenceTypeNode;
-            node.source = source;
-            node.remove = remove;
+        function parseRestType(): TypeNode {
+            const node = createNode(SyntaxKind.RestType) as RestTypeNode;
+            parseExpected(SyntaxKind.RestKeyword);
+            parseExpected(SyntaxKind.OpenParenToken);
+            node.source = parseType();
+            parseExpected(SyntaxKind.CommaToken);
+            node.remove = parseType();
+            parseExpected(SyntaxKind.CloseParenToken);
             return finishNode(node);
         }
 
@@ -2757,7 +2758,7 @@ namespace ts {
             if (token() === SyntaxKind.NewKeyword) {
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
-            return parseDifferenceTypeOrHigher();
+            return parseUnionTypeOrHigher();
         }
 
         function parseTypeAnnotation(): TypeNode {

@@ -124,7 +124,7 @@ namespace ts {
         const tupleTypes: GenericType[] = [];
         const unionTypes = createMap<UnionType>();
         const intersectionTypes = createMap<IntersectionType>();
-        const differenceTypes = createMap<DifferenceType>();
+        const restTypes = createMap<RestType>();
         const stringLiteralTypes = createMap<LiteralType>();
         const numericLiteralTypes = createMap<LiteralType>();
         const indexedAccessTypes = createMap<IndexedAccessType>();
@@ -2322,8 +2322,8 @@ namespace ts {
                     else if (type.flags & TypeFlags.UnionOrIntersection) {
                         writeUnionOrIntersectionType(<UnionOrIntersectionType>type, nextFlags);
                     }
-                    else if (type.flags & TypeFlags.Difference) {
-                        writeDifferenceType(type as DifferenceType, nextFlags);
+                    else if (type.flags & TypeFlags.Rest) {
+                        writeRestType(type as RestType);
                     }
                     else if (getObjectFlags(type) & (ObjectFlags.Anonymous | ObjectFlags.Mapped)) {
                         writeAnonymousType(<ObjectType>type, nextFlags);
@@ -2440,14 +2440,14 @@ namespace ts {
                     }
                 }
 
-                function writeDifferenceType(type: DifferenceType, flags: TypeFormatFlags) {
-                    if (flags & TypeFormatFlags.InElementType) {
-                        writePunctuation(writer, SyntaxKind.OpenParenToken);
-                    }
-                    writeTypeList([type.source, type.remove], SyntaxKind.MinusToken);
-                    if (flags & TypeFormatFlags.InElementType) {
-                        writePunctuation(writer, SyntaxKind.CloseParenToken);
-                    }
+                function writeRestType(type: RestType) {
+                    writer.writeKeyword("rest");
+                    writePunctuation(writer, SyntaxKind.OpenParenToken);
+                    writeType(type.source, TypeFormatFlags.None);
+                    writePunctuation(writer, SyntaxKind.CommaToken);
+                    writeSpace(writer);
+                    writeType(type.remove, TypeFormatFlags.None);
+                    writePunctuation(writer, SyntaxKind.CloseParenToken);
                 }
 
                 function writeAnonymousType(type: ObjectType, flags: TypeFormatFlags) {
@@ -3121,19 +3121,19 @@ namespace ts {
             return name.kind === SyntaxKind.ComputedPropertyName && !isStringOrNumericLiteral((<ComputedPropertyName>name).expression);
         }
 
-        function getRestType(source: Type, properties: PropertyName[]): Type {
+        function getRestTypeFromProperties(source: Type, properties: PropertyName[]): Type {
             const expensive = getUnionType(map(properties, p => createLiteralType(TypeFlags.StringLiteral, getTextOfPropertyName(p))));
-            return getDifferenceType(source, expensive);
+            return getRestType(source, expensive);
         }
 
-        function getDifferenceType(source: Type, remove: Type): Type {
+        function getRestType(source: Type, remove: Type): Type {
             if (source.flags & TypeFlags.Any || remove.flags & TypeFlags.Any) {
                 // TODO: If remove is any, then emptyObjectType or source could be correct instead of anyType
                 return anyType;
             }
             const id = getTypeListId([source, remove]);
-            if (id in differenceTypes) {
-                return differenceTypes[id];
+            if (id in restTypes) {
+                return restTypes[id];
             }
 
             // TODO: Perhaps some more simplifications should go here
@@ -3148,7 +3148,7 @@ namespace ts {
             }
             // TODO: Spread will behave similarly I think
             if (source.flags & TypeFlags.Union) {
-                return mapType(source, t => getDifferenceType(t, remove));
+                return mapType(source, t => getRestType(t, remove));
             }
 
             // other cases
@@ -3164,7 +3164,7 @@ namespace ts {
                 }
             }
 
-            const difference = differenceTypes[id] = createType(TypeFlags.Difference) as DifferenceType;
+            const difference = restTypes[id] = createType(TypeFlags.Rest) as RestType;
             difference.source = source;
             difference.remove = remove;
             return difference;
@@ -3240,7 +3240,7 @@ namespace ts {
                             literalMembers.push(element.propertyName || element.name as Identifier);
                         }
                     }
-                    type = getRestType(parentType, literalMembers);
+                    type = getRestTypeFromProperties(parentType, literalMembers);
                     if (type.flags & TypeFlags.Object) {
                         type.symbol = declaration.symbol;
                     }
@@ -4905,8 +4905,8 @@ namespace ts {
             }
         }
 
-        function getApparentTypeOfDifference(type: DifferenceType) {
-            return getDifferenceType(getApparentType(type.source), getApparentType(type.remove));
+        function getApparentTypeOfRest(type: RestType) {
+            return getRestType(getApparentType(type.source), getApparentType(type.remove));
         }
 
         /**
@@ -4916,7 +4916,7 @@ namespace ts {
          */
         function getApparentType(type: Type): Type {
             const t = type.flags & TypeFlags.TypeVariable ? getBaseConstraintOfTypeVariable(<TypeVariable>type) || emptyObjectType :
-                type.flags & TypeFlags.Difference ? getApparentTypeOfDifference(type as DifferenceType) : type;
+                type.flags & TypeFlags.Rest ? getApparentTypeOfRest(type as RestType) : type;
             return t.flags & TypeFlags.StringLike ? globalStringType :
                 t.flags & TypeFlags.NumberLike ? globalNumberType :
                 t.flags & TypeFlags.BooleanLike ? globalBooleanType :
@@ -6110,10 +6110,10 @@ namespace ts {
             return links.resolvedType;
         }
 
-        function getTypeFromDifferenceTypeNode(node: DifferenceTypeNode): Type {
+        function getTypeFromRestTypeNode(node: RestTypeNode): Type {
             const links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = getDifferenceType(getTypeFromTypeNode(node.source), getTypeFromTypeNode(node.remove));
+                links.resolvedType = getRestType(getTypeFromTypeNode(node.source), getTypeFromTypeNode(node.remove));
             }
             return links.resolvedType;
         }
@@ -6534,8 +6534,8 @@ namespace ts {
                 case SyntaxKind.UnionType:
                 case SyntaxKind.JSDocUnionType:
                     return getTypeFromUnionTypeNode(<UnionTypeNode>node);
-                case SyntaxKind.DifferenceType:
-                    return getTypeFromDifferenceTypeNode(node as DifferenceTypeNode);
+                case SyntaxKind.RestType:
+                    return getTypeFromRestTypeNode(node as RestTypeNode);
                 case SyntaxKind.IntersectionType:
                     return getTypeFromIntersectionTypeNode(<IntersectionTypeNode>node);
                 case SyntaxKind.ParenthesizedType:
@@ -6913,9 +6913,9 @@ namespace ts {
             if (type.flags & TypeFlags.Intersection) {
                 return getIntersectionType(instantiateTypes((<IntersectionType>type).types, mapper), type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
             }
-            if (type.flags & TypeFlags.Difference) {
-                const difference = type as DifferenceType;
-                return getDifferenceType(instantiateType(difference.source, mapper), instantiateType(difference.remove, mapper));
+            if (type.flags & TypeFlags.Rest) {
+                const difference = type as RestType;
+                return getRestType(instantiateType(difference.source, mapper), instantiateType(difference.remove, mapper));
             }
             if (type.flags & TypeFlags.Index) {
                 return getIndexType(instantiateType((<IndexType>type).type, mapper));
@@ -7552,13 +7552,13 @@ namespace ts {
                         }
                     }
                 }
-                else if (target.flags & TypeFlags.Difference) {
-                    if (source.flags & TypeFlags.TypeParameter && (target as DifferenceType).source === source) {
+                else if (target.flags & TypeFlags.Rest) {
+                    if (source.flags & TypeFlags.TypeParameter && (target as RestType).source === source) {
                         return Ternary.True;
                     }
-                    else if (source.flags & TypeFlags.Difference) {
-                        const srcDiff = source as DifferenceType;
-                        const tgtDiff = target as DifferenceType;
+                    else if (source.flags & TypeFlags.Rest) {
+                        const srcDiff = source as RestType;
+                        const tgtDiff = target as RestType;
                         if ((result = isRelatedTo(srcDiff.source, tgtDiff.source, reportErrors)) === Ternary.False) {
                             return result;
                         }
@@ -14786,7 +14786,7 @@ namespace ts {
                         nonRestNames.push(allProperties[i].name);
                     }
                 }
-                const type = getRestType(objectLiteralType, nonRestNames);
+                const type = getRestTypeFromProperties(objectLiteralType, nonRestNames);
                 if (type.flags & TypeFlags.Object) {
                     type.symbol = objectLiteralType.symbol;
                 }
@@ -16153,16 +16153,10 @@ namespace ts {
             forEach(node.types, checkSourceElement);
         }
 
-        function checkDifferenceType(node: DifferenceTypeNode) {
+        function checkRestType(node: RestTypeNode) {
             const remove = getTypeFromTypeNode(node.remove);
-            if (!(remove.flags & (TypeFlags.Index | TypeFlags.TypeParameter | TypeFlags.String) || isStringLiteralUnion(remove))) {
-                error(node.remove, Diagnostics.The_right_side_of_a_difference_type_must_be_a_string_or_string_literal_union_or_a_type_parameter_constrained_to_one_of_these);
-            }
-            if (remove.flags & TypeFlags.TypeParameter) {
-                const constraint = (remove as TypeParameter).constraint;
-                if (constraint && !(constraint.flags & (TypeFlags.Index | TypeFlags.String) || isStringLiteralUnion(constraint))) {
-                    error(node.remove, Diagnostics.The_right_side_of_a_difference_type_must_be_a_string_or_string_literal_union_or_a_type_parameter_constrained_to_one_of_these);
-                }
+            if (!(remove.flags & (TypeFlags.Never | TypeFlags.String) || isStringLiteralUnion(remove))) {
+                error(node.remove, Diagnostics.The_right_side_of_a_rest_type_must_be_a_string_or_string_literal_union);
             }
             checkSourceElement(node.source);
             checkSourceElement(node.remove);
@@ -19507,8 +19501,8 @@ namespace ts {
                 case SyntaxKind.UnionType:
                 case SyntaxKind.IntersectionType:
                     return checkUnionOrIntersectionType(<UnionOrIntersectionTypeNode>node);
-                case SyntaxKind.DifferenceType:
-                    return checkDifferenceType(node as DifferenceTypeNode);
+                case SyntaxKind.RestType:
+                    return checkRestType(node as RestTypeNode);
                 case SyntaxKind.ParenthesizedType:
                 case SyntaxKind.TypeOperator:
                     return checkSourceElement((<ParenthesizedTypeNode | TypeOperatorNode>node).type);

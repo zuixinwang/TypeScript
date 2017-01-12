@@ -2035,7 +2035,7 @@
         "category": "Error",
         "code": 2704
     },
-    "The right side of a difference type must be a string or string literal union, or a type parameter constrained to one of these.": {
+    "The right side of a rest type must be a string or string literal union.": {
         "category": "Error",
         "code": 2705
     },

@@ -174,6 +174,7 @@ namespace ts {
         NeverKeyword,
         ReadonlyKeyword,
         RequireKeyword,
+        RestKeyword,
         NumberKeyword,
         ObjectKeyword,
         SetKeyword,
@@ -216,8 +217,8 @@ namespace ts {
         TupleType,
         UnionType,
         IntersectionType,
-        DifferenceType,
         ParenthesizedType,
+        RestType,
         ThisType,
         TypeOperator,
         IndexedAccessType,
@@ -887,8 +888,8 @@ namespace ts {
         kind: SyntaxKind.IntersectionType;
     }
 
-    export interface DifferenceTypeNode extends TypeNode {
-        kind: SyntaxKind.DifferenceType;
+    export interface RestTypeNode extends TypeNode {
+        kind: SyntaxKind.RestType;
         source: TypeNode;
         remove: TypeNode;
     }
@@ -2795,7 +2796,7 @@ namespace ts {
         /* @internal */
         ContainsAnyFunctionType = 1 << 23,  // Type is or contains object literal type
         NonPrimitive            = 1 << 24,  // intrinsic object type
-        Difference              = 1 << 25,  // (keyof T - keyof U)
+        Rest                    = 1 << 25,  // rest(T, U)
 
         /* @internal */
         Nullable = Undefined | Null,
@@ -2940,9 +2941,9 @@ namespace ts {
 
     export type StructuredType = ObjectType | UnionType | IntersectionType;
 
-    export interface DifferenceType extends Type {
-        source: Type; // both should be index type (keyof T), string or string literal union
-        remove: Type; // or a type parameter constrained to one of those 3 types
+    export interface RestType extends Type {
+        source: Type;
+        remove: Type; // should be a string, string literal union or never
     }
 
     /* @internal */
