@@ -2932,6 +2932,8 @@ namespace ts {
         /* @internal */
         resolvedIndexType: IndexType;
         /* @internal */
+        resolvedBaseConstraint: Type;
+        /* @internal */
         couldContainTypeVariables: boolean;
     }
 
@@ -2996,7 +2998,7 @@ namespace ts {
 
     export interface TypeVariable extends Type {
         /* @internal */
-        resolvedApparentType: Type;
+        resolvedBaseConstraint: Type;
         /* @internal */
         resolvedIndexType: IndexType;
     }

@@ -1168,7 +1168,7 @@ namespace ts {
         // type/namespace side of another symbol. Consider this example:
         //
         //   declare module graphics {
-        //       interface Point {
+        //       interface Point {
         //           x: number;
         //           y: number;
         //       }
@@ -4732,10 +4732,6 @@ namespace ts {
             return type.modifiersType;
         }
 
-        function getErasedTemplateTypeFromMappedType(type: MappedType) {
-            return instantiateType(getTemplateTypeFromMappedType(type), createTypeEraser([getTypeParameterFromMappedType(type)]));
-        }
-
         function isGenericMappedType(type: Type) {
             if (getObjectFlags(type) & ObjectFlags.Mapped) {
                 const constraintType = getConstraintTypeFromMappedType(<MappedType>type);
@@ -4823,15 +4819,15 @@ namespace ts {
                 getPropertiesOfObjectType(type);
         }
 
-        function getConstraintOfTypeVariable(type: TypeVariable): Type {
-            return type.flags & TypeFlags.TypeParameter ? getConstraintOfTypeParameter(<TypeParameter>type) : getBaseConstraintOfTypeVariable(type);
+        function getConstraintOfType(type: TypeVariable | UnionOrIntersectionType): Type {
+            return type.flags & TypeFlags.TypeParameter ? getConstraintOfTypeParameter(<TypeParameter>type) : getBaseConstraintOfType(type);
         }
 
         function getConstraintOfTypeParameter(typeParameter: TypeParameter): Type {
             return hasNonCircularBaseConstraint(typeParameter) ? getConstraintFromTypeParameter(typeParameter) : undefined;
         }
 
-        function getBaseConstraintOfTypeVariable(type: TypeVariable): Type {
+        function getBaseConstraintOfType(type: TypeVariable | UnionOrIntersectionType): Type {
             const constraint = getResolvedBaseConstraint(type);
             return constraint !== noConstraintType && constraint !== circularConstraintType ? constraint : undefined;
         }
@@ -4845,15 +4841,15 @@ namespace ts {
          * type variable has no constraint, and the circularConstraintType singleton is returned if the constraint
          * circularly references the type variable.
          */
-        function getResolvedBaseConstraint(type: TypeVariable): Type {
+        function getResolvedBaseConstraint(type: TypeVariable | UnionOrIntersectionType): Type {
             let typeStack: Type[];
             let circular: boolean;
-            if (!type.resolvedApparentType) {
+            if (!type.resolvedBaseConstraint) {
                 typeStack = [];
                 const constraint = getBaseConstraint(type);
-                type.resolvedApparentType = circular ? circularConstraintType : getTypeWithThisArgument(constraint || noConstraintType, type);
+                type.resolvedBaseConstraint = circular ? circularConstraintType : getTypeWithThisArgument(constraint || noConstraintType, type);
             }
-            return type.resolvedApparentType;
+            return type.resolvedBaseConstraint;
 
             function getBaseConstraint(t: Type): Type {
                 if (contains(typeStack, t)) {
@@ -4908,7 +4904,7 @@ namespace ts {
          * type itself. Note that the apparent type of a union type is the union type itself.
          */
         function getApparentType(type: Type): Type {
-            const t = type.flags & TypeFlags.TypeVariable ? getBaseConstraintOfTypeVariable(<TypeVariable>type) || emptyObjectType :
+            const t = type.flags & TypeFlags.TypeVariable ? getBaseConstraintOfType(<TypeVariable>type) || emptyObjectType :
                 type.flags & TypeFlags.Rest ? getApparentTypeOfRest(type as RestType) : type;
             return t.flags & TypeFlags.StringLike ? globalStringType :
                 t.flags & TypeFlags.NumberLike ? globalNumberType :
@@ -7261,8 +7257,7 @@ namespace ts {
             if (source.flags & TypeFlags.Enum && target.flags & TypeFlags.Enum && isEnumTypeRelatedTo(<EnumType>source, <EnumType>target, errorReporter)) return true;
             if (source.flags & TypeFlags.Undefined && (!strictNullChecks || target.flags & (TypeFlags.Undefined | TypeFlags.Void))) return true;
             if (source.flags & TypeFlags.Null && (!strictNullChecks || target.flags & TypeFlags.Null)) return true;
-            if (source.flags & TypeFlags.Object && target === nonPrimitiveType) return true;
-            if (source.flags & TypeFlags.Primitive && target === nonPrimitiveType) return false;
+            if (source.flags & TypeFlags.Object && target.flags & TypeFlags.NonPrimitive) return true;
             if (relation === assignableRelation || relation === comparableRelation) {
                 if (source.flags & TypeFlags.Any) return true;
                 if ((source.flags & TypeFlags.Number | source.flags & TypeFlags.NumberLiteral) && target.flags & TypeFlags.EnumLike) return true;
@@ -7498,16 +7493,6 @@ namespace ts {
                             }
                         }
                     }
-                    else {
-                        // Given a type parameter K with a constraint keyof T, a type S is
-                        // assignable to K if S is assignable to keyof T.
-                        const constraint = getConstraintOfTypeParameter(<TypeParameter>target);
-                        if (constraint && constraint.flags & TypeFlags.Index) {
-                            if (result = isRelatedTo(source, constraint, reportErrors)) {
-                                return result;
-                            }
-                        }
-                    }
                 }
                 else if (target.flags & TypeFlags.Index) {
                     // A keyof S is related to a keyof T if T is related to S.
@@ -7516,14 +7501,12 @@ namespace ts {
                             return result;
                         }
                     }
-                    // Given a type variable T with a constraint C, a type S is assignable to
-                    // keyof T if S is assignable to keyof C.
-                    if ((<IndexType>target).type.flags & TypeFlags.TypeVariable) {
-                        const constraint = getConstraintOfTypeVariable(<TypeVariable>(<IndexType>target).type);
-                        if (constraint) {
-                            if (result = isRelatedTo(source, getIndexType(constraint), reportErrors)) {
-                                return result;
-                            }
+                    // A type S is assignable to keyof T if S is assignable to keyof C, where C is the
+                    // constraint of T.
+                    const constraint = getConstraintOfType((<IndexType>target).type);
+                    if (constraint) {
+                        if (result = isRelatedTo(source, getIndexType(constraint), reportErrors)) {
+                            return result;
                         }
                     }
                 }
@@ -7537,7 +7520,7 @@ namespace ts {
                     }
                     // A type S is related to a type T[K] if S is related to A[K], where K is string-like and
                     // A is the apparent type of S.
-                    const constraint = getBaseConstraintOfTypeVariable(<IndexedAccessType>target);
+                    const constraint = getBaseConstraintOfType(<IndexedAccessType>target);
                     if (constraint) {
                         if (result = isRelatedTo(source, constraint, reportErrors)) {
                             errorInfo = saveErrorInfo;
@@ -7573,26 +7556,26 @@ namespace ts {
                     }
                     else {
                         let constraint = getConstraintOfTypeParameter(<TypeParameter>source);
-
-                        if (!constraint || constraint.flags & TypeFlags.Any) {
-                            constraint = emptyObjectType;
-                        }
-
-                        // The constraint may need to be further instantiated with its 'this' type.
-                        constraint = getTypeWithThisArgument(constraint, source);
-
-                        // Report constraint errors only if the constraint is not the empty object type
-                        const reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
-                        if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
-                            errorInfo = saveErrorInfo;
-                            return result;
+                        // A type parameter with no constraint is not related to the non-primitive object type.
+                        if (constraint || !(target.flags & TypeFlags.NonPrimitive)) {
+                            if (!constraint || constraint.flags & TypeFlags.Any) {
+                                constraint = emptyObjectType;
+                            }
+                            // The constraint may need to be further instantiated with its 'this' type.
+                            constraint = getTypeWithThisArgument(constraint, source);
+                            // Report constraint errors only if the constraint is not the empty object type
+                            const reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
+                            if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
+                                errorInfo = saveErrorInfo;
+                                return result;
+                            }
                         }
                     }
                 }
                 else if (source.flags & TypeFlags.IndexedAccess) {
                     // A type S[K] is related to a type T if A[K] is related to T, where K is string-like and
                     // A is the apparent type of S.
-                    const constraint = getBaseConstraintOfTypeVariable(<IndexedAccessType>source);
+                    const constraint = getBaseConstraintOfType(<IndexedAccessType>source);
                     if (constraint) {
                         if (result = isRelatedTo(constraint, target, reportErrors)) {
                             errorInfo = saveErrorInfo;
@@ -7881,25 +7864,24 @@ namespace ts {
                 return result;
             }
 
-            // A type [P in S]: X is related to a type [P in T]: Y if T is related to S and X is related to Y.
+            // A type [P in S]: X is related to a type [Q in T]: Y if T is related to S and X' is
+            // related to Y, where X' is an instantiation of X in which P is replaced with Q. Notice
+            // that S and T are contra-variant whereas X and Y are co-variant.
             function mappedTypeRelatedTo(source: Type, target: Type, reportErrors: boolean): Ternary {
                 if (isGenericMappedType(target)) {
                     if (isGenericMappedType(source)) {
-                        let result: Ternary;
-                        if (relation === identityRelation) {
-                            const readonlyMatches = !(<MappedType>source).declaration.readonlyToken === !(<MappedType>target).declaration.readonlyToken;
-                            const optionalMatches = !(<MappedType>source).declaration.questionToken === !(<MappedType>target).declaration.questionToken;
-                            if (readonlyMatches && optionalMatches) {
-                                if (result = isRelatedTo(getConstraintTypeFromMappedType(<MappedType>target), getConstraintTypeFromMappedType(<MappedType>source), reportErrors)) {
-                                    return result & isRelatedTo(getErasedTemplateTypeFromMappedType(<MappedType>source), getErasedTemplateTypeFromMappedType(<MappedType>target), reportErrors);
-                                }
-                            }
-                        }
-                        else {
-                            if (relation === comparableRelation || !(<MappedType>source).declaration.questionToken || (<MappedType>target).declaration.questionToken) {
-                                if (result = isRelatedTo(getConstraintTypeFromMappedType(<MappedType>target), getConstraintTypeFromMappedType(<MappedType>source), reportErrors)) {
-                                    return result & isRelatedTo(getTemplateTypeFromMappedType(<MappedType>source), getTemplateTypeFromMappedType(<MappedType>target), reportErrors);
-                                }
+                        const sourceReadonly = !!(<MappedType>source).declaration.readonlyToken;
+                        const sourceOptional = !!(<MappedType>source).declaration.questionToken;
+                        const targetReadonly = !!(<MappedType>target).declaration.readonlyToken;
+                        const targetOptional = !!(<MappedType>target).declaration.questionToken;
+                        const modifiersRelated = relation === identityRelation ?
+                            sourceReadonly === targetReadonly && sourceOptional === targetOptional :
+                            relation === comparableRelation || !sourceOptional || targetOptional;
+                        if (modifiersRelated) {
+                            let result: Ternary;
+                            if (result = isRelatedTo(getConstraintTypeFromMappedType(<MappedType>target), getConstraintTypeFromMappedType(<MappedType>source), reportErrors)) {
+                                const mapper = createTypeMapper([getTypeParameterFromMappedType(<MappedType>source)], [getTypeParameterFromMappedType(<MappedType>target)]);
+                                return result & isRelatedTo(instantiateType(getTemplateTypeFromMappedType(<MappedType>source), mapper), getTemplateTypeFromMappedType(<MappedType>target), reportErrors);
                             }
                         }
                     }
@@ -9353,9 +9335,6 @@ namespace ts {
         }
 
         function getTypeFacts(type: Type): TypeFacts {
-            if (type === nonPrimitiveType) {
-                return strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
-            }
             const flags = type.flags;
             if (flags & TypeFlags.String) {
                 return strictNullChecks ? TypeFacts.StringStrictFacts : TypeFacts.StringFacts;
@@ -9395,6 +9374,9 @@ namespace ts {
             }
             if (flags & TypeFlags.ESSymbol) {
                 return strictNullChecks ? TypeFacts.SymbolStrictFacts : TypeFacts.SymbolFacts;
+            }
+            if (flags & TypeFlags.NonPrimitive) {
+                return strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
             }
             if (flags & TypeFlags.TypeParameter) {
                 const constraint = getConstraintOfTypeParameter(<TypeParameter>type);
@@ -15314,7 +15296,7 @@ namespace ts {
         function isLiteralContextualType(contextualType: Type) {
             if (contextualType) {
                 if (contextualType.flags & TypeFlags.TypeVariable) {
-                    const constraint = getBaseConstraintOfTypeVariable(<TypeVariable>contextualType) || emptyObjectType;
+                    const constraint = getBaseConstraintOfType(<TypeVariable>contextualType) || emptyObjectType;
                     // If the type parameter is constrained to the base primitive type we're checking for,
                     // consider this a literal context. For example, given a type parameter 'T extends string',
                     // this causes us to infer string literal types for T.
