@@ -3121,14 +3121,8 @@ namespace ts {
             return name.kind === SyntaxKind.ComputedPropertyName && !isStringOrNumericLiteral((<ComputedPropertyName>name).expression);
         }
 
-        function getRestTypeFromProperties(source: Type, properties: PropertyName[]): Type {
-            const expensive = getUnionType(map(properties, p => createLiteralType(TypeFlags.StringLiteral, getTextOfPropertyName(p))));
-            return getRestType(source, expensive);
-        }
-
         function getRestType(source: Type, remove: Type): Type {
             if (source.flags & TypeFlags.Any || remove.flags & TypeFlags.Any) {
-                // TODO: If remove is any, then emptyObjectType or source could be correct instead of anyType
                 return anyType;
             }
             const id = getTypeListId([source, remove]);
@@ -3136,8 +3130,6 @@ namespace ts {
                 return restTypes[id];
             }
 
-            // TODO: Perhaps some more simplifications should go here
-            // see notes for which ones might apply
             source = filterType(source, t => !(t.flags & TypeFlags.Nullable));
             if (source.flags & TypeFlags.Never) {
                 return emptyObjectType;
@@ -3146,15 +3138,13 @@ namespace ts {
             if (source.flags & TypeFlags.Intersection) {
                 source = resolveObjectIntersection(source as IntersectionType);
             }
-            // TODO: Spread will behave similarly I think
             if (source.flags & TypeFlags.Union) {
                 return mapType(source, t => getRestType(t, remove));
             }
 
-            // other cases
             if (source.flags & (TypeFlags.Object | TypeFlags.Primitive | TypeFlags.NonPrimitive) ) {
-                if( isStringLiteralUnion(remove)) {
-                    return createDifferenceType(source, remove);
+                if(isStringLiteralUnion(remove)) {
+                    return createRestType(source, remove);
                 }
                 else if (remove.flags & TypeFlags.String) {
                     return emptyObjectType;
@@ -3170,7 +3160,7 @@ namespace ts {
             return difference;
         }
 
-        function createDifferenceType(source: Type, remove: Type) {
+        function createRestType(source: Type, remove: Type) {
             const literalsToRemove = remove.flags & TypeFlags.StringLiteral ? [(remove as LiteralType).text] :
                 map((remove as UnionType).types, t => (t as LiteralType).text);
             const namesToRemove = createMap<true>();
@@ -3234,13 +3224,16 @@ namespace ts {
                         error(declaration, Diagnostics.Rest_types_may_only_be_created_from_object_types);
                         return unknownType;
                     }
-                    const literalMembers: PropertyName[] = [];
+                    const literalMembers = [];
                     for (const element of pattern.elements) {
                         if (!(element as BindingElement).dotDotDotToken) {
-                            literalMembers.push(element.propertyName || element.name as Identifier);
+                            literalMembers.push(
+                                createLiteralType(
+                                    TypeFlags.StringLiteral,
+                                    getTextOfPropertyName(element.propertyName || element.name as Identifier)));
                         }
                     }
-                    type = getRestTypeFromProperties(parentType, literalMembers);
+                    type = getRestType(parentType, getUnionType(literalMembers));
                     if (type.flags & TypeFlags.Object) {
                         type.symbol = declaration.symbol;
                     }
@@ -14780,13 +14773,13 @@ namespace ts {
                 if (languageVersion < ScriptTarget.ESNext) {
                     checkExternalEmitHelpers(property, ExternalEmitHelpers.Rest);
                 }
-                const nonRestNames: PropertyName[] = [];
+                const nonRestNames = [];
                 if (allProperties) {
                     for (let i = 0; i < allProperties.length - 1; i++) {
-                        nonRestNames.push(allProperties[i].name);
+                        nonRestNames.push(createLiteralType(TypeFlags.StringLiteral, getTextOfPropertyName(allProperties[i].name)));
                     }
                 }
-                const type = getRestTypeFromProperties(objectLiteralType, nonRestNames);
+                const type = getRestType(objectLiteralType, getUnionType(nonRestNames));
                 if (type.flags & TypeFlags.Object) {
                     type.symbol = objectLiteralType.symbol;
                 }
