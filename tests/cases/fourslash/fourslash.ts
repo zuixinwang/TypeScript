@@ -43,6 +43,16 @@
 // TODO: figure out a better solution to the API exposure problem.
 
 declare module ts {
+    export type MapKey = string | number;
+    export interface Map<T> {
+        forEach(action: (value: T, key: string) => void): void;
+        get(key: MapKey): T;
+        has(key: MapKey): boolean;
+        set(key: MapKey, value: T): this;
+        delete(key: MapKey): boolean;
+        clear(): void;
+    }
+
     interface SymbolDisplayPart {
         text: string;
         kind: string;
@@ -103,7 +113,7 @@ declare namespace FourSlashInterface {
         markerNames(): string[];
         marker(name?: string): Marker;
         ranges(): Range[];
-        rangesByText(): { [text: string]: Range[] };
+        rangesByText(): ts.Map<Range[]>;
         markerByName(s: string): Marker;
     }
     class goTo {
@@ -138,6 +148,7 @@ declare namespace FourSlashInterface {
     class verify extends verifyNegatable {
         assertHasRanges(ranges: Range[]): void;
         caretAtMarker(markerName?: string): void;
+        completionsAt(markerName: string, completions: string[]): void;
         indentationIs(numberOfSpaces: number): void;
         indentationAtPositionIs(fileName: string, position: number, numberOfSpaces: number, indentStyle?: ts.IndentStyle, baseIndentSize?: number): void;
         textAtCaretIs(text: string): void;
@@ -218,8 +229,8 @@ declare namespace FourSlashInterface {
         navigationItemsListContains(name: string, kind: string, searchValue: string, matchKind: string, fileName?: string, parentName?: string): void;
         occurrencesAtPositionContains(range: Range, isWriteAccess?: boolean): void;
         occurrencesAtPositionCount(expectedCount: number): void;
-        documentHighlightsAtPositionContains(range: Range, fileNamesToSearch: string[], kind?: string): void;
-        documentHighlightsAtPositionCount(expectedCount: number, fileNamesToSearch: string[]): void;
+        rangesAreDocumentHighlights(ranges?: Range[]): void;
+        rangesWithSameTextAreDocumentHighlights(): void;
         completionEntryDetailIs(entryName: string, text: string, documentation?: string, kind?: string): void;
         /**
          * This method *requires* a contiguous, complete, and ordered stream of classifications for a file.
