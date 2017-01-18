@@ -839,17 +839,19 @@ namespace ts.server {
             const safeListPath =  ts.toPath("typingSafeList.json", __dirname, ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
             if (!safeList) {
                 const result = readConfigFile(safeListPath, (path: string) => this.host.readFile(path));
-                safeList = result.config ? createMap<string>(result.config) : EmptySafeList;
+                safeList = result.config ? createMapFromTemplate<string>(result.config) : EmptySafeList;
             }
             // get filename from file path
             let filename = file.substr(file.lastIndexOf("/") + 1);
             filename = filename.split(".")[0];
-            for (const jsLibraryName in safeList) {
-                if (jsLibraryName == filename) {
-                    return EmptyTodoComments;
+            let isJavaScriptLibraryFile = false;
+            forEachKey(safeList, jsLibraryName => {
+                if (filename == jsLibraryName) {
+                    isJavaScriptLibraryFile = true;
+                    return;
                 }
-            }
-            return project.getLanguageService().getTodoComments(file, args.descriptors);
+            });
+            return isJavaScriptLibraryFile ? EmptyTodoComments : project.getLanguageService().getTodoComments(file, args.descriptors);
         }
 
         private getDocCommentTemplate(args: protocol.FileLocationRequestArgs) {
