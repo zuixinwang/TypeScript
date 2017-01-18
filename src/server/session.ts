@@ -193,6 +193,12 @@ namespace ts.server {
         return `Content-Length: ${1 + len}\r\n\r\n${json}${newLine}`;
     }
 
+    // A map of loose file names to library names
+    // used to exclude JS libraries from displaying TODO comments
+    let safeList: Map<string>;
+    const EmptySafeList: Map<string> = createMap<string>();
+    const EmptyTodoComments: TodoComment[] = [];
+
     export class Session implements EventSender {
         private readonly gcTimer: GcTimer;
         protected projectService: ProjectService;
@@ -830,6 +836,19 @@ namespace ts.server {
 
         private getTodoComments(args: protocol.TodoCommentRequestArgs) {
             const { file, project } = this.getFileAndProject(args);
+            const safeListPath =  ts.toPath("typingSafeList.json", __dirname, ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
+            if (!safeList) {
+                const result = readConfigFile(safeListPath, (path: string) => this.host.readFile(path));
+                safeList = result.config ? createMap<string>(result.config) : EmptySafeList;
+            }
+            // get filename from file path
+            let filename = file.substr(file.lastIndexOf("/") + 1);
+            filename = filename.split(".")[0];
+            for (const jsLibraryName in safeList) {
+                if (jsLibraryName == filename) {
+                    return EmptyTodoComments;
+                }
+            }
             return project.getLanguageService().getTodoComments(file, args.descriptors);
         }
 
