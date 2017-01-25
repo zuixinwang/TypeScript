@@ -658,7 +658,7 @@ namespace ts {
             }
 
             if (includeJsDocComment) {
-                const jsDocChildren = ts.filter(current.getChildren(), isJSDocNode);
+                const jsDocChildren = ts.filter(current.getChildren(sourceFile), isJSDocNode);
                 for (const jsDocChild of jsDocChildren) {
                     const start = allowPositionInLeadingTrivia ? jsDocChild.getFullStart() : jsDocChild.getStart(sourceFile, includeJsDocComment);
                     if (start <= position) {
@@ -678,7 +678,7 @@ namespace ts {
             }
 
             // find the child that contains 'position'
-            for (const child of current.getChildren()) {
+            for (const child of current.getChildren(sourceFile)) {
                 // all jsDocComment nodes were already visited
                 if (isJSDocNode(child)) {
                     continue;
@@ -756,7 +756,7 @@ namespace ts {
                 return n;
             }
 
-            const children = n.getChildren();
+            const children = n.getChildren(sourceFile);
             const candidate = findRightmostChildNodeWithTokens(children, /*exclusiveStartPosition*/ children.length);
             return candidate && findRightmostToken(candidate);
 
@@ -767,7 +767,7 @@ namespace ts {
                 return n;
             }
 
-            const children = n.getChildren();
+            const children = n.getChildren(sourceFile);
             for (let i = 0; i < children.length; i++) {
                 const child = children[i];
                 // condition 'position < child.end' checks if child node end after the position
