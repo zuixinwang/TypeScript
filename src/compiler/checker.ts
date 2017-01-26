@@ -2316,7 +2316,7 @@ namespace ts {
                             ? "any"
                             : (<IntrinsicType>type).intrinsicName);
                     }
-                    else if (type.flags & TypeFlags.TypeParameter && (type as TypeParameter).isThisType) {
+                    else if (isTypeParameterType(type) && type.isThisType) {
                         if (inObjectTypeLiteral) {
                             writer.reportInaccessibleThisError();
                         }
@@ -4698,7 +4698,7 @@ namespace ts {
                     // the modifiers type is T. Otherwise, the modifiers type is {}.
                     const declaredType = <MappedType>getTypeFromMappedTypeNode(type.declaration);
                     const constraint = getConstraintTypeFromMappedType(declaredType);
-                    const extendedConstraint = constraint && constraint.flags & TypeFlags.TypeParameter ? getConstraintOfTypeParameter(<TypeParameter>constraint) : constraint;
+                    const extendedConstraint = constraint && isTypeParameterType(constraint) ? getConstraintOfTypeParameter(constraint) : constraint;
                     type.modifiersType = extendedConstraint && isIndexType(extendedConstraint) ? instantiateType(extendedConstraint.type, type.mapper || identityMapper) : emptyObjectType;
                 }
             }
@@ -4790,7 +4790,7 @@ namespace ts {
         }
 
         function getConstraintOfType(type: TypeVariable | UnionOrIntersectionType): Type {
-            return type.flags & TypeFlags.TypeParameter ? getConstraintOfTypeParameter(<TypeParameter>type) : getBaseConstraintOfType(type);
+            return isTypeParameterType(type) ? getConstraintOfTypeParameter(type) : getBaseConstraintOfType(type);
         }
 
         function getConstraintOfTypeParameter(typeParameter: TypeParameter): Type {
@@ -4833,21 +4833,20 @@ namespace ts {
             }
 
             function computeBaseConstraint(t: Type): Type {
-                if (t.flags & TypeFlags.TypeParameter) {
-                    const constraint = getConstraintFromTypeParameter(<TypeParameter>t);
-                    return (<TypeParameter>t).isThisType ? constraint :
+                if (isTypeParameterType(t)) {
+                    const constraint = getConstraintFromTypeParameter(t);
+                    return t.isThisType ? constraint :
                         constraint ? getBaseConstraint(constraint) : undefined;
                 }
                 if (isUnionOrIntersectionType(t)) {
-                    const types = t.types;
                     const baseTypes: Type[] = [];
-                    for (const type of types) {
+                    for (const type of t.types) {
                         const baseType = getBaseConstraint(type);
                         if (baseType) {
                             baseTypes.push(baseType);
                         }
                     }
-                    return isUnionType(t) && baseTypes.length === types.length ? getUnionType(baseTypes) :
+                    return isUnionType(t) && baseTypes.length === t.types.length ? getUnionType(baseTypes) :
                         isIntersectionType(t) && baseTypes.length ? getIntersectionType(baseTypes) :
                         undefined;
                 }
@@ -6728,7 +6727,7 @@ namespace ts {
             const constraintType = getConstraintTypeFromMappedType(type);
             if (isIndexType(constraintType)) {
                 const typeVariable = constraintType.type;
-                if (typeVariable.flags & TypeFlags.TypeParameter) {
+                if (isTypeParameterType(typeVariable)) {
                     const mappedTypeVariable = instantiateType(typeVariable, mapper);
                     if (typeVariable !== mappedTypeVariable) {
                         return mapType(mappedTypeVariable, t => {
@@ -6855,8 +6854,8 @@ namespace ts {
         }
 
         function instantiateTypeNoAlias(type: Type, mapper: TypeMapper): Type {
-            if (type.flags & TypeFlags.TypeParameter) {
-                return mapper(<TypeParameter>type);
+            if (isTypeParameterType(type)) {
+                return mapper(type);
             }
             if (isObjectType(type)) {
                 if (type.objectFlags & ObjectFlags.Anonymous) {
@@ -7464,7 +7463,7 @@ namespace ts {
                         return result;
                     }
                 }
-                else if (target.flags & TypeFlags.TypeParameter) {
+                else if (isTypeParameterType(target)) {
                     // A source type { [P in keyof T]: X } is related to a target type T if X is related to T[P].
                     if (isMappedType(source) && getConstraintTypeFromMappedType(source) === getIndexType(target)) {
                         if (!source.declaration.questionToken) {
@@ -7511,7 +7510,7 @@ namespace ts {
                     }
                 }
 
-                if (source.flags & TypeFlags.TypeParameter) {
+                if (isTypeParameterType(source)) {
                     // A source type T is related to a target type { [P in keyof T]: X } if T[P] is related to X.
                     if (isMappedType(target) && getConstraintTypeFromMappedType(target) === getIndexType(source)) {
                         const indexedAccessType = getIndexedAccessType(source, getTypeParameterFromMappedType(target));
@@ -8847,7 +8846,7 @@ namespace ts {
                                 if (!contains(candidates, source)) {
                                     candidates.push(source);
                                 }
-                                if (target.flags & TypeFlags.TypeParameter && !isTypeParameterAtTopLevel(originalTarget, <TypeParameter>target)) {
+                                if (isTypeParameterType(target) && !isTypeParameterAtTopLevel(originalTarget, target)) {
                                     inferences.topLevel = false;
                                 }
                             }
@@ -8938,7 +8937,7 @@ namespace ts {
                         }
                         return;
                     }
-                    if (constraintType.flags & TypeFlags.TypeParameter) {
+                    if (isTypeParameterType(constraintType)) {
                         // We're inferring from some source type S to a mapped type { [P in T]: X }, where T is a type
                         // parameter. Infer from 'keyof S' to T and infer from a union of each property type in S to X.
                         inferFromTypes(getIndexType(source), constraintType);
@@ -9333,8 +9332,8 @@ namespace ts {
             if (flags & TypeFlags.NonPrimitive) {
                 return strictNullChecks ? TypeFacts.ObjectStrictFacts : TypeFacts.ObjectFacts;
             }
-            if (flags & TypeFlags.TypeParameter) {
-                const constraint = getConstraintOfTypeParameter(<TypeParameter>type);
+            if (isTypeParameterType(type)) {
+                const constraint = getConstraintOfTypeParameter(type);
                 return getTypeFacts(constraint || emptyObjectType);
             }
             if (isUnionOrIntersectionType(type)) {
@@ -10194,7 +10193,7 @@ namespace ts {
                 // Otherwise, if the candidate type is assignable to the target type, narrow to the candidate
                 // type. Otherwise, the types are completely unrelated, so narrow to an intersection of the
                 // two types.
-                const targetType = type.flags & TypeFlags.TypeParameter ? getApparentType(type) : type;
+                const targetType = isTypeParameterType(type) ? getApparentType(type) : type;
                 return isTypeSubtypeOf(candidate, type) ? candidate :
                     isTypeAssignableTo(type, candidate) ? type :
                     isTypeAssignableTo(candidate, targetType) ? candidate :
@@ -12376,9 +12375,9 @@ namespace ts {
                 return true;
             }
             // An instance property must be accessed through an instance of the enclosing class
-            if (type.flags & TypeFlags.TypeParameter && (type as TypeParameter).isThisType) {
+            if (isTypeParameterType(type) && type.isThisType) {
                 // get the original type -- represented as the type constraint of the 'this' type
-                type = getConstraintOfTypeParameter(<TypeParameter>type);
+                type = getConstraintOfTypeParameter(type);
             }
 
             // TODO: why is the first part of this check here?
@@ -12450,7 +12449,7 @@ namespace ts {
             }
 
             const apparentType = getApparentType(getWidenedType(type));
-            if (apparentType === unknownType || (type.flags & TypeFlags.TypeParameter && isTypeAny(apparentType))) {
+            if (apparentType === unknownType || isTypeParameterType(type) && isTypeAny(apparentType)) {
                 // handle cases when type is Type parameter with invalid or any constraint
                 return apparentType;
             }
@@ -12461,7 +12460,7 @@ namespace ts {
                     return stringIndexType;
                 }
                 if (right.text && !checkAndReportErrorForExtendingInterface(node)) {
-                    reportNonexistentProperty(right, type.flags & TypeFlags.TypeParameter && (type as TypeParameter).isThisType ? apparentType : type);
+                    reportNonexistentProperty(right, isTypeParameterType(type) && type.isThisType ? apparentType : type);
                 }
                 return unknownType;
             }
@@ -13593,7 +13592,7 @@ namespace ts {
             if (isTypeAny(funcType)) {
                 return true;
             }
-            if (isTypeAny(apparentFuncType) && funcType.flags & TypeFlags.TypeParameter) {
+            if (isTypeAny(apparentFuncType) && isTypeParameterType(funcType)) {
                 return true;
             }
             if (!numCallSignatures && !numConstructSignatures) {
@@ -22141,6 +22140,7 @@ namespace ts {
         }
     }
 
+    //todo: not internal
     export function isUnionOrIntersectionType(type: Type): type is UnionOrIntersectionType {
         return !!(type.flags & TypeFlags.UnionOrIntersection);
     }
@@ -22156,10 +22156,13 @@ namespace ts {
     export function isIndexedAccessType(type: Type): type is IndexedAccessType {
         return !!(type.flags & TypeFlags.IndexedAccess);
     }
-
+    export function isTypeParameterType(type: Type): type is TypeParameter {
+        return !!(type.flags & TypeFlags.TypeParameter);
+    }
     export function isObjectType(type: Type): type is ObjectType {
         return !!(type.flags & TypeFlags.Object);
     }
+
     export function hasObjectFlags(type: Type, flags: ObjectFlags): boolean {
         return !!((type as ObjectType).objectFlags & flags);
     }
