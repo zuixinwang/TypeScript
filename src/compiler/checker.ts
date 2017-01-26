@@ -22164,13 +22164,13 @@ namespace ts {
     }
 
     export function hasObjectFlags(type: Type, flags: ObjectFlags): boolean {
-        return !!((type as ObjectType).objectFlags & flags);
+        return !!(type.flags & TypeFlags.Object && (type as ObjectType).objectFlags & flags);
     }
     export function isTypeReference(type: Type): type is TypeReference {
-        return !!((type as ObjectType).objectFlags & ObjectFlags.Reference);
+        return !!(type.flags & TypeFlags.Object && (type as ObjectType).objectFlags & ObjectFlags.Reference);
     }
     export function isMappedType(type: Type): type is MappedType {
-        return !!((type as ObjectType).objectFlags & ObjectFlags.Mapped);
+        return !!(type.flags & TypeFlags.Object && (type as ObjectType).objectFlags & ObjectFlags.Mapped);
     }
     /**
      * Check if a Type was written as a tuple type literal.
