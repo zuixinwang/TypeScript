@@ -1,21 +1,15 @@
 let o = {
     p: 12,
     m(this: typeof o) {
+        let x = this.m(); // x: number
+        let y = this.p; // y: number
         return this.p;
-    }
-}
-let o2 = {
-    p: 12,
-    m() {
-        let x: typeof o2;
-        let y = this.p // nope, any
-        return x.p // ok???
-    }
+    },
     m2() {
-        return this.m() // still any!
+        return this.m() // this: any since it has no annotation
     }
 }
 
-let x = o2.m()
-let y = o2.m2()
-let p = o2.p
+let x = o.m()  // x: number
+let y = o.m2() // y: any
+let p = o.p    // p: number

@@ -15748,7 +15748,18 @@ namespace ts {
 
             checkTypeParameters(node.typeParameters);
 
-            forEach(node.parameters, checkParameter);
+            const isObjectLiteralMethodWithThis = isObjectLiteralMethod(node) &&
+                node.parameters &&
+                node.parameters.length &&
+                parameterIsThisKeyword(node.parameters[0]);
+            if (isObjectLiteralMethodWithThis) {
+                // defer checking on first one
+                checkNodeDeferred(node.parameters[0]); // .. this will surely work ..
+                forEach(node.parameters.slice(1), checkParameter);
+            }
+            else {
+                forEach(node.parameters, checkParameter);
+            }
 
             if (node.type) {
                 checkSourceElement(node.type);

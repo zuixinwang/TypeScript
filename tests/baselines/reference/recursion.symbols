@@ -1,0 +1,55 @@
+=== tests/cases/compiler/recursion.ts ===
+let o = {
+>o : Symbol(o, Decl(recursion.ts, 0, 3))
+
+    p: 12,
+>p : Symbol(p, Decl(recursion.ts, 0, 9))
+
+    m(this: typeof o) {
+>m : Symbol(m, Decl(recursion.ts, 1, 10))
+>this : Symbol(this, Decl(recursion.ts, 2, 6))
+>o : Symbol(o, Decl(recursion.ts, 0, 3))
+
+        let x = this.m(); // x: number
+>x : Symbol(x, Decl(recursion.ts, 3, 11))
+>this.m : Symbol(m, Decl(recursion.ts, 1, 10))
+>this : Symbol(this, Decl(recursion.ts, 2, 6))
+>m : Symbol(m, Decl(recursion.ts, 1, 10))
+
+        let y = this.p; // y: number
+>y : Symbol(y, Decl(recursion.ts, 4, 11))
+>this.p : Symbol(p, Decl(recursion.ts, 0, 9))
+>this : Symbol(this, Decl(recursion.ts, 2, 6))
+>p : Symbol(p, Decl(recursion.ts, 0, 9))
+
+        return this.p;
+>this.p : Symbol(p, Decl(recursion.ts, 0, 9))
+>this : Symbol(this, Decl(recursion.ts, 2, 6))
+>p : Symbol(p, Decl(recursion.ts, 0, 9))
+
+    },
+    m2() {
+>m2 : Symbol(m2, Decl(recursion.ts, 6, 6))
+
+        return this.m() // this: any since it has no annotation
+    }
+}
+
+let x = o.m()  // x: number
+>x : Symbol(x, Decl(recursion.ts, 12, 3))
+>o.m : Symbol(m, Decl(recursion.ts, 1, 10))
+>o : Symbol(o, Decl(recursion.ts, 0, 3))
+>m : Symbol(m, Decl(recursion.ts, 1, 10))
+
+let y = o.m2() // y: any
+>y : Symbol(y, Decl(recursion.ts, 13, 3))
+>o.m2 : Symbol(m2, Decl(recursion.ts, 6, 6))
+>o : Symbol(o, Decl(recursion.ts, 0, 3))
+>m2 : Symbol(m2, Decl(recursion.ts, 6, 6))
+
+let p = o.p    // p: number
+>p : Symbol(p, Decl(recursion.ts, 14, 3))
+>o.p : Symbol(p, Decl(recursion.ts, 0, 9))
+>o : Symbol(o, Decl(recursion.ts, 0, 3))
+>p : Symbol(p, Decl(recursion.ts, 0, 9))
+

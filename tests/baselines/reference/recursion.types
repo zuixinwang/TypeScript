@@ -1,0 +1,64 @@
+=== tests/cases/compiler/recursion.ts ===
+let o = {
+>o : { p: number; m(this: any): number; m2(): any; }
+>{    p: 12,    m(this: typeof o) {        let x = this.m(); // x: number        let y = this.p; // y: number        return this.p;    },    m2() {        return this.m() // this: any since it has no annotation    }} : { p: number; m(this: any): number; m2(): any; }
+
+    p: 12,
+>p : number
+>12 : 12
+
+    m(this: typeof o) {
+>m : (this: { p: number; m(this: any): number; m2(): any; }) => number
+>this : { p: number; m(this: any): number; m2(): any; }
+>o : { p: number; m(this: any): number; m2(): any; }
+
+        let x = this.m(); // x: number
+>x : number
+>this.m() : number
+>this.m : (this: { p: number; m(this: any): number; m2(): any; }) => number
+>this : { p: number; m(this: any): number; m2(): any; }
+>m : (this: { p: number; m(this: any): number; m2(): any; }) => number
+
+        let y = this.p; // y: number
+>y : number
+>this.p : number
+>this : { p: number; m(this: any): number; m2(): any; }
+>p : number
+
+        return this.p;
+>this.p : number
+>this : { p: number; m(this: any): number; m2(): any; }
+>p : number
+
+    },
+    m2() {
+>m2 : () => any
+
+        return this.m() // this: any since it has no annotation
+>this.m() : any
+>this.m : any
+>this : any
+>m : any
+    }
+}
+
+let x = o.m()  // x: number
+>x : number
+>o.m() : number
+>o.m : (this: { p: number; m(this: any): number; m2(): any; }) => number
+>o : { p: number; m(this: any): number; m2(): any; }
+>m : (this: { p: number; m(this: any): number; m2(): any; }) => number
+
+let y = o.m2() // y: any
+>y : any
+>o.m2() : any
+>o.m2 : () => any
+>o : { p: number; m(this: any): number; m2(): any; }
+>m2 : () => any
+
+let p = o.p    // p: number
+>p : number
+>o.p : number
+>o : { p: number; m(this: any): number; m2(): any; }
+>p : number
+
