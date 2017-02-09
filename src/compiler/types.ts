@@ -238,6 +238,7 @@
         ParenthesizedType,
         ThisType,
         TypeOperator,
+        ReturnOperator,
         IndexedAccessType,
         MappedType,
         LiteralType,
@@ -914,6 +915,12 @@
     export interface TypeOperatorNode extends TypeNode {
         kind: SyntaxKind.TypeOperator;
         operator: SyntaxKind.KeyOfKeyword;
+        type: TypeNode;
+    }
+
+    export interface ReturnOperatorNode extends TypeNode {
+        kind: SyntaxKind.ReturnOperator;
+        operator: SyntaxKind.ReturnKeyword;
         type: TypeNode;
     }
 

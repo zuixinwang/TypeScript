@@ -138,6 +138,8 @@ namespace ts {
             case SyntaxKind.ParenthesizedType:
             case SyntaxKind.TypeOperator:
                 return visitNode(cbNode, (<ParenthesizedTypeNode | TypeOperatorNode>node).type);
+            case SyntaxKind.ReturnOperator:
+                return visitNode(cbNode, (<ReturnOperatorNode>node).type);
             case SyntaxKind.IndexedAccessType:
                 return visitNode(cbNode, (<IndexedAccessTypeNode>node).objectType) ||
                     visitNode(cbNode, (<IndexedAccessTypeNode>node).indexType);
@@ -2611,7 +2613,23 @@ namespace ts {
             return type;
         }
 
-        function parseTypeOperator(operator: SyntaxKind.KeyOfKeyword) {
+        function parseReturnOperator(operator: SyntaxKind.ReturnKeyword): TypeNode {
+            const node = <ReturnOperatorNode>createNode(SyntaxKind.ReturnOperator);
+            parseExpected(operator);
+            node.operator = operator;
+            node.type = parseReturnOperatorOrHigher();
+            return finishNode(node);
+        }
+
+        function parseReturnOperatorOrHigher(): TypeNode {
+            switch (token()) {
+                case SyntaxKind.ReturnKeyword:
+                    return parseReturnOperator(SyntaxKind.ReturnKeyword);
+            }
+            return parseTypeOperatorOrHigher();
+        }
+
+       function parseTypeOperator(operator: SyntaxKind.KeyOfKeyword) {
             const node = <TypeOperatorNode>createNode(SyntaxKind.TypeOperator);
             parseExpected(operator);
             node.operator = operator;
@@ -2644,7 +2662,7 @@ namespace ts {
         }
 
         function parseIntersectionTypeOrHigher(): TypeNode {
-            return parseUnionOrIntersectionType(SyntaxKind.IntersectionType, parseTypeOperatorOrHigher, SyntaxKind.AmpersandToken);
+            return parseUnionOrIntersectionType(SyntaxKind.IntersectionType, parseReturnOperatorOrHigher, SyntaxKind.AmpersandToken);
         }
 
         function parseUnionTypeOrHigher(): TypeNode {

@@ -14,7 +14,7 @@ let x = o.m()  // x: number
 let y = o.m2() // y: any
 let p = o.p    // p: number
 
-type Propertise<T> = { [K in keyof T]: T[K] };
+type Propertise<T> = { [K in keyof T]: return T[K] };
 type Vue<T extends { data, methods, properties }> = T['data'] & T['methods'] & Propertise<T['properties']>;
 
 let options = {
