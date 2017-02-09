@@ -13,3 +13,27 @@ let o = {
 let x = o.m()  // x: number
 let y = o.m2() // y: any
 let p = o.p    // p: number
+
+type Propertise<T> = { [K in keyof T]: T[K] };
+type Vue<T extends { data, methods, properties }> = T['data'] & T['methods'] & Propertise<T['properties']>;
+
+let options = {
+    data: {
+        a: 12,
+    },
+    methods: {
+        m1(this: Vue<typeof options>) {
+            this.a;
+            this.m2();
+            return this.a + this.p.length;
+        },
+        m2(this: Vue<typeof options>) {
+            return this.m1();
+        }
+    },
+    properties: {
+        p() { return 'foo' }
+    }
+}
+
+let app: Vue<typeof options>;
