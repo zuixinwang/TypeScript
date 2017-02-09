@@ -2830,6 +2830,7 @@
         /* @internal */
         ContainsAnyFunctionType = 1 << 23,  // Type is or contains object literal type
         NonPrimitive            = 1 << 24,  // intrinsic object type
+        Return                  = 1 << 25,  // Return type of callable (never for uncallable types)
 
         /* @internal */
         Nullable = Undefined | Null,
@@ -2970,6 +2971,8 @@
         /* @internal */
         resolvedIndexType: IndexType;
         /* @internal */
+        resolvedReturnType: ReturnType;
+        /* @internal */
         resolvedBaseConstraint: Type;
         /* @internal */
         couldContainTypeVariables: boolean;
@@ -3037,6 +3040,8 @@
         resolvedBaseConstraint: Type;
         /* @internal */
         resolvedIndexType: IndexType;
+        /* @internal */
+        resolvedReturnType: ReturnType;
     }
 
     // Type parameters (TypeFlags.TypeParameter)
@@ -3061,6 +3066,13 @@
     // keyof T types (TypeFlags.Index)
     export interface IndexType extends Type {
         type: TypeVariable | UnionOrIntersectionType;
+    }
+
+    // return T types (TypeFlags.Return)
+    export interface ReturnType extends Type {
+        type: TypeVariable | UnionOrIntersectionType;
+        /* @internal */
+        resolvedApparentType: Type;
     }
 
     export const enum SignatureKind {

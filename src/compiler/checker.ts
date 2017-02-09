@@ -4937,6 +4937,10 @@ namespace ts {
             return type.resolvedApparentType || (type.resolvedApparentType = getTypeWithThisArgument(type, type));
         }
 
+        function getApparentTypeOfReturnType(type: ReturnType) {
+            return type.resolvedApparentType || (type.resolvedApparentType = getReturnType(getApparentType(type.type)));
+        }
+
         /**
          * For a type parameter, return the base constraint of the type parameter. For the string, number,
          * boolean, and symbol primitive types, return the corresponding object types. Otherwise return the
@@ -4945,6 +4949,7 @@ namespace ts {
         function getApparentType(type: Type): Type {
             const t = type.flags & TypeFlags.TypeVariable ? getBaseConstraintOfType(<TypeVariable>type) || emptyObjectType : type;
             return t.flags & TypeFlags.Intersection ? getApparentTypeOfIntersectionType(<IntersectionType>t) :
+                t.flags & TypeFlags.Return ? getApparentTypeOfReturnType(<ReturnType>t) :
                 t.flags & TypeFlags.StringLike ? globalStringType :
                 t.flags & TypeFlags.NumberLike ? globalNumberType :
                 t.flags & TypeFlags.BooleanLike ? globalBooleanType :
@@ -6188,6 +6193,29 @@ namespace ts {
             return links.resolvedType;
         }
 
+        function getTypeFromReturnOperatorNode(node: ReturnOperatorNode) {
+            const links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                links.resolvedType = getReturnType(getTypeFromTypeNode(node.type));
+            }
+            return links.resolvedType;
+        }
+
+        function getReturnType(type: Type): Type {
+            if (maybeTypeOfKind(type, TypeFlags.TypeVariable)) {
+                return getReturnTypeForGenericType(type as TypeVariable | UnionOrIntersectionType);
+            }
+            return getUnionType(map(getSignaturesOfType(type, SignatureKind.Call), getReturnTypeOfSignature));
+        }
+
+        function getReturnTypeForGenericType(type: TypeVariable | UnionOrIntersectionType): Type {
+            if (!type.resolvedReturnType) {
+                type.resolvedReturnType = <ReturnType>createType(TypeFlags.Return);
+                type.resolvedReturnType.type = type;
+            }
+            return type.resolvedReturnType;
+        }
+
         function createIndexedAccessType(objectType: Type, indexType: Type) {
             const type = <IndexedAccessType>createType(TypeFlags.IndexedAccess);
             type.objectType = objectType;
@@ -6595,7 +6623,9 @@ namespace ts {
                 case SyntaxKind.JSDocFunctionType:
                     return getTypeFromTypeLiteralOrFunctionOrConstructorTypeNode(node);
                 case SyntaxKind.TypeOperator:
-                    return getTypeFromTypeOperatorNode(<TypeOperatorNode>node);
+                    return getTypeFromTypeOperatorNode(node as TypeOperatorNode);
+                case SyntaxKind.ReturnOperator:
+                    return getTypeFromReturnOperatorNode(node as ReturnOperatorNode);
                 case SyntaxKind.IndexedAccessType:
                     return getTypeFromIndexedAccessTypeNode(<IndexedAccessTypeNode>node);
                 case SyntaxKind.MappedType:
@@ -6961,6 +6991,9 @@ namespace ts {
             }
             if (type.flags & TypeFlags.Index) {
                 return getIndexType(instantiateType((<IndexType>type).type, mapper));
+            }
+            if (type.flags & TypeFlags.Return) {
+                return getReturnType(instantiateType((<ReturnType>type).type, mapper));
             }
             if (type.flags & TypeFlags.IndexedAccess) {
                 return getIndexedAccessType(instantiateType((<IndexedAccessType>type).objectType, mapper), instantiateType((<IndexedAccessType>type).indexType, mapper));
