@@ -666,6 +666,7 @@
         name: BindingName;                  // Declared parameter name
         questionToken?: QuestionToken;      // Present on optional parameter
         type?: TypeNode;                    // Optional type annotation
+        contextualType?: TypeNode;          // Super-optional contextual type annotation
         initializer?: Expression;           // Optional initializer
     }
 

@@ -89,6 +89,7 @@ namespace ts {
                     visitNode(cbNode, (<VariableLikeDeclaration>node).name) ||
                     visitNode(cbNode, (<VariableLikeDeclaration>node).questionToken) ||
                     visitNode(cbNode, (<VariableLikeDeclaration>node).type) ||
+                    visitNode(cbNode, (<ParameterDeclaration>node).contextualType) ||
                     visitNode(cbNode, (<VariableLikeDeclaration>node).initializer);
             case SyntaxKind.FunctionType:
             case SyntaxKind.ConstructorType:
@@ -2117,7 +2118,6 @@ namespace ts {
             if (parseOptional(SyntaxKind.ColonToken)) {
                 return parseType();
             }
-
             return undefined;
         }
 
@@ -2154,6 +2154,9 @@ namespace ts {
 
             node.questionToken = parseOptionalToken(SyntaxKind.QuestionToken);
             node.type = parseParameterType();
+            if (parseOptional(SyntaxKind.AsKeyword)) {
+                node.contextualType = parseType();
+            }
             node.initializer = parseBindingElementInitializer(/*inParameter*/ true);
 
             // Do not check for initializers in an ambient context for parameters. This is not

@@ -3504,7 +3504,12 @@ namespace ts {
             return isPrivateWithinAmbient(memberDeclaration);
         }
 
-        function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type {
+        function getTypeOfVariableOrParameterOrProperty(symbol: Symbol, crazy?: boolean): Type {
+            const declaration = symbol.valueDeclaration;
+            if (crazy && declaration.kind === SyntaxKind.Parameter && (declaration as ParameterDeclaration).contextualType) {
+                // TODO: Doesn't widen of course
+                return getTypeFromTypeNode((declaration as ParameterDeclaration).contextualType);
+            }
             const links = getSymbolLinks(symbol);
             if (!links.type) {
                 // Handle prototype property
@@ -3512,7 +3517,6 @@ namespace ts {
                     return links.type = getTypeOfPrototypeProperty(symbol);
                 }
                 // Handle catch clause variables
-                const declaration = symbol.valueDeclaration;
                 if (isCatchClauseVariableDeclarationOrBindingElement(declaration)) {
                     return links.type = anyType;
                 }
@@ -3695,13 +3699,16 @@ namespace ts {
             return links.type;
         }
 
-        function getTypeOfInstantiatedSymbol(symbol: Symbol): Type {
+        function getTypeOfInstantiatedSymbol(symbol: Symbol, crazy?: boolean): Type {
             const links = getSymbolLinks(symbol);
+            if (crazy) {
+                return instantiateType(getTypeOfSymbol(links.target, crazy), links.mapper);
+            }
             if (!links.type) {
                 if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
                     return unknownType;
                 }
-                let type = instantiateType(getTypeOfSymbol(links.target), links.mapper);
+                let type = instantiateType(getTypeOfSymbol(links.target, crazy), links.mapper);
                 if (!popTypeResolution()) {
                     type = reportCircularityError(symbol);
                 }
@@ -3725,12 +3732,12 @@ namespace ts {
             return anyType;
         }
 
-        function getTypeOfSymbol(symbol: Symbol): Type {
+        function getTypeOfSymbol(symbol: Symbol, crazy?: boolean): Type {
             if (symbol.flags & SymbolFlags.Instantiated) {
-                return getTypeOfInstantiatedSymbol(symbol);
+                return getTypeOfInstantiatedSymbol(symbol, crazy);
             }
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                return getTypeOfVariableOrParameterOrProperty(symbol);
+                return getTypeOfVariableOrParameterOrProperty(symbol, crazy);
             }
             if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                 return getTypeOfFuncClassEnumModule(symbol);
@@ -9073,7 +9080,7 @@ namespace ts {
                         // We're inferring from some source type S to a mapped type { [P in T]: X }, where T is a type
                         // parameter. Infer from 'keyof S' to T and infer from a union of each property type in S to X.
                         inferFromTypes(getIndexType(source), constraintType);
-                        inferFromTypes(getUnionType(map(getPropertiesOfType(source), getTypeOfSymbol)), getTemplateTypeFromMappedType(<MappedType>target));
+                        inferFromTypes(getUnionType(map(getPropertiesOfType(source), p => getTypeOfSymbol(p))), getTemplateTypeFromMappedType(<MappedType>target));
                         return;
                     }
                 }
@@ -11262,7 +11269,7 @@ namespace ts {
             const argIndex = indexOf(args, arg);
             if (argIndex >= 0) {
                 const signature = getResolvedOrAnySignature(callTarget);
-                return getTypeAtPosition(signature, argIndex);
+                return getSpecialContextualTypeAtPosition(signature, argIndex);
             }
             return undefined;
         }
@@ -13097,7 +13104,7 @@ namespace ts {
                 // If the effective argument is 'undefined', then it is an argument that is present but is synthetic.
                 if (arg === undefined || arg.kind !== SyntaxKind.OmittedExpression) {
                     // Check spread elements against rest type (from arity check we know spread argument corresponds to a rest parameter)
-                    const paramType = getTypeAtPosition(signature, i);
+                    const paramType = getSpecialContextualTypeAtPosition(signature, i);
                     let argType = getEffectiveArgumentType(node, i);
 
                     // If the effective argument type is 'undefined', there is no synthetic type
@@ -14121,8 +14128,8 @@ namespace ts {
             }
         }
 
-        function getTypeOfParameter(symbol: Symbol) {
-            const type = getTypeOfSymbol(symbol);
+        function getTypeOfParameter(symbol: Symbol, crazy?: boolean) {
+            const type = getTypeOfSymbol(symbol, crazy);
             if (strictNullChecks) {
                 const declaration = symbol.valueDeclaration;
                 if (declaration && (<VariableLikeDeclaration>declaration).initializer) {
@@ -14130,6 +14137,12 @@ namespace ts {
                 }
             }
             return type;
+        }
+
+        function getSpecialContextualTypeAtPosition(signature: Signature, pos: number): Type {
+            return signature.hasRestParameter ?
+                pos < signature.parameters.length - 1 ? getTypeOfParameter(signature.parameters[pos], /*crazy*/ true) : getRestTypeOfSignature(signature) :
+                pos < signature.parameters.length ? getTypeOfParameter(signature.parameters[pos], /*crazy*/ true) : anyType;
         }
 
         function getTypeAtPosition(signature: Signature, pos: number): Type {
