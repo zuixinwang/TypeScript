@@ -2221,7 +2221,6 @@ namespace ts {
             getSymbolDisplayBuilder().buildTypeDisplay(type, writer, enclosingDeclaration, flags);
             let result = writer.string();
             releaseStringWriter(writer);
-
             const maxLength = compilerOptions.noErrorTruncation || flags & TypeFormatFlags.NoTruncation ? undefined : 100;
             if (maxLength && result.length >= maxLength) {
                 result = result.substr(0, maxLength - "...".length) + "...";
@@ -3008,8 +3007,12 @@ namespace ts {
             }
 
             function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, symbolStack?: Symbol[]) {
-                const globalFlagsToPass = globalFlags & TypeFormatFlags.WriteOwnNameForAnyLike;
+                if (enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile) {
+                    globalFlags |= TypeFormatFlags.SuperSimple;
+                }
+                const globalFlagsToPass = globalFlags & (TypeFormatFlags.WriteOwnNameForAnyLike | TypeFormatFlags.SuperSimple);
                 let inObjectTypeLiteral = false;
+
                 return writeType(type, globalFlags);
 
                 function writeType(type: Type, flags: TypeFormatFlags) {
@@ -3288,15 +3291,20 @@ namespace ts {
                         }
                     }
 
-                    const saveInObjectTypeLiteral = inObjectTypeLiteral;
-                    inObjectTypeLiteral = true;
-                    writePunctuation(writer, SyntaxKind.OpenBraceToken);
-                    writer.writeLine();
-                    writer.increaseIndent();
-                    writeObjectLiteralType(resolved);
-                    writer.decreaseIndent();
-                    writePunctuation(writer, SyntaxKind.CloseBraceToken);
-                    inObjectTypeLiteral = saveInObjectTypeLiteral;
+                    if (globalFlags & TypeFormatFlags.SuperSimple) {
+                        writer.writeStringLiteral("object");
+                    }
+                    else {
+                        const saveInObjectTypeLiteral = inObjectTypeLiteral;
+                        inObjectTypeLiteral = true;
+                        writePunctuation(writer, SyntaxKind.OpenBraceToken);
+                        writer.writeLine();
+                        writer.increaseIndent();
+                        writeObjectLiteralType(resolved);
+                        writer.decreaseIndent();
+                        writePunctuation(writer, SyntaxKind.CloseBraceToken);
+                        inObjectTypeLiteral = saveInObjectTypeLiteral;
+                    }
                 }
 
                 function writeObjectLiteralType(resolved: ResolvedType) {
@@ -3541,13 +3549,15 @@ namespace ts {
                     writeSpace(writer);
                 }
 
-                if (signature.target && (flags & TypeFormatFlags.WriteTypeArgumentsOfSignature)) {
-                    // Instantiated signature, write type arguments instead
-                    // This is achieved by passing in the mapper separately
-                    buildDisplayForTypeArgumentsAndDelimiters(signature.target.typeParameters, signature.mapper, writer, enclosingDeclaration);
-                }
-                else {
-                    buildDisplayForTypeParametersAndDelimiters(signature.typeParameters, writer, enclosingDeclaration, flags, symbolStack);
+                if (!(flags & TypeFormatFlags.SuperSimple)) {
+                    if (signature.target && (flags & TypeFormatFlags.WriteTypeArgumentsOfSignature)) {
+                        // Instantiated signature, write type arguments instead
+                        // This is achieved by passing in the mapper separately
+                        buildDisplayForTypeArgumentsAndDelimiters(signature.target.typeParameters, signature.mapper, writer, enclosingDeclaration);
+                    }
+                    else {
+                        buildDisplayForTypeParametersAndDelimiters(signature.typeParameters, writer, enclosingDeclaration, flags, symbolStack);
+                    }
                 }
 
                 buildDisplayForParametersAndDelimiters(signature.thisParameter, signature.parameters, writer, enclosingDeclaration, flags, symbolStack);
