@@ -2943,13 +2943,20 @@ namespace ts {
                                     (<TransientSymbol>symbol).mapper, writer, enclosingDeclaration);
                             }
                             else {
-                                buildTypeParameterDisplayFromSymbol(parentSymbol, writer, enclosingDeclaration);
+                                buildTypeParameterDisplayFromSymbol(parentSymbol, writer, enclosingDeclaration, typeFlags);
                             }
                         }
                         appendPropertyOrElementAccessForSymbol(symbol, writer);
                     }
                     else {
-                        appendSymbolNameOnly(symbol, writer);
+                        // TODO: Only works for non-nested types; doesn't replace eg T[] or [T, U].
+                        // I'm not sure how to get the other branch to do that work.
+                        if (typeFlags & TypeFormatFlags.SuperSimple) {
+                            writer.writeStringLiteral("object");
+                        }
+                        else {
+                            appendSymbolNameOnly(symbol, writer);
+                        }
                     }
                     parentSymbol = symbol;
                 }
@@ -3057,15 +3064,25 @@ namespace ts {
                         writer.writeStringLiteral(literalTypeToString(<LiteralType>type));
                     }
                     else if (type.flags & TypeFlags.Index) {
-                        writer.writeKeyword("keyof");
-                        writeSpace(writer);
-                        writeType((<IndexType>type).type, TypeFormatFlags.InElementType);
+                        if (globalFlags & TypeFormatFlags.SuperSimple) {
+                            writer.writeStringLiteral("string");
+                        }
+                        else {
+                            writer.writeKeyword("keyof");
+                            writeSpace(writer);
+                            writeType((<IndexType>type).type, TypeFormatFlags.InElementType);
+                        }
                     }
                     else if (type.flags & TypeFlags.IndexedAccess) {
-                        writeType((<IndexedAccessType>type).objectType, TypeFormatFlags.InElementType);
-                        writePunctuation(writer, SyntaxKind.OpenBracketToken);
-                        writeType((<IndexedAccessType>type).indexType, TypeFormatFlags.None);
-                        writePunctuation(writer, SyntaxKind.CloseBracketToken);
+                        if (globalFlags & TypeFormatFlags.SuperSimple) {
+                            writer.writeStringLiteral("object");
+                        }
+                        else {
+                            writeType((<IndexedAccessType>type).objectType, TypeFormatFlags.InElementType);
+                            writePunctuation(writer, SyntaxKind.OpenBracketToken);
+                            writeType((<IndexedAccessType>type).indexType, TypeFormatFlags.None);
+                            writePunctuation(writer, SyntaxKind.CloseBracketToken);
+                        }
                     }
                     else {
                         // Should never get here
@@ -3159,7 +3176,12 @@ namespace ts {
                         writeTypeList(formatUnionTypes(type.types), SyntaxKind.BarToken);
                     }
                     else {
-                        writeTypeList(type.types, SyntaxKind.AmpersandToken);
+                        if (globalFlags & TypeFormatFlags.SuperSimple) {
+                            writer.writeStringLiteral("object");
+                        }
+                        else {
+                            writeTypeList(type.types, SyntaxKind.AmpersandToken);
+                        }
                     }
                     if (flags & TypeFormatFlags.InElementType) {
                         writePunctuation(writer, SyntaxKind.CloseParenToken);
@@ -3378,20 +3400,31 @@ namespace ts {
             }
 
             function buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
-                appendSymbolNameOnly(tp.symbol, writer);
                 const constraint = getConstraintOfTypeParameter(tp);
-                if (constraint) {
-                    writeSpace(writer);
-                    writeKeyword(writer, SyntaxKind.ExtendsKeyword);
-                    writeSpace(writer);
-                    buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
+                if (flags & TypeFormatFlags.SuperSimple ||
+                    enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile) {
+                    if (constraint) {
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, symbolStack);
+                    }
+                    else {
+                        writer.writeStringLiteral("object");
+                    }
                 }
-                const defaultType = getDefaultFromTypeParameter(tp);
-                if (defaultType) {
-                    writeSpace(writer);
-                    writePunctuation(writer, SyntaxKind.EqualsToken);
-                    writeSpace(writer);
-                    buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
+                else {
+                    appendSymbolNameOnly(tp.symbol, writer);
+                    if (constraint) {
+                        writeSpace(writer);
+                        writeKeyword(writer, SyntaxKind.ExtendsKeyword);
+                        writeSpace(writer);
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
+                    }
+                    const defaultType = getDefaultFromTypeParameter(tp);
+                    if (defaultType) {
+                        writeSpace(writer);
+                        writePunctuation(writer, SyntaxKind.EqualsToken);
+                        writeSpace(writer);
+                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
+                    }
                 }
             }
 
