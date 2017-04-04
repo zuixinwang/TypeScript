@@ -1,0 +1,37 @@
+=== tests/cases/compiler/whatever.d.ts ===
+export interface Cool {
+>Cool : Cool
+
+    a: number;
+>a : number
+}
+export function view<T>(t: T): T;
+>view : <T>(t: T) => T
+>T : T
+>t : T
+>T : T
+>T : T
+
+=== tests/cases/compiler/simpleJsTypes.js ===
+import { view } from './whatever'
+>view : whooooooops
+
+view({
+>view({    a: 12,    m() { return this.a + 1 }}) : whooooooops
+>view : whooooooops
+>{    a: 12,    m() { return this.a + 1 }} : whooooooops
+
+    a: 12,
+>a : whooooooops
+>12 : whooooooops
+
+    m() { return this.a + 1 }
+>m : whooooooops
+>this.a + 1 : whooooooops
+>this.a : whooooooops
+>this : whooooooops
+>a : whooooooops
+>1 : whooooooops
+
+});
+

@@ -1,0 +1,29 @@
+=== tests/cases/compiler/whatever.d.ts ===
+export interface Cool {
+>Cool : Symbol(Cool, Decl(whatever.d.ts, 0, 0))
+
+    a: number;
+>a : Symbol(Cool.a, Decl(whatever.d.ts, 0, 23))
+}
+export function view<T>(t: T): T;
+>view : Symbol(view, Decl(whatever.d.ts, 2, 1))
+>T : Symbol(T, Decl(whatever.d.ts, 3, 21))
+>t : Symbol(t, Decl(whatever.d.ts, 3, 24))
+>T : Symbol(T, Decl(whatever.d.ts, 3, 21))
+>T : Symbol(T, Decl(whatever.d.ts, 3, 21))
+
+=== tests/cases/compiler/simpleJsTypes.js ===
+import { view } from './whatever'
+>view : Symbol(view, Decl(simpleJsTypes.js, 0, 8))
+
+view({
+>view : Symbol(view, Decl(simpleJsTypes.js, 0, 8))
+
+    a: 12,
+>a : Symbol(a, Decl(simpleJsTypes.js, 1, 6))
+
+    m() { return this.a + 1 }
+>m : Symbol(m, Decl(simpleJsTypes.js, 2, 10))
+
+});
+
