@@ -1,29 +1,75 @@
 === tests/cases/compiler/whatever.d.ts ===
-export interface Cool {
+export class Cool {
 >Cool : Symbol(Cool, Decl(whatever.d.ts, 0, 0))
 
-    a: number;
->a : Symbol(Cool.a, Decl(whatever.d.ts, 0, 23))
+    spot: number;
+>spot : Symbol(Cool.spot, Decl(whatever.d.ts, 0, 19))
 }
-export function view<T>(t: T): T;
->view : Symbol(view, Decl(whatever.d.ts, 2, 1))
->T : Symbol(T, Decl(whatever.d.ts, 3, 21))
->t : Symbol(t, Decl(whatever.d.ts, 3, 24))
->T : Symbol(T, Decl(whatever.d.ts, 3, 21))
->T : Symbol(T, Decl(whatever.d.ts, 3, 21))
+export class World {
+>World : Symbol(World, Decl(whatever.d.ts, 2, 1))
+
+    marvelous: string;
+>marvelous : Symbol(World.marvelous, Decl(whatever.d.ts, 3, 20))
+}
+export function dit(smth: number | '0' | '1' | '2'): Cool & World;
+>dit : Symbol(dit, Decl(whatever.d.ts, 5, 1))
+>smth : Symbol(smth, Decl(whatever.d.ts, 6, 20))
+>Cool : Symbol(Cool, Decl(whatever.d.ts, 0, 0))
+>World : Symbol(World, Decl(whatever.d.ts, 2, 1))
+
+export function keys<T>(t: T): keyof T;
+>keys : Symbol(keys, Decl(whatever.d.ts, 6, 66))
+>T : Symbol(T, Decl(whatever.d.ts, 7, 21))
+>t : Symbol(t, Decl(whatever.d.ts, 7, 24))
+>T : Symbol(T, Decl(whatever.d.ts, 7, 21))
+>T : Symbol(T, Decl(whatever.d.ts, 7, 21))
+
+export function single<T, K extends keyof T>(t: T, k: K): T[K];
+>single : Symbol(single, Decl(whatever.d.ts, 7, 39))
+>T : Symbol(T, Decl(whatever.d.ts, 8, 23))
+>K : Symbol(K, Decl(whatever.d.ts, 8, 25))
+>T : Symbol(T, Decl(whatever.d.ts, 8, 23))
+>t : Symbol(t, Decl(whatever.d.ts, 8, 45))
+>T : Symbol(T, Decl(whatever.d.ts, 8, 23))
+>k : Symbol(k, Decl(whatever.d.ts, 8, 50))
+>K : Symbol(K, Decl(whatever.d.ts, 8, 25))
+>T : Symbol(T, Decl(whatever.d.ts, 8, 23))
+>K : Symbol(K, Decl(whatever.d.ts, 8, 25))
+
+// TODO: Index types, indexed access types, unions, intersections
+export function lift<T>(t: T): T[];
+>lift : Symbol(lift, Decl(whatever.d.ts, 8, 63))
+>T : Symbol(T, Decl(whatever.d.ts, 10, 21))
+>t : Symbol(t, Decl(whatever.d.ts, 10, 24))
+>T : Symbol(T, Decl(whatever.d.ts, 10, 21))
+>T : Symbol(T, Decl(whatever.d.ts, 10, 21))
 
 === tests/cases/compiler/simpleJsTypes.js ===
-import { view } from './whatever'
+import { view, Cool, World, dit, keys, single } from './whatever'
 >view : Symbol(view, Decl(simpleJsTypes.js, 0, 8))
+>Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 14))
+>World : Symbol(World, Decl(simpleJsTypes.js, 0, 20))
+>dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 27))
+>keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 32))
+>single : Symbol(single, Decl(simpleJsTypes.js, 0, 38))
 
-view({
->view : Symbol(view, Decl(simpleJsTypes.js, 0, 8))
-
+lift({
     a: 12,
 >a : Symbol(a, Decl(simpleJsTypes.js, 1, 6))
 
-    m() { return this.a + 1 }
+    m() { }
 >m : Symbol(m, Decl(simpleJsTypes.js, 2, 10))
 
 });
+keys(new Cool());
+>keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 32))
+>Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 14))
+
+single(new World(), 'marvelous');
+>single : Symbol(single, Decl(simpleJsTypes.js, 0, 38))
+>World : Symbol(World, Decl(simpleJsTypes.js, 0, 20))
+
+dit(101);
+>dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 27))
+
 

@@ -1,37 +1,87 @@
 === tests/cases/compiler/whatever.d.ts ===
-export interface Cool {
+export class Cool {
 >Cool : Cool
 
-    a: number;
->a : number
+    spot: number;
+>spot : number
 }
-export function view<T>(t: T): T;
->view : <T>(t: T) => T
+export class World {
+>World : World
+
+    marvelous: string;
+>marvelous : string
+}
+export function dit(smth: number | '0' | '1' | '2'): Cool & World;
+>dit : (smth: number | "0" | "1" | "2") => Cool & World
+>smth : number | "0" | "1" | "2"
+>Cool : Cool
+>World : World
+
+export function keys<T>(t: T): keyof T;
+>keys : <T>(t: T) => keyof T
+>T : T
+>t : T
+>T : T
+>T : T
+
+export function single<T, K extends keyof T>(t: T, k: K): T[K];
+>single : <T, K extends keyof T>(t: T, k: K) => T[K]
+>T : T
+>K : K
+>T : T
+>t : T
+>T : T
+>k : K
+>K : K
+>T : T
+>K : K
+
+// TODO: Index types, indexed access types, unions, intersections
+export function lift<T>(t: T): T[];
+>lift : <T>(t: T) => T[]
 >T : T
 >t : T
 >T : T
 >T : T
 
 === tests/cases/compiler/simpleJsTypes.js ===
-import { view } from './whatever'
->view : (t: T) => T
+import { view, Cool, World, dit, keys, single } from './whatever'
+>view : any
+>Cool : typeof object
+>World : typeof object
+>dit : (smth: number | "0" | "1" | "2") => object
+>keys : (t: object) => string
+>single : (t: object, k: object) => object
 
-view({
->view({    a: 12,    m() { return this.a + 1 }}) : object
->view : (t: T) => T
->{    a: 12,    m() { return this.a + 1 }} : object
+lift({
+>lift({    a: 12,    m() { }}) : any
+>lift : any
+>{    a: 12,    m() { }} : object
 
     a: 12,
 >a : number
 >12 : 12
 
-    m() { return this.a + 1 }
->m : () => any
->this.a + 1 : any
->this.a : any
->this : any
->a : any
->1 : 1
+    m() { }
+>m : () => void
 
 });
+keys(new Cool());
+>keys(new Cool()) : "spot"
+>keys : (t: object) => string
+>new Cool() : object
+>Cool : typeof object
+
+single(new World(), 'marvelous');
+>single(new World(), 'marvelous') : string
+>single : (t: object, k: object) => object
+>new World() : object
+>World : typeof object
+>'marvelous' : "marvelous"
+
+dit(101);
+>dit(101) : object
+>dit : (smth: number | "0" | "1" | "2") => object
+>101 : 101
+
 
