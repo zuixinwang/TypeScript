@@ -3017,8 +3017,8 @@ namespace ts {
                 }
             }
 
-            function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, symbolStack?: Symbol[]) {
-                if (enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile) {
+            function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, superSimple?: boolean, symbolStack?: Symbol[]) {
+                if (enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile || superSimple) {
                     globalFlags |= TypeFormatFlags.SuperSimple;
                 }
                 const globalFlagsToPass = globalFlags & (TypeFormatFlags.WriteOwnNameForAnyLike | TypeFormatFlags.SuperSimple);
@@ -3405,10 +3405,10 @@ namespace ts {
 
             function buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
                 const constraint = getConstraintOfTypeParameter(tp);
-                if (flags & TypeFormatFlags.SuperSimple ||
-                    enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile) {
+                if (flags & TypeFormatFlags.SuperSimple) {
                     if (constraint) {
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, symbolStack);
+                        // TODO: should take and pass through a simplified parameter here too instead of checking flags
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, /*simplified*/ false, symbolStack);
                     }
                     else {
                         writer.writeStringLiteral("object");
@@ -3420,14 +3420,14 @@ namespace ts {
                         writeSpace(writer);
                         writeKeyword(writer, SyntaxKind.ExtendsKeyword);
                         writeSpace(writer);
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
                     }
                     const defaultType = getDefaultFromTypeParameter(tp);
                     if (defaultType) {
                         writeSpace(writer);
                         writePunctuation(writer, SyntaxKind.EqualsToken);
                         writeSpace(writer);
-                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
+                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
                     }
                 }
             }
@@ -3453,7 +3453,8 @@ namespace ts {
                 if (parameterNode && isRequiredInitializedParameter(parameterNode)) {
                     type = includeFalsyTypes(type, TypeFlags.Undefined);
                 }
-                buildTypeDisplay(type, writer, enclosingDeclaration, flags, symbolStack);
+                // TODO: Should add a simplified parameter here too
+                buildTypeDisplay(type, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
             }
 
             function buildBindingPatternDisplay(bindingPattern: BindingPattern, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
@@ -3554,7 +3555,8 @@ namespace ts {
                 writeSpace(writer);
                 writeKeyword(writer, SyntaxKind.IsKeyword);
                 writeSpace(writer);
-                buildTypeDisplay(predicate.type, writer, enclosingDeclaration, flags, symbolStack);
+                // TODO: Should add a simplified parameter here too
+                buildTypeDisplay(predicate.type, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
             }
 
             function buildReturnTypeDisplay(signature: Signature, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
@@ -3576,7 +3578,8 @@ namespace ts {
                     buildTypePredicateDisplay(signature.typePredicate, writer, enclosingDeclaration, flags, symbolStack);
                 }
                 else {
-                    buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
+                // TODO: Should add a simplified parameter here too
+                    buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
                 }
             }
 
@@ -3624,7 +3627,8 @@ namespace ts {
                     writePunctuation(writer, SyntaxKind.CloseBracketToken);
                     writePunctuation(writer, SyntaxKind.ColonToken);
                     writeSpace(writer);
-                    buildTypeDisplay(info.type, writer, enclosingDeclaration, globalFlags, symbolStack);
+                    // TODO: Maybe need a simplified parameter here too?
+                    buildTypeDisplay(info.type, writer, enclosingDeclaration, globalFlags, /*simplified*/ false, symbolStack);
                     writePunctuation(writer, SyntaxKind.SemicolonToken);
                     writer.writeLine();
                 }

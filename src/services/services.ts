@@ -1351,7 +1351,7 @@ namespace ts {
             return Completions.getCompletionEntrySymbol(program.getTypeChecker(), log, program.getCompilerOptions(), getValidSourceFile(fileName), position, entryName);
         }
 
-        function getQuickInfoAtPosition(fileName: string, position: number): QuickInfo {
+        function getQuickInfoAtPosition(fileName: string, position: number, simplified?: boolean): QuickInfo {
             synchronizeHostData();
 
             const sourceFile = getValidSourceFile(fileName);
@@ -1383,7 +1383,8 @@ namespace ts {
                                 kind: ScriptElementKind.unknown,
                                 kindModifiers: ScriptElementKindModifier.none,
                                 textSpan: createTextSpan(node.getStart(), node.getWidth()),
-                                displayParts: typeToDisplayParts(typeChecker, type, getContainerNode(node)),
+                                displayParts: typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ false),
+                                simpleDisplayParts: simplified ? typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ true) : undefined,
                                 documentation: type.symbol ? type.symbol.getDocumentationComment() : undefined,
                                 tags: type.symbol ? type.symbol.getJsDocTags() : undefined
                             };

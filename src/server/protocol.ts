@@ -1316,6 +1316,11 @@ namespace ts.server.protocol {
         displayString: string;
 
         /**
+         * Simplified type and kind of symbol.
+         */
+        simpleDisplayString?: string;
+
+        /**
          * Documentation associated with symbol.
          */
         documentation: string;

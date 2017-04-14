@@ -221,7 +221,7 @@ namespace ts {
         getCompletionEntryDetails(fileName: string, position: number, entryName: string): CompletionEntryDetails;
         getCompletionEntrySymbol(fileName: string, position: number, entryName: string): Symbol;
 
-        getQuickInfoAtPosition(fileName: string, position: number): QuickInfo;
+        getQuickInfoAtPosition(fileName: string, position: number, simplified?: boolean): QuickInfo;
 
         getNameOrDottedNameSpan(fileName: string, startPos: number, endPos: number): TextSpan;
 
@@ -531,6 +531,7 @@ namespace ts {
         kindModifiers: string;
         textSpan: TextSpan;
         displayParts: SymbolDisplayPart[];
+        simpleDisplayParts?: SymbolDisplayPart[];
         documentation: SymbolDisplayPart[];
         tags: JSDocTagInfo[];
     }

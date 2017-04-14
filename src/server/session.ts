@@ -1022,24 +1022,22 @@ namespace ts.server {
         private getQuickInfoWorker(args: protocol.FileLocationRequestArgs, simplifiedResult: boolean): protocol.QuickInfoResponseBody | QuickInfo {
             const { file, project } = this.getFileAndProject(args);
             const scriptInfo = project.getScriptInfoForNormalizedPath(file);
-            const quickInfo = project.getLanguageService().getQuickInfoAtPosition(file, this.getPosition(args, scriptInfo));
+            const quickInfo = project.getLanguageService().getQuickInfoAtPosition(file, this.getPosition(args, scriptInfo), scriptInfo.isJavaScript());
             if (!quickInfo) {
                 return undefined;
             }
 
             if (simplifiedResult) {
-                const displayString = ts.displayPartsToString(quickInfo.displayParts);
-                const docString = ts.displayPartsToString(quickInfo.documentation);
-
                 return {
-                    kind: quickInfo.kind,
-                    kindModifiers: quickInfo.kindModifiers,
+                    tags: [],
+                    ...quickInfo,
+                    simpleDisplayString: scriptInfo.isJavaScript() ? ts.displayPartsToString(quickInfo.simpleDisplayParts) : undefined,
+                    displayString: ts.displayPartsToString(quickInfo.displayParts),
+                    // displayString: ts.displayPartsToString(scriptInfo.isJavaScript() ? quickInfo.simpleDisplayParts : quickInfo.displayParts),
+                    documentation: ts.displayPartsToString(quickInfo.documentation),
                     start: scriptInfo.positionToLineOffset(quickInfo.textSpan.start),
-                    end: scriptInfo.positionToLineOffset(ts.textSpanEnd(quickInfo.textSpan)),
-                    displayString: displayString,
-                    documentation: docString,
-                    tags: quickInfo.tags || []
-                };
+                    end: scriptInfo.positionToLineOffset(ts.textSpanEnd(quickInfo.textSpan))
+                } as protocol.QuickInfoResponseBody;
             }
             else {
                 return quickInfo;
