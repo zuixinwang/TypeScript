@@ -3018,7 +3018,7 @@ namespace ts {
             }
 
             function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, superSimple?: boolean, symbolStack?: Symbol[]) {
-                if (enclosingDeclaration && enclosingDeclaration.flags & NodeFlags.JavaScriptFile || superSimple) {
+                if (superSimple) {
                     globalFlags |= TypeFormatFlags.SuperSimple;
                 }
                 const globalFlagsToPass = globalFlags & (TypeFormatFlags.WriteOwnNameForAnyLike | TypeFormatFlags.SuperSimple);

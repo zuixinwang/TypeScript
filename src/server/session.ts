@@ -1031,9 +1031,9 @@ namespace ts.server {
                 return {
                     tags: [],
                     ...quickInfo,
-                    simpleDisplayString: scriptInfo.isJavaScript() ? ts.displayPartsToString(quickInfo.simpleDisplayParts) : undefined,
-                    displayString: ts.displayPartsToString(quickInfo.displayParts),
-                    // displayString: ts.displayPartsToString(scriptInfo.isJavaScript() ? quickInfo.simpleDisplayParts : quickInfo.displayParts),
+                    //simpleDisplayString: scriptInfo.isJavaScript() && ts.displayPartsToString(quickInfo.simpleDisplayParts),
+                    //displayString: ts.displayPartsToString(quickInfo.displayParts),
+                    displayString: ts.displayPartsToString(scriptInfo.isJavaScript() ? quickInfo.simpleDisplayParts : quickInfo.displayParts),
                     documentation: ts.displayPartsToString(quickInfo.documentation),
                     start: scriptInfo.positionToLineOffset(quickInfo.textSpan.start),
                     end: scriptInfo.positionToLineOffset(ts.textSpanEnd(quickInfo.textSpan))

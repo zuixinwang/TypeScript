@@ -1384,7 +1384,8 @@ namespace ts {
                                 kindModifiers: ScriptElementKindModifier.none,
                                 textSpan: createTextSpan(node.getStart(), node.getWidth()),
                                 displayParts: typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ false),
-                                simpleDisplayParts: simplified ? typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ true) : undefined,
+                                // TODO: maybe the return value of typeToDisplayParts is wrong?
+                                simpleDisplayParts: simplified && typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ true),
                                 documentation: type.symbol ? type.symbol.getDocumentationComment() : undefined,
                                 tags: type.symbol ? type.symbol.getJsDocTags() : undefined
                             };
@@ -1400,6 +1401,8 @@ namespace ts {
                 kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
                 textSpan: createTextSpan(node.getStart(), node.getWidth()),
                 displayParts: displayPartsDocumentationsAndKind.displayParts,
+                // TODO: simpleDisplayParts here? (doesn't seem to make a difference)
+                simpleDisplayParts: displayPartsDocumentationsAndKind.displayParts,
                 documentation: displayPartsDocumentationsAndKind.documentation,
                 tags: displayPartsDocumentationsAndKind.tags
             };
