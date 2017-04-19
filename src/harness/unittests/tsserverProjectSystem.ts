@@ -190,7 +190,19 @@ namespace ts.projectSystem {
         if (typingsInstaller === undefined) {
             typingsInstaller = new TestTypingsInstaller("/a/data/", /*throttleLimit*/5, host);
         }
-        return new TestSession(host, cancellationToken || server.nullCancellationToken, /*useSingleInferredProject*/ false, typingsInstaller, Utils.byteLength, process.hrtime, nullLogger, /*canUseEvents*/ projectServiceEventHandler !== undefined, projectServiceEventHandler, throttleWaitMilliseconds);
+        const opts: server.SessionOptions = {
+            host,
+            cancellationToken: cancellationToken || server.nullCancellationToken,
+            useSingleInferredProject: false,
+            typingsInstaller,
+            byteLength: Utils.byteLength,
+            hrtime: process.hrtime,
+            logger: nullLogger,
+            canUseEvents: projectServiceEventHandler !== undefined,
+            eventHandler: projectServiceEventHandler,
+            throttleWaitMilliseconds
+        };
+        return new TestSession(opts);
     }
 
     export interface CreateProjectServiceParameters {
@@ -205,7 +217,9 @@ namespace ts.projectSystem {
     export class TestProjectService extends server.ProjectService {
         constructor(host: server.ServerHost, logger: server.Logger, cancellationToken: HostCancellationToken, useSingleInferredProject: boolean,
             typingsInstaller: server.ITypingsInstaller, eventHandler: server.ProjectServiceEventHandler) {
-            super(host, logger, cancellationToken, useSingleInferredProject, typingsInstaller, eventHandler);
+            super({
+                host, logger, cancellationToken, useSingleInferredProject, typingsInstaller, eventHandler
+            });
         }
 
         checkNumberOfProjects(count: { inferredProjects?: number, configuredProjects?: number, externalProjects?: number }) {
@@ -3214,7 +3228,7 @@ namespace ts.projectSystem {
             checkNumberOfInferredProjects(projectService, 1);
 
             const configuredProject = projectService.configuredProjects[0];
-            assert.isTrue(configuredProject.getFileNames().length == 0);
+            assert.isTrue(configuredProject.getFileNames().length === 0);
 
             const inferredProject = projectService.inferredProjects[0];
             assert.isTrue(inferredProject.containsFile(<server.NormalizedPath>file1.path));
@@ -3476,6 +3490,30 @@ namespace ts.projectSystem {
             const service = createProjectService(host);
             service.openExternalProject({ projectFileName: "p", rootFiles: [toExternalFile(f1.path)], options: { importHelpers: true } });
             service.checkNumberOfProjects({ externalProjects: 1 });
+        });
+    });
+
+    describe("searching for config file", () => {
+        it("should stop at projectRootPath if given", () => {
+            const f1 = {
+                path: "/a/file1.ts",
+                content: ""
+            };
+            const configFile = {
+                path: "/tsconfig.json",
+                content: "{}"
+            };
+            const host = createServerHost([f1, configFile]);
+            const service = createProjectService(host);
+            service.openClientFile(f1.path, /*fileContent*/ undefined, /*scriptKind*/ undefined, "/a");
+
+            checkNumberOfConfiguredProjects(service, 0);
+            checkNumberOfInferredProjects(service, 1);
+
+            service.closeClientFile(f1.path);
+            service.openClientFile(f1.path);
+            checkNumberOfConfiguredProjects(service, 1);
+            checkNumberOfInferredProjects(service, 0);
         });
     });
 
