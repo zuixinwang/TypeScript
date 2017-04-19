@@ -89,8 +89,9 @@ namespace ts.SymbolDisplay {
 
     // TODO(drosen): Currently completion entry details passes the SemanticMeaning.All instead of using semanticMeaning of location
     export function getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker: TypeChecker, symbol: Symbol, sourceFile: SourceFile, enclosingDeclaration: Node,
-        location: Node, semanticMeaning = getMeaningFromLocation(location)) {
+                                                                    location: Node, semanticMeaning = getMeaningFromLocation(location), simplified?: boolean) {
 
+        const simpleTypeFlags = simplified ? TypeFormatFlags.SuperSimple : 0;
         const displayParts: SymbolDisplayPart[] = [];
         let documentation: SymbolDisplayPart[];
         let tags: JSDocTagInfo[];
@@ -184,7 +185,7 @@ namespace ts.SymbolDisplay {
                                     displayParts.push(spacePart());
                                 }
                                 if (!(type.flags & TypeFlags.Object && (<ObjectType>type).objectFlags & ObjectFlags.Anonymous) && type.symbol) {
-                                    addRange(displayParts, symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, SymbolFormatFlags.WriteTypeParametersOrArguments));
+                                    addRange(displayParts, symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, SymbolFormatFlags.WriteTypeParametersOrArguments, simpleTypeFlags));
                                 }
                                 addSignatureDisplayParts(signature, allSignatures, TypeFormatFlags.WriteArrowStyleSignature);
                                 break;
@@ -255,7 +256,7 @@ namespace ts.SymbolDisplay {
             displayParts.push(spacePart());
             displayParts.push(operatorPart(SyntaxKind.EqualsToken));
             displayParts.push(spacePart());
-            addRange(displayParts, typeToDisplayParts(typeChecker, typeChecker.getDeclaredTypeOfSymbol(symbol), enclosingDeclaration, TypeFormatFlags.InTypeAlias));
+            addRange(displayParts, typeToDisplayParts(typeChecker, typeChecker.getDeclaredTypeOfSymbol(symbol), enclosingDeclaration, TypeFormatFlags.InTypeAlias | simpleTypeFlags));
         }
         if (symbolFlags & SymbolFlags.Enum) {
             addNewLineIfDisplayPartsExist();
@@ -305,7 +306,7 @@ namespace ts.SymbolDisplay {
                         else if (declaration.kind !== SyntaxKind.CallSignature && (<SignatureDeclaration>declaration).name) {
                             addFullSymbolName(declaration.symbol);
                         }
-                        addRange(displayParts, signatureToDisplayParts(typeChecker, signature, sourceFile, TypeFormatFlags.WriteTypeArgumentsOfSignature));
+                        addRange(displayParts, signatureToDisplayParts(typeChecker, signature, sourceFile, TypeFormatFlags.WriteTypeArgumentsOfSignature | simpleTypeFlags));
                     }
                     else if (declaration.kind === SyntaxKind.TypeAliasDeclaration) {
                         // Type alias type parameter
@@ -393,12 +394,12 @@ namespace ts.SymbolDisplay {
                         // If the type is type parameter, format it specially
                         if (type.symbol && type.symbol.flags & SymbolFlags.TypeParameter) {
                             const typeParameterParts = mapToDisplayParts(writer => {
-                                typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplay(<TypeParameter>type, writer, enclosingDeclaration);
+                                typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplay(<TypeParameter>type, writer, enclosingDeclaration, simpleTypeFlags);
                             });
                             addRange(displayParts, typeParameterParts);
                         }
                         else {
-                            addRange(displayParts, typeToDisplayParts(typeChecker, type, enclosingDeclaration));
+                            addRange(displayParts, typeToDisplayParts(typeChecker, type, enclosingDeclaration, simpleTypeFlags));
                         }
                     }
                     else if (symbolFlags & SymbolFlags.Function ||
@@ -461,7 +462,8 @@ namespace ts.SymbolDisplay {
 
         function addFullSymbolName(symbol: Symbol, enclosingDeclaration?: Node) {
             const fullSymbolDisplayParts = symbolToDisplayParts(typeChecker, symbol, enclosingDeclaration || sourceFile, /*meaning*/ undefined,
-                SymbolFormatFlags.WriteTypeParametersOrArguments | SymbolFormatFlags.UseOnlyExternalAliasing);
+                                                                SymbolFormatFlags.WriteTypeParametersOrArguments | SymbolFormatFlags.UseOnlyExternalAliasing,
+                                                                simpleTypeFlags);
             addRange(displayParts, fullSymbolDisplayParts);
         }
 
@@ -492,7 +494,7 @@ namespace ts.SymbolDisplay {
         }
 
         function addSignatureDisplayParts(signature: Signature, allSignatures: Signature[], flags?: TypeFormatFlags) {
-            addRange(displayParts, signatureToDisplayParts(typeChecker, signature, enclosingDeclaration, flags | TypeFormatFlags.WriteTypeArgumentsOfSignature));
+            addRange(displayParts, signatureToDisplayParts(typeChecker, signature, enclosingDeclaration, flags | TypeFormatFlags.WriteTypeArgumentsOfSignature | simpleTypeFlags));
             if (allSignatures.length > 1) {
                 displayParts.push(spacePart());
                 displayParts.push(punctuationPart(SyntaxKind.OpenParenToken));
@@ -508,7 +510,7 @@ namespace ts.SymbolDisplay {
 
         function writeTypeParametersOfSymbol(symbol: Symbol, enclosingDeclaration: Node) {
             const typeParameterParts = mapToDisplayParts(writer => {
-                typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplayFromSymbol(symbol, writer, enclosingDeclaration);
+                typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplayFromSymbol(symbol, writer, enclosingDeclaration, simpleTypeFlags);
             });
             addRange(displayParts, typeParameterParts);
         }

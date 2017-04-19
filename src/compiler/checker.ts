@@ -3017,10 +3017,7 @@ namespace ts {
                 }
             }
 
-            function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, superSimple?: boolean, symbolStack?: Symbol[]) {
-                if (superSimple) {
-                    globalFlags |= TypeFormatFlags.SuperSimple;
-                }
+            function buildTypeDisplay(type: Type, writer: SymbolWriter, enclosingDeclaration?: Node, globalFlags?: TypeFormatFlags, symbolStack?: Symbol[]) {
                 const globalFlagsToPass = globalFlags & (TypeFormatFlags.WriteOwnNameForAnyLike | TypeFormatFlags.SuperSimple);
                 let inObjectTypeLiteral = false;
 
@@ -3408,7 +3405,7 @@ namespace ts {
                 if (flags & TypeFormatFlags.SuperSimple) {
                     if (constraint) {
                         // TODO: should take and pass through a simplified parameter here too instead of checking flags
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, /*simplified*/ false, symbolStack);
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, symbolStack);
                     }
                     else {
                         writer.writeStringLiteral("object");
@@ -3420,14 +3417,14 @@ namespace ts {
                         writeSpace(writer);
                         writeKeyword(writer, SyntaxKind.ExtendsKeyword);
                         writeSpace(writer);
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
+                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
                     }
                     const defaultType = getDefaultFromTypeParameter(tp);
                     if (defaultType) {
                         writeSpace(writer);
                         writePunctuation(writer, SyntaxKind.EqualsToken);
                         writeSpace(writer);
-                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
+                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
                     }
                 }
             }
@@ -3454,7 +3451,7 @@ namespace ts {
                     type = includeFalsyTypes(type, TypeFlags.Undefined);
                 }
                 // TODO: Should add a simplified parameter here too
-                buildTypeDisplay(type, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
+                buildTypeDisplay(type, writer, enclosingDeclaration, flags, symbolStack);
             }
 
             function buildBindingPatternDisplay(bindingPattern: BindingPattern, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
@@ -3556,7 +3553,7 @@ namespace ts {
                 writeKeyword(writer, SyntaxKind.IsKeyword);
                 writeSpace(writer);
                 // TODO: Should add a simplified parameter here too
-                buildTypeDisplay(predicate.type, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
+                buildTypeDisplay(predicate.type, writer, enclosingDeclaration, flags, symbolStack);
             }
 
             function buildReturnTypeDisplay(signature: Signature, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
@@ -3579,7 +3576,7 @@ namespace ts {
                 }
                 else {
                 // TODO: Should add a simplified parameter here too
-                    buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, /*simplified*/ false, symbolStack);
+                    buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
                 }
             }
 
@@ -3628,7 +3625,7 @@ namespace ts {
                     writePunctuation(writer, SyntaxKind.ColonToken);
                     writeSpace(writer);
                     // TODO: Maybe need a simplified parameter here too?
-                    buildTypeDisplay(info.type, writer, enclosingDeclaration, globalFlags, /*simplified*/ false, symbolStack);
+                    buildTypeDisplay(info.type, writer, enclosingDeclaration, globalFlags, symbolStack);
                     writePunctuation(writer, SyntaxKind.SemicolonToken);
                     writer.writeLine();
                 }

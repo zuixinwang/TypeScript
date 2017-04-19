@@ -1383,9 +1383,8 @@ namespace ts {
                                 kind: ScriptElementKind.unknown,
                                 kindModifiers: ScriptElementKindModifier.none,
                                 textSpan: createTextSpan(node.getStart(), node.getWidth()),
-                                displayParts: typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ false),
-                                // TODO: maybe the return value of typeToDisplayParts is wrong?
-                                simpleDisplayParts: simplified && typeToDisplayParts(typeChecker, type, getContainerNode(node), undefined, /*simplified*/ true),
+                                displayParts: typeToDisplayParts(typeChecker, type, getContainerNode(node)),
+                                simpleDisplayParts: simplified && typeToDisplayParts(typeChecker, type, getContainerNode(node), TypeFormatFlags.SuperSimple),
                                 documentation: type.symbol ? type.symbol.getDocumentationComment() : undefined,
                                 tags: type.symbol ? type.symbol.getJsDocTags() : undefined
                             };
@@ -1395,14 +1394,14 @@ namespace ts {
                 return undefined;
             }
 
-            const displayPartsDocumentationsAndKind = SymbolDisplay.getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker, symbol, sourceFile, getContainerNode(node), node);
+            const displayPartsDocumentationsAndKind = SymbolDisplay.getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker, symbol, sourceFile, getContainerNode(node), node, undefined);
+            const simpleDisplayPartsDocumentationsAndKind = simplified && SymbolDisplay.getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker, symbol, sourceFile, getContainerNode(node), node, undefined, simplified);
             return {
                 kind: displayPartsDocumentationsAndKind.symbolKind,
                 kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
                 textSpan: createTextSpan(node.getStart(), node.getWidth()),
                 displayParts: displayPartsDocumentationsAndKind.displayParts,
-                // TODO: simpleDisplayParts here? (doesn't seem to make a difference)
-                simpleDisplayParts: displayPartsDocumentationsAndKind.displayParts,
+                simpleDisplayParts: simpleDisplayPartsDocumentationsAndKind.displayParts,
                 documentation: displayPartsDocumentationsAndKind.documentation,
                 tags: displayPartsDocumentationsAndKind.tags
             };
