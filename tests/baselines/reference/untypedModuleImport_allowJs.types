@@ -12,11 +12,11 @@ foo.bar();
 // Same as untypedModuleImport.ts but with --allowJs, so the package will actually be typed.
 
 exports.default = { bar() { return 0; } }
->exports.default = { bar() { return 0; } } : { [x: string]: any; bar(): number; }
+>exports.default = { bar() { return 0; } } : object
 >exports.default : any
 >exports : any
 >default : any
->{ bar() { return 0; } } : { [x: string]: any; bar(): number; }
+>{ bar() { return 0; } } : object
 >bar : () => number
 >0 : 0
 

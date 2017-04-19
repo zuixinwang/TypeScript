@@ -45,17 +45,29 @@ export function lift<T>(t: T): T[];
 >T : T
 
 === tests/cases/compiler/simpleJsTypes.js ===
-import { view, Cool, World, dit, keys, single } from './whatever'
->view : any
->Cool : typeof object
->World : typeof object
+import { Cool, World, dit, keys, single, lift } from './whatever'
+>Cool : typeof Cool
+>World : typeof World
 >dit : (smth: number | "0" | "1" | "2") => object
 >keys : (t: object) => string
 >single : (t: object, k: object) => object
+>lift : (t: object) => object[]
+
+lift
+>lift : (t: object) => object[]
+
+keys
+>keys : (t: object) => string
+
+single
+>single : (t: object, k: object) => object
+
+dit
+>dit : (smth: number | "0" | "1" | "2") => object
 
 lift({
->lift({    a: 12,    m() { }}) : any
->lift : any
+>lift({    a: 12,    m() { }}) : object[]
+>lift : (t: object) => object[]
 >{    a: 12,    m() { }} : object
 
     a: 12,
@@ -69,14 +81,14 @@ lift({
 keys(new Cool());
 >keys(new Cool()) : "spot"
 >keys : (t: object) => string
->new Cool() : object
->Cool : typeof object
+>new Cool() : Cool
+>Cool : typeof Cool
 
 single(new World(), 'marvelous');
 >single(new World(), 'marvelous') : string
 >single : (t: object, k: object) => object
->new World() : object
->World : typeof object
+>new World() : World
+>World : typeof World
 >'marvelous' : "marvelous"
 
 dit(101);

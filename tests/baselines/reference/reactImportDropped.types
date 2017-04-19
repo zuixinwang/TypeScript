@@ -40,7 +40,7 @@ export default React.createClass({
 >React.createClass : (spec: any) => React.ClassicComponentClass
 >React : typeof React
 >createClass : (spec: any) => React.ClassicComponentClass
->{  render() {    return (      null    );  }} : { render(): any; }
+>{  render() {    return (      null    );  }} : object
 
   render() {
 >render : () => any

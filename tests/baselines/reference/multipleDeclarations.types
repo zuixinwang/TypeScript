@@ -21,7 +21,7 @@ C.prototype.m = function() {
     this.nothing();
 >this.nothing() : any
 >this.nothing : any
->this : { m: () => void; }
+>this : object
 >nothing : any
 }
 class X {

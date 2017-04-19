@@ -45,31 +45,45 @@ export function lift<T>(t: T): T[];
 >T : Symbol(T, Decl(whatever.d.ts, 10, 21))
 
 === tests/cases/compiler/simpleJsTypes.js ===
-import { view, Cool, World, dit, keys, single } from './whatever'
->view : Symbol(view, Decl(simpleJsTypes.js, 0, 8))
->Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 14))
->World : Symbol(World, Decl(simpleJsTypes.js, 0, 20))
->dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 27))
->keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 32))
->single : Symbol(single, Decl(simpleJsTypes.js, 0, 38))
+import { Cool, World, dit, keys, single, lift } from './whatever'
+>Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 8))
+>World : Symbol(World, Decl(simpleJsTypes.js, 0, 14))
+>dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 21))
+>keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 26))
+>single : Symbol(single, Decl(simpleJsTypes.js, 0, 32))
+>lift : Symbol(lift, Decl(simpleJsTypes.js, 0, 40))
+
+lift
+>lift : Symbol(lift, Decl(simpleJsTypes.js, 0, 40))
+
+keys
+>keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 26))
+
+single
+>single : Symbol(single, Decl(simpleJsTypes.js, 0, 32))
+
+dit
+>dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 21))
 
 lift({
+>lift : Symbol(lift, Decl(simpleJsTypes.js, 0, 40))
+
     a: 12,
->a : Symbol(a, Decl(simpleJsTypes.js, 1, 6))
+>a : Symbol(a, Decl(simpleJsTypes.js, 5, 6))
 
     m() { }
->m : Symbol(m, Decl(simpleJsTypes.js, 2, 10))
+>m : Symbol(m, Decl(simpleJsTypes.js, 6, 10))
 
 });
 keys(new Cool());
->keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 32))
->Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 14))
+>keys : Symbol(keys, Decl(simpleJsTypes.js, 0, 26))
+>Cool : Symbol(Cool, Decl(simpleJsTypes.js, 0, 8))
 
 single(new World(), 'marvelous');
->single : Symbol(single, Decl(simpleJsTypes.js, 0, 38))
->World : Symbol(World, Decl(simpleJsTypes.js, 0, 20))
+>single : Symbol(single, Decl(simpleJsTypes.js, 0, 32))
+>World : Symbol(World, Decl(simpleJsTypes.js, 0, 14))
 
 dit(101);
->dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 27))
+>dit : Symbol(dit, Decl(simpleJsTypes.js, 0, 21))
 
 

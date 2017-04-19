@@ -1,12 +1,12 @@
 === tests/cases/conformance/salsa/a.js ===
 var variable = {};
->variable : { [x: string]: any; }
->{} : { [x: string]: any; }
+>variable : object
+>{} : object
 
 variable.a = 0;
 >variable.a = 0 : 0
 >variable.a : any
->variable : { [x: string]: any; }
+>variable : object
 >a : any
 >0 : 0
 
@@ -14,57 +14,57 @@ class C {
 >C : C
 
     initializedMember = {};
->initializedMember : { [x: string]: any; }
->{} : { [x: string]: any; }
+>initializedMember : object
+>{} : object
 
     constructor() {
         this.member = {};
->this.member = {} : { [x: string]: any; }
->this.member : { [x: string]: any; }
+>this.member = {} : object
+>this.member : object
 >this : this
->member : { [x: string]: any; }
->{} : { [x: string]: any; }
+>member : object
+>{} : object
 
         this.member.a = 0;
 >this.member.a = 0 : 0
 >this.member.a : any
->this.member : { [x: string]: any; }
+>this.member : object
 >this : this
->member : { [x: string]: any; }
+>member : object
 >a : any
 >0 : 0
     }
 }
 
 var obj = {
->obj : { [x: string]: any; property: { [x: string]: any; }; }
->{    property: {}} : { [x: string]: any; property: { [x: string]: any; }; }
+>obj : object
+>{    property: {}} : object
 
     property: {}
->property : { [x: string]: any; }
->{} : { [x: string]: any; }
+>property : object
+>{} : object
 
 };
 
 obj.property.a = 0;
 >obj.property.a = 0 : 0
 >obj.property.a : any
->obj.property : { [x: string]: any; }
->obj : { [x: string]: any; property: { [x: string]: any; }; }
->property : { [x: string]: any; }
+>obj.property : object
+>obj : object
+>property : object
 >a : any
 >0 : 0
 
 var arr = [{}];
->arr : { [x: string]: any; }[]
->[{}] : { [x: string]: any; }[]
->{} : { [x: string]: any; }
+>arr : object[]
+>[{}] : object[]
+>{} : object
 
 function getObj() {
->getObj : () => { [x: string]: any; }
+>getObj : () => object
 
     return {};
->{} : { [x: string]: any; }
+>{} : object
 }
 
 

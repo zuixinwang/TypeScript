@@ -45,23 +45,23 @@ declare class C1<T, U = number> {
 const f0_v0 = f0();
 >f0_v0 : any
 >f0() : any
->f0 : <T>(x?: T) => T
+>f0 : (x?: object) => object
 
 const f0_v1 = f0(1);
 >f0_v1 : 1
 >f0(1) : 1
->f0 : <T>(x?: T) => T
+>f0 : (x?: object) => object
 >1 : 1
 
 const f1_c0 = f1();
 >f1_c0 : [any, number]
 >f1() : [any, number]
->f1 : <T, U = number>(x?: T) => [T, U]
+>f1 : (x?: object) => [object, object]
 
 const f1_c1 = f1(1);
 >f1_c1 : [number, number]
 >f1(1) : [number, number]
->f1 : <T, U = number>(x?: T) => [T, U]
+>f1 : (x?: object) => [object, object]
 >1 : 1
 
 const C0_v0 = new C0();
