@@ -48,7 +48,8 @@ class TypeWriterWalker {
         ts.Debug.assert(type !== undefined, "type doesn't exist");
         const symbol = this.checker.getSymbolAtLocation(node);
 
-        const typeString = this.checker.typeToString(type, node.parent, ts.TypeFormatFlags.NoTruncation);
+        const simpleFlags = this.currentSourceFile.fileName.slice(-3) === ".js" ? ts.TypeFormatFlags.SuperSimple : 0;
+        const typeString = this.checker.typeToString(type, node.parent, ts.TypeFormatFlags.NoTruncation | simpleFlags);
         let symbolString: string;
         if (symbol) {
             symbolString = "Symbol(" + this.checker.symbolToString(symbol, node.parent);
