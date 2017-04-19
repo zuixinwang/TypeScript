@@ -14,7 +14,11 @@ export function single<T, K extends keyof T>(t: T, k: K): T[K];
 export function lift<T>(t: T): T[];
 
 // @Filename: simpleJsTypes.js
-import { view, Cool, World, dit, keys, single } from './whatever'
+import { Cool, World, dit, keys, single, lift } from './whatever'
+lift
+keys
+single
+dit
 lift({
     a: 12,
     m() { }
