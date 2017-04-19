@@ -3406,8 +3406,8 @@ namespace ts {
             }
 
             function buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
-                const constraint = getConstraintOfTypeParameter(tp);
                 appendSymbolNameOnly(tp.symbol, writer);
+                const constraint = getConstraintOfTypeParameter(tp);
                 if (constraint) {
                     writeSpace(writer);
                     writeKeyword(writer, SyntaxKind.ExtendsKeyword);
@@ -3444,7 +3444,6 @@ namespace ts {
                 if (parameterNode && isRequiredInitializedParameter(parameterNode)) {
                     type = includeFalsyTypes(type, TypeFlags.Undefined);
                 }
-                // TODO: Should add a simplified parameter here too
                 buildTypeDisplay(type, writer, enclosingDeclaration, flags, symbolStack);
             }
 

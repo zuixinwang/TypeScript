@@ -89,7 +89,7 @@ namespace ts.SymbolDisplay {
 
     // TODO(drosen): Currently completion entry details passes the SemanticMeaning.All instead of using semanticMeaning of location
     export function getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker: TypeChecker, symbol: Symbol, sourceFile: SourceFile, enclosingDeclaration: Node,
-                                                                    location: Node, semanticMeaning = getMeaningFromLocation(location), simplified?: boolean) {
+        location: Node, semanticMeaning = getMeaningFromLocation(location), simplified?: boolean) {
 
         const simpleTypeFlags = simplified ? TypeFormatFlags.SuperSimple : 0;
         const displayParts: SymbolDisplayPart[] = [];
