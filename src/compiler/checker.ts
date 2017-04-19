@@ -3545,7 +3545,6 @@ namespace ts {
                 writeSpace(writer);
                 writeKeyword(writer, SyntaxKind.IsKeyword);
                 writeSpace(writer);
-                // TODO: Should add a simplified parameter here too
                 buildTypeDisplay(predicate.type, writer, enclosingDeclaration, flags, symbolStack);
             }
 
@@ -3568,7 +3567,6 @@ namespace ts {
                     buildTypePredicateDisplay(signature.typePredicate, writer, enclosingDeclaration, flags, symbolStack);
                 }
                 else {
-                // TODO: Should add a simplified parameter here too
                     buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
                 }
             }
@@ -3617,7 +3615,6 @@ namespace ts {
                     writePunctuation(writer, SyntaxKind.CloseBracketToken);
                     writePunctuation(writer, SyntaxKind.ColonToken);
                     writeSpace(writer);
-                    // TODO: Maybe need a simplified parameter here too?
                     buildTypeDisplay(info.type, writer, enclosingDeclaration, globalFlags, symbolStack);
                     writePunctuation(writer, SyntaxKind.SemicolonToken);
                     writer.writeLine();
