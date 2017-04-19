@@ -2953,14 +2953,7 @@ namespace ts {
                         appendPropertyOrElementAccessForSymbol(symbol, writer);
                     }
                     else {
-                        // TODO: Only works for non-nested types; doesn't replace eg T[] or [T, U].
-                        // I'm not sure how to get the other branch to do that work.
-                        if (typeFlags & TypeFormatFlags.SuperSimple) {
-                            writer.writeStringLiteral("object");
-                        }
-                        else {
-                            appendSymbolNameOnly(symbol, writer);
-                        }
+                        appendSymbolNameOnly(symbol, writer);
                     }
                     parentSymbol = symbol;
                 }
@@ -3047,8 +3040,13 @@ namespace ts {
                         appendSymbolNameOnly(type.symbol, writer);
                     }
                     else if (getObjectFlags(type) & ObjectFlags.ClassOrInterface || type.flags & (TypeFlags.Enum | TypeFlags.TypeParameter)) {
-                        // The specified symbol flags need to be reinterpreted as type flags
-                        buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, nextFlags);
+                        if (type.flags & TypeFlags.TypeParameter && globalFlags & TypeFormatFlags.SuperSimple) {
+                            writer.writeStringLiteral("object");
+                        }
+                        else {
+                            // The specified symbol flags need to be reinterpreted as type flags
+                            buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, SymbolFlags.Type, SymbolFormatFlags.None, nextFlags);
+                        }
                     }
                     else if (!(flags & TypeFormatFlags.InTypeAlias) && type.aliasSymbol &&
                         isSymbolAccessible(type.aliasSymbol, enclosingDeclaration, SymbolFlags.Type, /*shouldComputeAliasesToMakeVisible*/ false).accessibility === SymbolAccessibility.Accessible) {
@@ -3402,30 +3400,19 @@ namespace ts {
 
             function buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, symbolStack?: Symbol[]) {
                 const constraint = getConstraintOfTypeParameter(tp);
-                if (flags & TypeFormatFlags.SuperSimple) {
-                    if (constraint) {
-                        // TODO: should take and pass through a simplified parameter here too instead of checking flags
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags | TypeFormatFlags.SuperSimple, symbolStack);
-                    }
-                    else {
-                        writer.writeStringLiteral("object");
-                    }
+                appendSymbolNameOnly(tp.symbol, writer);
+                if (constraint) {
+                    writeSpace(writer);
+                    writeKeyword(writer, SyntaxKind.ExtendsKeyword);
+                    writeSpace(writer);
+                    buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
                 }
-                else {
-                    appendSymbolNameOnly(tp.symbol, writer);
-                    if (constraint) {
-                        writeSpace(writer);
-                        writeKeyword(writer, SyntaxKind.ExtendsKeyword);
-                        writeSpace(writer);
-                        buildTypeDisplay(constraint, writer, enclosingDeclaration, flags, symbolStack);
-                    }
-                    const defaultType = getDefaultFromTypeParameter(tp);
-                    if (defaultType) {
-                        writeSpace(writer);
-                        writePunctuation(writer, SyntaxKind.EqualsToken);
-                        writeSpace(writer);
-                        buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
-                    }
+                const defaultType = getDefaultFromTypeParameter(tp);
+                if (defaultType) {
+                    writeSpace(writer);
+                    writePunctuation(writer, SyntaxKind.EqualsToken);
+                    writeSpace(writer);
+                    buildTypeDisplay(defaultType, writer, enclosingDeclaration, flags, symbolStack);
                 }
             }
 
