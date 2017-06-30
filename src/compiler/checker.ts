@@ -7868,7 +7868,12 @@ namespace ts {
                 case SyntaxKind.NeverKeyword:
                     return neverType;
                 case SyntaxKind.ObjectKeyword:
-                    return nonPrimitiveType;
+                    if (node.flags & NodeFlags.JavaScriptFile) {
+                        return anyType;
+                    }
+                    else {
+                        return nonPrimitiveType;
+                    }
                 case SyntaxKind.ThisType:
                 case SyntaxKind.ThisKeyword:
                     return getTypeFromThisTypeNode(node);
@@ -7903,6 +7908,10 @@ namespace ts {
                 case SyntaxKind.JSDocThisType:
                 case SyntaxKind.JSDocOptionalType:
                     return getTypeFromTypeNode((<ParenthesizedTypeNode | JSDocTypeReferencingNode>node).type);
+                case SyntaxKind.OptionalEqualsType:
+                    // TODO: Need to add unefined to the type, right?
+                // The parent caller, getTypeForVariableLikeDeclaration, normally adds this
+                    return getTypeFromTypeNode((node as OptionalEqualsTypeNode).type);
                 case SyntaxKind.JSDocRecordType:
                     return getTypeFromTypeNode((node as JSDocRecordType).literal);
                 case SyntaxKind.FunctionType:

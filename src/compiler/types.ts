@@ -242,6 +242,7 @@ namespace ts {
         IndexedAccessType,
         MappedType,
         LiteralType,
+        OptionalEqualsType,
         // Binding patterns
         ObjectBindingPattern,
         ArrayBindingPattern,
@@ -960,6 +961,11 @@ namespace ts {
     export interface TypeOperatorNode extends TypeNode {
         kind: SyntaxKind.TypeOperator;
         operator: SyntaxKind.KeyOfKeyword;
+        type: TypeNode;
+    }
+
+    export interface OptionalEqualsTypeNode extends TypeNode {
+        kind: SyntaxKind.OptionalEqualsType;
         type: TypeNode;
     }
 

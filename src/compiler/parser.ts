@@ -2642,6 +2642,18 @@ namespace ts {
             return token() === SyntaxKind.CloseParenToken || isStartOfParameter() || isStartOfType();
         }
 
+        function parseOptionalTypeOrHigher(): TypeNode {
+            let type = parseArrayTypeOrHigher();
+            // TODO: May need to ensure that we're inside JSDoc (and are followed by a } ??)
+            // Right now, we avoid ambiguity but just restricting postfix = to JS files
+            if (contextFlags & NodeFlags.JavaScriptFile && parseOptional(SyntaxKind.EqualsToken)) {
+                const node = createNode(SyntaxKind.OptionalEqualsType, type.pos) as OptionalEqualsTypeNode;
+                node.type = type;
+                type = finishNode(node);
+            }
+            return type;
+        }
+
         function parseArrayTypeOrHigher(): TypeNode {
             let type = parseNonArrayType();
             while (!scanner.hasPrecedingLineBreak() && parseOptional(SyntaxKind.OpenBracketToken)) {
@@ -2675,7 +2687,7 @@ namespace ts {
                 case SyntaxKind.KeyOfKeyword:
                     return parseTypeOperator(SyntaxKind.KeyOfKeyword);
             }
-            return parseArrayTypeOrHigher();
+            return parseOptionalTypeOrHigher();
         }
 
         function parseUnionOrIntersectionType(kind: SyntaxKind.UnionType | SyntaxKind.IntersectionType, parseConstituentType: () => TypeNode, operator: SyntaxKind.BarToken | SyntaxKind.AmpersandToken): TypeNode {
