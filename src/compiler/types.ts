@@ -2026,7 +2026,7 @@ namespace ts {
     // represents a top level: { type } expression in a JSDoc comment.
     export interface JSDocTypeExpression extends Node {
         kind: SyntaxKind.JSDocTypeExpression;
-        type: JSDocType;
+        type: TypeNode;
     }
 
     export interface JSDocType extends TypeNode {

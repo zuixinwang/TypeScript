@@ -6057,29 +6057,11 @@ namespace ts {
                 const result = <JSDocTypeExpression>createNode(SyntaxKind.JSDocTypeExpression, scanner.getTokenPos());
 
                 parseExpected(SyntaxKind.OpenBraceToken);
-                result.type = parseJSDocTopLevelType();
+                result.type = parseType();
                 parseExpected(SyntaxKind.CloseBraceToken);
 
                 fixupParentReferences(result);
                 return finishNode(result);
-            }
-
-            function parseJSDocTopLevelType(): JSDocType {
-                let type = parseJSDocType();
-                if (token() === SyntaxKind.BarToken) {
-                    const unionType = <JSDocUnionType>createNode(SyntaxKind.JSDocUnionType, type.pos);
-                    unionType.types = parseJSDocTypeList(type);
-                    type = finishNode(unionType);
-                }
-
-                if (token() === SyntaxKind.EqualsToken) {
-                    const optionalType = <JSDocOptionalType>createNode(SyntaxKind.JSDocOptionalType, type.pos);
-                    nextToken();
-                    optionalType.type = type;
-                    type = finishNode(optionalType);
-                }
-
-                return type;
             }
 
             function parseJSDocType(): JSDocType {

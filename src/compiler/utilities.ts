@@ -1561,7 +1561,7 @@ namespace ts {
         return find(typeParameters, p => p.name.text === name);
     }
 
-    export function getJSDocType(node: Node): JSDocType {
+    export function getJSDocType(node: Node): TypeNode {
         let tag: JSDocTypeTag | JSDocParameterTag = getFirstJSDocTag(node, SyntaxKind.JSDocTypeTag) as JSDocTypeTag;
         if (!tag && node.kind === SyntaxKind.Parameter) {
             const paramTags = getJSDocParameterTags(node as ParameterDeclaration);
@@ -1585,7 +1585,7 @@ namespace ts {
         return getFirstJSDocTag(node, SyntaxKind.JSDocReturnTag) as JSDocReturnTag;
     }
 
-    export function getJSDocReturnType(node: Node): JSDocType {
+    export function getJSDocReturnType(node: Node): TypeNode {
         const returnTag = getJSDocReturnTag(node);
         return returnTag && returnTag.typeExpression && returnTag.typeExpression.type;
     }

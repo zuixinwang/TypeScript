@@ -6883,9 +6883,9 @@ namespace ts {
             }
         }
 
-        function getPrimitiveTypeFromJSDocTypeReference(node: JSDocTypeReference): Type {
-            if (isIdentifier(node.name)) {
-                switch (node.name.text) {
+        function getPrimitiveTypeFromJSDocTypeReference(node: TypeReferenceNode): Type {
+            if (isIdentifier(node.typeName)) {
+                switch (node.typeName.text) {
                     case "String":
                         return stringType;
                     case "Number":
@@ -6924,7 +6924,8 @@ namespace ts {
                 let symbol: Symbol;
                 let type: Type;
                 let meaning = SymbolFlags.Type;
-                if (node.kind === SyntaxKind.JSDocTypeReference) {
+                if (node.flags & NodeFlags.JavaScriptFile &&
+                    node.kind === SyntaxKind.TypeReference) {
                     type = getPrimitiveTypeFromJSDocTypeReference(node);
                     meaning |= SymbolFlags.Value;
                 }
