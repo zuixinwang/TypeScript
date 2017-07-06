@@ -2582,6 +2582,10 @@ namespace ts {
                     const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
                     node.typeName = parseIdentifierName();
                     return finishNode(node);
+                case SyntaxKind.DotDotDotToken:
+                    return parseJSDocVariadicType();
+                case SyntaxKind.ExclamationToken:
+                    return parseJSDocNonNullableType();
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
                 case SyntaxKind.TrueKeyword:
@@ -2675,11 +2679,26 @@ namespace ts {
             const parameter = <ParameterDeclaration>createNode(SyntaxKind.Parameter);
             parameter.type = parseType();
             // TODO: Probably not needed anymore now that parseType can handle it.
+            // However, I need to check that tests exist, or write some, for something like function(number=): string
             if (parseOptional(SyntaxKind.EqualsToken)) {
                 // TODO(rbuckton): Can this be changed to SyntaxKind.QuestionToken?
                 parameter.questionToken = <QuestionToken>createNode(SyntaxKind.EqualsToken);
             }
             return finishNode(parameter);
+        }
+
+        function parseJSDocVariadicType(): JSDocVariadicType {
+            const result = <JSDocVariadicType>createNode(SyntaxKind.JSDocVariadicType);
+            nextToken();
+            result.type = parseType();
+            return finishNode(result);
+        }
+
+        function parseJSDocNonNullableType(): JSDocNonNullableType {
+            const result = <JSDocNonNullableType>createNode(SyntaxKind.JSDocNonNullableType);
+            nextToken();
+            result.type = parseType();
+            return finishNode(result);
         }
 
         function isStartOfType(): boolean {
