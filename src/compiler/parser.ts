@@ -2567,12 +2567,21 @@ namespace ts {
                 case SyntaxKind.NeverKeyword:
                 case SyntaxKind.ObjectKeyword:
                     // If these are followed by a dot, then parse these out as a dotted type reference instead.
-                    const node = tryParse(parseKeywordAndNoDot);
-                    return node || parseTypeReference();
+                    return tryParse(parseKeywordAndNoDot) || parseTypeReference();
                 case SyntaxKind.AsteriskToken:
                     return parseJSDocAllType();
                 case SyntaxKind.QuestionToken:
+                // TODO: This parses recursively so it might not be the right place for it.
                     return parseJSDocUnknownOrNullableType();
+                case SyntaxKind.FunctionKeyword:
+                // TODO: This is *definitely* not the right place for this. Definitely.
+                    if (lookAhead(nextTokenIsOpenParen)) {
+                        return parseJSDocFunctionType();
+                    }
+                    // TODO: Should be inside JSDoc probably
+                    const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
+                    node.typeName = parseIdentifierName();
+                    return finishNode(node);
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
                 case SyntaxKind.TrueKeyword:
@@ -2642,6 +2651,35 @@ namespace ts {
                 result.type = parseType();
                 return finishNode(result);
             }
+        }
+
+        function parseJSDocFunctionType(): JSDocFunctionType {
+            const result = <JSDocFunctionType>createNode(SyntaxKind.JSDocFunctionType);
+            nextToken();
+
+            parseExpected(SyntaxKind.OpenParenToken);
+            // this should probably just use the same code that other stuff uses
+            result.parameters = parseDelimitedList(ParsingContext.JSDocFunctionParameters, parseJSDocParameter);
+            // checkForTrailingComma(result.parameters);
+            parseExpected(SyntaxKind.CloseParenToken);
+
+            if (token() === SyntaxKind.ColonToken) {
+                nextToken();
+                result.type = parseType();
+            }
+
+            return finishNode(result);
+        }
+
+        function parseJSDocParameter(): ParameterDeclaration {
+            const parameter = <ParameterDeclaration>createNode(SyntaxKind.Parameter);
+            parameter.type = parseType();
+            // TODO: Probably not needed anymore now that parseType can handle it.
+            if (parseOptional(SyntaxKind.EqualsToken)) {
+                // TODO(rbuckton): Can this be changed to SyntaxKind.QuestionToken?
+                parameter.questionToken = <QuestionToken>createNode(SyntaxKind.EqualsToken);
+            }
+            return finishNode(parameter);
         }
 
         function isStartOfType(): boolean {
