@@ -242,7 +242,6 @@ namespace ts {
         IndexedAccessType,
         MappedType,
         LiteralType,
-        OptionalEqualsType,
         // Binding patterns
         ObjectBindingPattern,
         ArrayBindingPattern,
@@ -965,7 +964,7 @@ namespace ts {
     }
 
     export interface OptionalEqualsTypeNode extends TypeNode {
-        kind: SyntaxKind.OptionalEqualsType;
+        kind: SyntaxKind.JSDocOptionalType;
         type: TypeNode;
     }
 
@@ -2069,7 +2068,7 @@ namespace ts {
 
     export interface JSDocNullableType extends JSDocType {
         kind: SyntaxKind.JSDocNullableType;
-        type: JSDocType;
+        type: TypeNode;
     }
 
     export interface JSDocRecordType extends JSDocType {

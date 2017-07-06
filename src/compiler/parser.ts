@@ -2569,6 +2569,10 @@ namespace ts {
                     // If these are followed by a dot, then parse these out as a dotted type reference instead.
                     const node = tryParse(parseKeywordAndNoDot);
                     return node || parseTypeReference();
+                case SyntaxKind.AsteriskToken:
+                    return parseJSDocAllType();
+                case SyntaxKind.QuestionToken:
+                    return parseJSDocUnknownOrNullableType();
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
                 case SyntaxKind.TrueKeyword:
@@ -2598,6 +2602,45 @@ namespace ts {
                     return parseParenthesizedType();
                 default:
                     return parseTypeReference();
+            }
+        }
+
+        // TODO: Wrong location for these functions I think
+        function parseJSDocAllType(): JSDocAllType {
+            const result = <JSDocAllType>createNode(SyntaxKind.JSDocAllType);
+            nextToken();
+            return finishNode(result);
+        }
+
+        function parseJSDocUnknownOrNullableType(): JSDocUnknownType | JSDocNullableType {
+            const pos = scanner.getStartPos();
+            // skip the ?
+            nextToken();
+
+            // Need to lookahead to decide if this is a nullable or unknown type.
+
+            // Here are cases where we'll pick the unknown type:
+            //
+            //      Foo(?,
+            //      { a: ? }
+            //      Foo(?)
+            //      Foo<?>
+            //      Foo(?=
+            //      (?|
+            if (token() === SyntaxKind.CommaToken ||
+                token() === SyntaxKind.CloseBraceToken ||
+                token() === SyntaxKind.CloseParenToken ||
+                token() === SyntaxKind.GreaterThanToken ||
+                token() === SyntaxKind.EqualsToken ||
+                token() === SyntaxKind.BarToken) {
+
+                const result = <JSDocUnknownType>createNode(SyntaxKind.JSDocUnknownType, pos);
+                return finishNode(result);
+            }
+            else {
+                const result = <JSDocNullableType>createNode(SyntaxKind.JSDocNullableType, pos);
+                result.type = parseType();
+                return finishNode(result);
             }
         }
 
@@ -2646,8 +2689,9 @@ namespace ts {
             let type = parseArrayTypeOrHigher();
             // TODO: May need to ensure that we're inside JSDoc (and are followed by a } ??)
             // Right now, we avoid ambiguity but just restricting postfix = to JS files
+            // This is not right, though, because we will try parse type annotations in JS files and then crash (or whatever).
             if (contextFlags & NodeFlags.JavaScriptFile && parseOptional(SyntaxKind.EqualsToken)) {
-                const node = createNode(SyntaxKind.OptionalEqualsType, type.pos) as OptionalEqualsTypeNode;
+                const node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
                 node.type = type;
                 type = finishNode(node);
             }
@@ -6309,48 +6353,10 @@ namespace ts {
                 return types;
             }
 
-            function parseJSDocAllType(): JSDocAllType {
-                const result = <JSDocAllType>createNode(SyntaxKind.JSDocAllType);
-                nextToken();
-                return finishNode(result);
-            }
-
             function parseJSDocLiteralType(): JSDocLiteralType {
                 const result = <JSDocLiteralType>createNode(SyntaxKind.JSDocLiteralType);
                 result.literal = parseLiteralTypeNode();
                 return finishNode(result);
-            }
-
-            function parseJSDocUnknownOrNullableType(): JSDocUnknownType | JSDocNullableType {
-                const pos = scanner.getStartPos();
-                // skip the ?
-                nextToken();
-
-                // Need to lookahead to decide if this is a nullable or unknown type.
-
-                // Here are cases where we'll pick the unknown type:
-                //
-                //      Foo(?,
-                //      { a: ? }
-                //      Foo(?)
-                //      Foo<?>
-                //      Foo(?=
-                //      (?|
-                if (token() === SyntaxKind.CommaToken ||
-                    token() === SyntaxKind.CloseBraceToken ||
-                    token() === SyntaxKind.CloseParenToken ||
-                    token() === SyntaxKind.GreaterThanToken ||
-                    token() === SyntaxKind.EqualsToken ||
-                    token() === SyntaxKind.BarToken) {
-
-                    const result = <JSDocUnknownType>createNode(SyntaxKind.JSDocUnknownType, pos);
-                    return finishNode(result);
-                }
-                else {
-                    const result = <JSDocNullableType>createNode(SyntaxKind.JSDocNullableType, pos);
-                    result.type = parseJSDocType();
-                    return finishNode(result);
-                }
             }
 
             export function parseIsolatedJSDocComment(content: string, start: number, length: number) {

@@ -7907,11 +7907,10 @@ namespace ts {
                 case SyntaxKind.JSDocConstructorType:
                 case SyntaxKind.JSDocThisType:
                 case SyntaxKind.JSDocOptionalType:
-                    return getTypeFromTypeNode((<ParenthesizedTypeNode | JSDocTypeReferencingNode>node).type);
-                case SyntaxKind.OptionalEqualsType:
                     // TODO: Need to add unefined to the type, right?
                 // The parent caller, getTypeForVariableLikeDeclaration, normally adds this
-                    return getTypeFromTypeNode((node as OptionalEqualsTypeNode).type);
+                // (probably this is already handled there correctly. I hope.)
+                    return getTypeFromTypeNode((<ParenthesizedTypeNode | JSDocTypeReferencingNode>node).type);
                 case SyntaxKind.JSDocRecordType:
                     return getTypeFromTypeNode((node as JSDocRecordType).literal);
                 case SyntaxKind.FunctionType:
