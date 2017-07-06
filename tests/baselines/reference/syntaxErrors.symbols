@@ -1,0 +1,25 @@
+=== tests/cases/conformance/jsdoc/foo.js ===
+/**
+ * @param {(x)=>void} x
+ * @param {typeof String} y
+ * @param {string & number} z
+ **/
+function foo(x, y, z) { }
+>foo : Symbol(foo, Decl(foo.js, 0, 0))
+>x : Symbol(x, Decl(foo.js, 5, 13))
+>y : Symbol(y, Decl(foo.js, 5, 15))
+>z : Symbol(z, Decl(foo.js, 5, 18))
+
+=== tests/cases/conformance/jsdoc/skipped.js ===
+// @ts-nocheck
+/**
+ * @param {(x)=>void} x
+ * @param {typeof String} y
+ * @param {string & number} z
+ **/
+function bar(x, y, z) { }
+>bar : Symbol(bar, Decl(skipped.js, 0, 0))
+>x : Symbol(x, Decl(skipped.js, 6, 13))
+>y : Symbol(y, Decl(skipped.js, 6, 15))
+>z : Symbol(z, Decl(skipped.js, 6, 18))
+
