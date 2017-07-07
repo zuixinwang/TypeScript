@@ -3242,6 +3242,10 @@ namespace ts {
         return false;
     }
 
+    export function isJSDocTypeReference(node: TypeReferenceType): node is TypeReferenceNode {
+        return node.kind === SyntaxKind.TypeReference && !!findAncestor(node, n => n.kind === SyntaxKind.JSDocTypeExpression);
+    }
+
     /**
      * Formats an enum value as a string for debugging and debug assertions.
      */
@@ -4575,6 +4579,7 @@ namespace ts {
     }
 
     // JSDoc
+    // TODO: Should delete a lot of these.
 
     export function isJSDocTypeExpression(node: Node): node is JSDocTypeExpression {
         return node.kind === SyntaxKind.JSDocTypeExpression;
@@ -4614,10 +4619,6 @@ namespace ts {
 
     export function isJSDocRecordMember(node: Node): node is JSDocRecordMember {
         return node.kind === SyntaxKind.JSDocRecordMember;
-    }
-
-    export function isJSDocTypeReference(node: Node): node is JSDocTypeReference {
-        return node.kind === SyntaxKind.JSDocTypeReference;
     }
 
     export function isJSDocOptionalType(node: Node): node is JSDocOptionalType {

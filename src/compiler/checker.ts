@@ -6850,8 +6850,7 @@ namespace ts {
                 return type;
             }
 
-            // TODO: Need to make a better replacement predicate for jsdoc type reference
-            if (symbol.flags & SymbolFlags.Value && node.flags & NodeFlags.JavaScriptFile && node.kind === SyntaxKind.TypeReference) {
+            if (symbol.flags & SymbolFlags.Value && isJSDocTypeReference(node)) {
                 // A jsdoc TypeReference may have resolved to a value (as opposed to a type). If
                 // the symbol is a constructor function, return the inferred class type; otherwise,
                 // the type of this reference is just the type of the value we resolved to.
@@ -6881,8 +6880,7 @@ namespace ts {
             }
 
             if (symbol.flags & SymbolFlags.Function &&
-                node.flags & NodeFlags.JavaScriptFile &&
-                node.kind === SyntaxKind.TypeReference &&
+                isJSDocTypeReference(node) &&
                 (symbol.members || getJSDocClassTag(symbol.valueDeclaration))) {
                 return getInferredClassType(symbol);
             }
@@ -6929,8 +6927,7 @@ namespace ts {
                 let symbol: Symbol;
                 let type: Type;
                 let meaning = SymbolFlags.Type;
-                if (node.flags & NodeFlags.JavaScriptFile &&
-                    node.kind === SyntaxKind.TypeReference) {
+                if (isJSDocTypeReference(node)) {
                     type = getPrimitiveTypeFromJSDocTypeReference(node);
                     meaning |= SymbolFlags.Value;
                 }
