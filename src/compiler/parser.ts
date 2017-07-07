@@ -2756,10 +2756,10 @@ namespace ts {
                     node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
                 }
                 else if (parseOptional(SyntaxKind.ExclamationToken)) {
-                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNullableType;
+                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNullableType;
                 }
                 else if (parseOptional(SyntaxKind.QuestionToken)) {
-                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
+                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNonNullableType;
                 }
                 if (node) {
                     node.type = type;
