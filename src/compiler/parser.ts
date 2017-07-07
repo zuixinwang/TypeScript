@@ -2744,10 +2744,7 @@ namespace ts {
 
         function parseOptionalTypeOrHigher(): TypeNode {
             let type = parseArrayTypeOrHigher();
-            // TODO: May need to ensure that we're inside JSDoc (and are followed by a } ??)
-            // Right now, we avoid ambiguity but just restricting postfix = to JS files
-            // This is not right, though, because we will try parse type annotations in JS files and then crash (or whatever).
-            if (contextFlags & NodeFlags.JavaScriptFile && parseOptional(SyntaxKind.EqualsToken)) {
+            if (contextFlags & NodeFlags.JSDoc && parseOptional(SyntaxKind.EqualsToken)) {
                 const node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
                 node.type = type;
                 type = finishNode(node);
@@ -6170,7 +6167,7 @@ namespace ts {
                 const result = <JSDocTypeExpression>createNode(SyntaxKind.JSDocTypeExpression, scanner.getTokenPos());
 
                 parseExpected(SyntaxKind.OpenBraceToken);
-                result.type = parseType();
+                result.type = doInsideOfContext(NodeFlags.JSDoc, parseType);
                 parseExpected(SyntaxKind.CloseBraceToken);
 
                 fixupParentReferences(result);
