@@ -2099,8 +2099,11 @@ namespace ts {
         function parseTypeReference(): TypeReferenceNode {
             const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
             node.typeName = parseEntityName(/*allowReservedWords*/ false, Diagnostics.Type_expected);
-            if (!scanner.hasPrecedingLineBreak() && token() === SyntaxKind.LessThanToken) {
-                node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
+            if (!scanner.hasPrecedingLineBreak()) {
+                parseOptional(SyntaxKind.DotToken);
+                if (token() === SyntaxKind.LessThanToken) {
+                    node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
+                }
             }
             return finishNode(node);
         }
@@ -2575,10 +2578,10 @@ namespace ts {
                     return parseJSDocUnknownOrNullableType();
                 case SyntaxKind.FunctionKeyword:
                 // TODO: This is *definitely* not the right place for this. Definitely.
+                // .... ok. *maybe* it is. There is some recursive stuff here.
                     if (lookAhead(nextTokenIsOpenParen)) {
                         return parseJSDocFunctionType();
                     }
-                    // TODO: Should be inside JSDoc probably
                     const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
                     node.typeName = parseIdentifierName();
                     return finishNode(node);
@@ -2614,6 +2617,8 @@ namespace ts {
                 case SyntaxKind.OpenParenToken:
                     return parseParenthesizedType();
                 default:
+                    // TODO: Allow things like `var` when parsing JSDoc? I think?
+                    // (parseTypeReference intentionally excludes keywords)
                     return parseTypeReference();
             }
         }
@@ -2744,10 +2749,22 @@ namespace ts {
 
         function parseOptionalTypeOrHigher(): TypeNode {
             let type = parseArrayTypeOrHigher();
-            if (contextFlags & NodeFlags.JSDoc && parseOptional(SyntaxKind.EqualsToken)) {
-                const node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
-                node.type = type;
-                type = finishNode(node);
+            if (contextFlags & NodeFlags.JSDoc) {
+                // only parse postfix =, !, ? inside jsdoc, because it's ambiguous elsewhere
+                let node: OptionalEqualsTypeNode | JSDocNullableType | JSDocNonNullableType;
+                if (parseOptional(SyntaxKind.EqualsToken)) {
+                    node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
+                }
+                else if (parseOptional(SyntaxKind.ExclamationToken)) {
+                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNullableType;
+                }
+                else if (parseOptional(SyntaxKind.QuestionToken)) {
+                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
+                }
+                if (node) {
+                    node.type = type;
+                    type = finishNode(node);
+                }
             }
             return type;
         }
