@@ -6850,7 +6850,6 @@ namespace ts {
                     const typedefTag = <JSDocTypedefTag>createNode(SyntaxKind.JSDocTypedefTag, atToken.pos);
                     typedefTag.atToken = atToken;
                     typedefTag.tagName = tagName;
-                    // TODO: This needs to be updated
                     typedefTag.fullName = parseJSDocTypeNameWithNamespace(/*flags*/ 0);
                     if (typedefTag.fullName) {
                         let rightNode = typedefTag.fullName;
@@ -6868,14 +6867,8 @@ namespace ts {
                     skipWhitespace();
 
                     if (typeExpression) {
-                        if (typeExpression.type.kind === SyntaxKind.JSDocTypeReference) {
-                            const jsDocTypeReference = <JSDocTypeReference>typeExpression.type;
-                            if (jsDocTypeReference.name.kind === SyntaxKind.Identifier) {
-                                const name = <Identifier>jsDocTypeReference.name;
-                                if (name.text === "Object" || name.text === "object") {
-                                    typedefTag.jsDocTypeLiteral = scanChildTags();
-                                }
-                            }
+                        if (isObjectTypeReference(typeExpression.type)) {
+                            typedefTag.jsDocTypeLiteral = scanChildTags();
                         }
                         if (!typedefTag.jsDocTypeLiteral) {
                             typedefTag.jsDocTypeLiteral = <JSDocTypeLiteral>typeExpression.type;
@@ -6886,6 +6879,18 @@ namespace ts {
                     }
 
                     return finishNode(typedefTag);
+
+                    function isObjectTypeReference(node: TypeNode) {
+                        if (node.kind === SyntaxKind.ObjectKeyword) {
+                            return true;
+                        }
+                        if (node.kind === SyntaxKind.TypeReference) {
+                            const jsDocTypeReference = <TypeReferenceNode>node;
+                            if (jsDocTypeReference.typeName.kind === SyntaxKind.Identifier) {
+                                return (jsDocTypeReference.typeName as Identifier).text === "Object";
+                            }
+                        }
+                    }
 
                     function scanChildTags(): JSDocTypeLiteral {
                         const jsDocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, scanner.getStartPos());
