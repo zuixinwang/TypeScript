@@ -19357,7 +19357,17 @@ namespace ts {
             }
         }
 
+        function checkJsDoc(node: FunctionDeclaration | MethodDeclaration) {
+            if (!node.jsDoc) {
+                return;
+            }
+            for (const doc of node.jsDoc) {
+                checkSourceElement(doc);
+            }
+        }
+
         function checkFunctionOrMethodDeclaration(node: FunctionDeclaration | MethodDeclaration): void {
+            checkJsDoc(node);
             checkDecorators(node);
             checkSignatureDeclaration(node);
             const functionFlags = getFunctionFlags(node);
@@ -22014,6 +22024,19 @@ namespace ts {
                 case SyntaxKind.ParenthesizedType:
                 case SyntaxKind.TypeOperator:
                     return checkSourceElement((<ParenthesizedTypeNode | TypeOperatorNode>node).type);
+                // TODO: Move some (all?) of these JSDoc cases somewhere else since
+                // they will surely get more complicated
+                case SyntaxKind.JSDocComment:
+                    if ((node as JSDoc).tags) {
+                        for (const tag of (node as JSDoc).tags) {
+                            checkSourceElement(tag);
+                        }
+                    }
+                    return;
+                case SyntaxKind.JSDocParameterTag:
+                    return checkSourceElement((node as JSDocParameterTag).typeExpression);
+                case SyntaxKind.JSDocTypeExpression:
+                        return checkSourceElement((node as JSDocTypeExpression).type);
                 case SyntaxKind.IndexedAccessType:
                     return checkIndexedAccessType(<IndexedAccessTypeNode>node);
                 case SyntaxKind.MappedType:
