@@ -6845,6 +6845,7 @@ namespace ts {
                     return finishNode(tag);
                 }
 
+                // TODO: This whole function needs an update
                 function parseTypedefTag(atToken: AtToken, tagName: Identifier): JSDocTypedefTag {
                     const typeExpression = tryParseTypeExpression();
                     skipWhitespace();
@@ -6852,6 +6853,7 @@ namespace ts {
                     const typedefTag = <JSDocTypedefTag>createNode(SyntaxKind.JSDocTypedefTag, atToken.pos);
                     typedefTag.atToken = atToken;
                     typedefTag.tagName = tagName;
+                    // TODO: This needs to be updated
                     typedefTag.fullName = parseJSDocTypeNameWithNamespace(/*flags*/ 0);
                     if (typedefTag.fullName) {
                         let rightNode = typedefTag.fullName;

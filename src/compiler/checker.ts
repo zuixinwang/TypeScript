@@ -6814,6 +6814,7 @@ namespace ts {
             switch (node.kind) {
                 case SyntaxKind.TypeReference:
                     return (<TypeReferenceNode>node).typeName;
+                // TODO: Can remove this
                 case SyntaxKind.JSDocTypeReference:
                     return (<JSDocTypeReference>node).name;
                 case SyntaxKind.ExpressionWithTypeArguments:
@@ -6849,8 +6850,9 @@ namespace ts {
                 return type;
             }
 
-            if (symbol.flags & SymbolFlags.Value && node.kind === SyntaxKind.JSDocTypeReference) {
-                // A JSDocTypeReference may have resolved to a value (as opposed to a type). If
+            // TODO: Need to make a better replacement predicate for jsdoc type reference
+            if (symbol.flags & SymbolFlags.Value && node.flags & NodeFlags.JavaScriptFile && node.kind === SyntaxKind.TypeReference) {
+                // A jsdoc TypeReference may have resolved to a value (as opposed to a type). If
                 // the symbol is a constructor function, return the inferred class type; otherwise,
                 // the type of this reference is just the type of the value we resolved to.
                 const valueType = getTypeOfSymbol(symbol);
@@ -6878,7 +6880,10 @@ namespace ts {
                 return getTypeFromTypeAliasReference(node, symbol, typeArguments);
             }
 
-            if (symbol.flags & SymbolFlags.Function && node.kind === SyntaxKind.JSDocTypeReference && (symbol.members || getJSDocClassTag(symbol.valueDeclaration))) {
+            if (symbol.flags & SymbolFlags.Function &&
+                node.flags & NodeFlags.JavaScriptFile &&
+                node.kind === SyntaxKind.TypeReference &&
+                (symbol.members || getJSDocClassTag(symbol.valueDeclaration))) {
                 return getInferredClassType(symbol);
             }
         }
