@@ -1970,7 +1970,7 @@ namespace ts {
         // The allowReservedWords parameter controls whether reserved words are permitted after the first dot
         function parseEntityName(allowReservedWords: boolean, diagnosticMessage?: DiagnosticMessage): EntityName {
             // TODO: Should record the trailing dot so that we can issue an error if we are in a TS file
-            let entity: EntityName = parseIdentifier(diagnosticMessage);
+            let entity: EntityName = allowReservedWords ? parseIdentifierName() : parseIdentifier(diagnosticMessage);
             while (parseOptional(SyntaxKind.DotToken) && token() !== SyntaxKind.LessThanToken) {
                 const node: QualifiedName = <QualifiedName>createNode(SyntaxKind.QualifiedName, entity.pos);  // !!!
                 node.left = entity;
@@ -2099,7 +2099,7 @@ namespace ts {
 
         function parseTypeReference(): TypeReferenceNode {
             const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
-            node.typeName = parseEntityName(/*allowReservedWords*/ false, Diagnostics.Type_expected);
+            node.typeName = parseEntityName(/*allowReservedWords*/ !!(contextFlags & NodeFlags.JSDoc), Diagnostics.Type_expected);
             if (!scanner.hasPrecedingLineBreak() && token() === SyntaxKind.LessThanToken) {
                 node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
             }
