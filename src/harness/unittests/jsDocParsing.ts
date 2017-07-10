@@ -80,8 +80,6 @@ namespace ts {
                 parsesIncorrectly("variadicWithoutType", "{...}");
                 parsesIncorrectly("optionalWithoutType", "{=}");
                 parsesIncorrectly("allWithType", "{*foo}");
-                parsesIncorrectly("emptyTypeArguments", "{a.<>}");
-                parsesIncorrectly("typeArgumentsWithTrailingComma", "{a.<a,>}");
                 parsesIncorrectly("namedParameter", "{function(a: number)}");
                 parsesIncorrectly("tupleTypeWithComma", "{[,]}");
                 parsesIncorrectly("tupleTypeWithLeadingComma", "{[,number]}");
