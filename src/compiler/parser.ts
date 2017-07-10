@@ -1969,8 +1969,9 @@ namespace ts {
 
         // The allowReservedWords parameter controls whether reserved words are permitted after the first dot
         function parseEntityName(allowReservedWords: boolean, diagnosticMessage?: DiagnosticMessage): EntityName {
+            // TODO: Should record the trailing dot so that we can issue an error if we are in a TS file
             let entity: EntityName = parseIdentifier(diagnosticMessage);
-            while (parseOptional(SyntaxKind.DotToken)) {
+            while (parseOptional(SyntaxKind.DotToken) && token() !== SyntaxKind.LessThanToken) {
                 const node: QualifiedName = <QualifiedName>createNode(SyntaxKind.QualifiedName, entity.pos);  // !!!
                 node.left = entity;
                 node.right = parseRightSideOfDot(allowReservedWords);
@@ -2099,11 +2100,8 @@ namespace ts {
         function parseTypeReference(): TypeReferenceNode {
             const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
             node.typeName = parseEntityName(/*allowReservedWords*/ false, Diagnostics.Type_expected);
-            if (!scanner.hasPrecedingLineBreak()) {
-                parseOptional(SyntaxKind.DotToken);
-                if (token() === SyntaxKind.LessThanToken) {
-                    node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
-                }
+            if (!scanner.hasPrecedingLineBreak() && token() === SyntaxKind.LessThanToken) {
+                node.typeArguments = parseBracketedList(ParsingContext.TypeArguments, parseType, SyntaxKind.LessThanToken, SyntaxKind.GreaterThanToken);
             }
             return finishNode(node);
         }
@@ -2756,10 +2754,10 @@ namespace ts {
                     node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
                 }
                 else if (parseOptional(SyntaxKind.ExclamationToken)) {
-                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNullableType;
+                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
                 }
                 else if (parseOptional(SyntaxKind.QuestionToken)) {
-                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNonNullableType;
+                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNullableType;
                 }
                 if (node) {
                     node.type = type;
