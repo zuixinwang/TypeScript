@@ -22027,7 +22027,7 @@ namespace ts {
                 // TODO: Move some (all?) of these JSDoc cases somewhere else since
                 // they will surely get more complicated
                 case SyntaxKind.JSDocComment:
-                    if ((node as JSDoc).tags) {
+                    if (isInJavaScriptFile(node) && (node as JSDoc).tags) {
                         for (const tag of (node as JSDoc).tags) {
                             checkSourceElement(tag);
                         }
