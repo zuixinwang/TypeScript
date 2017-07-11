@@ -596,15 +596,8 @@ namespace ts {
             // because the scope of JsDocComment should not be affected by whether the current node is a
             // container or not.
             if (node.jsDoc) {
-                if (isInJavaScriptFile(node)) {
-                    for (const j of node.jsDoc) {
-                        bind(j);
-                    }
-                }
-                else {
-                    for (const j of node.jsDoc) {
-                        setParentPointers(node, j);
-                    }
+                for (const j of node.jsDoc) {
+                    bind(j);
                 }
             }
 
