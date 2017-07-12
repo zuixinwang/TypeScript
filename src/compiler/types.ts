@@ -2101,12 +2101,12 @@ namespace ts {
 
     export interface JSDocConstructorType extends JSDocType {
         kind: SyntaxKind.JSDocConstructorType;
-        type: JSDocType;
+        type: TypeNode;
     }
 
     export interface JSDocThisType extends JSDocType {
         kind: SyntaxKind.JSDocThisType;
-        type: JSDocType;
+        type: TypeNode;
     }
 
     export interface JSDocLiteralType extends JSDocType {

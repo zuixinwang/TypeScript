@@ -2532,10 +2532,14 @@ namespace ts {
             return finishNode(node);
         }
 
-        function parseFunctionOrConstructorType(kind: SyntaxKind): FunctionOrConstructorTypeNode {
+        function parseFunctionOrConstructorType(kind: SyntaxKind): FunctionOrConstructorTypeNode | JSDocConstructorType {
             const node = <FunctionOrConstructorTypeNode>createNode(kind);
             if (kind === SyntaxKind.ConstructorType) {
                 parseExpected(SyntaxKind.NewKeyword);
+                if (token() === SyntaxKind.ColonToken) {
+                    // JSDoc -- `new:T` as in `function(new:T, string, string)`; an infix constructor-return-type
+                    return parseJSDocConstructorType();
+                }
             }
             fillSignature(SyntaxKind.EqualsGreaterThanToken, /*yieldContext*/ false, /*awaitContext*/ false, /*requireCompleteParameterList*/ false, node);
             return finishNode(node);
@@ -2602,6 +2606,9 @@ namespace ts {
                     if (token() === SyntaxKind.IsKeyword && !scanner.hasPrecedingLineBreak()) {
                         return parseThisTypePredicate(thisKeyword);
                     }
+                    else if (token() === SyntaxKind.ColonToken) {
+                        return parseJSDocThisType();
+                    }
                     else {
                         return thisKeyword;
                     }
@@ -2615,8 +2622,6 @@ namespace ts {
                 case SyntaxKind.OpenParenToken:
                     return parseParenthesizedType();
                 default:
-                    // TODO: Allow things like `var` when parsing JSDoc? I think?
-                    // (parseTypeReference intentionally excludes keywords)
                     return parseTypeReference();
             }
         }
@@ -2699,6 +2704,20 @@ namespace ts {
 
         function parseJSDocNonNullableType(): JSDocNonNullableType {
             const result = <JSDocNonNullableType>createNode(SyntaxKind.JSDocNonNullableType);
+            nextToken();
+            result.type = parseType();
+            return finishNode(result);
+        }
+
+        function parseJSDocThisType(): JSDocThisType {
+            const result = <JSDocThisType>createNode(SyntaxKind.JSDocThisType);
+            nextToken();
+            result.type = parseType();
+            return finishNode(result);
+        }
+
+        function parseJSDocConstructorType(): JSDocConstructorType {
+            const result = <JSDocConstructorType>createNode(SyntaxKind.JSDocConstructorType);
             nextToken();
             result.type = parseType();
             return finishNode(result);
@@ -2914,6 +2933,7 @@ namespace ts {
                 return parseFunctionOrConstructorType(SyntaxKind.FunctionType);
             }
             if (token() === SyntaxKind.NewKeyword) {
+                // Probably won't get past here with my new JSDoc parsing code
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
             return parseUnionTypeOrHigher();
