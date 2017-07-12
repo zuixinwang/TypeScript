@@ -22042,8 +22042,22 @@ namespace ts {
                     return;
                 case SyntaxKind.JSDocParameterTag:
                     return checkSourceElement((node as JSDocParameterTag).typeExpression);
+                case SyntaxKind.JSDocFunctionType:
+                    // TODO: check parameters and return type
+                    // fall through
+                case SyntaxKind.JSDocConstructorType:
+                case SyntaxKind.JSDocThisType:
+                case SyntaxKind.JSDocVariadicType:
+                case SyntaxKind.JSDocNonNullableType:
+                case SyntaxKind.JSDocNullableType:
+                case SyntaxKind.JSDocAllType:
+                case SyntaxKind.JSDocUnknownType:
+                    if (!isInJavaScriptFile(node) && !findAncestor(node, n => n.kind === SyntaxKind.JSDocTypeExpression)) {
+                        grammarErrorOnNode(node, Diagnostics.JSDoc_types_can_only_used_inside_doc_comments);
+                    }
+                    return;
                 case SyntaxKind.JSDocTypeExpression:
-                        return checkSourceElement((node as JSDocTypeExpression).type);
+                    return checkSourceElement((node as JSDocTypeExpression).type);
                 case SyntaxKind.IndexedAccessType:
                     return checkIndexedAccessType(<IndexedAccessTypeNode>node);
                 case SyntaxKind.MappedType:
