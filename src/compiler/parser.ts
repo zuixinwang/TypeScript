@@ -2506,7 +2506,7 @@ namespace ts {
                 parseExpected(SyntaxKind.NewKeyword);
                 if (token() === SyntaxKind.ColonToken) {
                     // JSDoc -- `new:T` as in `function(new:T, string, string)`; an infix constructor-return-type
-                    return parseJSDocTypedNode(SyntaxKind.JSDocConstructorType) as JSDocConstructorType;
+                    return parseJSDocNodeWithType(SyntaxKind.JSDocConstructorType) as JSDocConstructorType;
                 }
             }
             fillSignature(SyntaxKind.EqualsGreaterThanToken, SignatureFlags.Type, node);
@@ -2554,9 +2554,9 @@ namespace ts {
                     node.typeName = parseIdentifierName();
                     return finishNode(node);
                 case SyntaxKind.DotDotDotToken:
-                    return parseJSDocTypedNode(SyntaxKind.JSDocVariadicType);
+                    return parseJSDocNodeWithType(SyntaxKind.JSDocVariadicType);
                 case SyntaxKind.ExclamationToken:
-                    return parseJSDocTypedNode(SyntaxKind.JSDocNonNullableType);
+                    return parseJSDocNodeWithType(SyntaxKind.JSDocNonNullableType);
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
                 case SyntaxKind.TrueKeyword:
@@ -2573,7 +2573,7 @@ namespace ts {
                         return parseThisTypePredicate(thisKeyword);
                     }
                     else if (token() === SyntaxKind.ColonToken) {
-                        return parseJSDocTypedNode(SyntaxKind.JSDocThisType);
+                        return parseJSDocNodeWithType(SyntaxKind.JSDocThisType);
                     }
                     else {
                         return thisKeyword;
@@ -2644,7 +2644,7 @@ namespace ts {
             return finishNode(parameter);
         }
 
-        function parseJSDocTypedNode(kind: SyntaxKind): TypeNode {
+        function parseJSDocNodeWithType(kind: SyntaxKind): TypeNode {
             const result = createNode(kind) as JSDocVariadicType | JSDocNonNullableType | JSDocThisType | JSDocConstructorType;
             nextToken();
             result.type = parseType();
@@ -6090,24 +6090,6 @@ namespace ts {
         }
 
         export namespace JSDocParser {
-            export function isJSDocType() {
-                switch (token()) {
-                    case SyntaxKind.AsteriskToken:
-                    case SyntaxKind.QuestionToken:
-                    case SyntaxKind.OpenParenToken:
-                    case SyntaxKind.OpenBracketToken:
-                    case SyntaxKind.ExclamationToken:
-                    case SyntaxKind.OpenBraceToken:
-                    case SyntaxKind.FunctionKeyword:
-                    case SyntaxKind.DotDotDotToken:
-                    case SyntaxKind.NewKeyword:
-                    case SyntaxKind.ThisKeyword:
-                        return true;
-                }
-
-                return tokenIsIdentifierOrKeyword(token());
-            }
-
             export function parseJSDocTypeExpressionForTests(content: string, start: number, length: number) {
                 initializeState(content, ScriptTarget.Latest, /*_syntaxCursor:*/ undefined, ScriptKind.JS);
                 sourceFile = createSourceFile("file.js", ScriptTarget.Latest, ScriptKind.JS);
