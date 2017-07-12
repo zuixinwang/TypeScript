@@ -2583,11 +2583,9 @@ namespace ts {
                 case SyntaxKind.AsteriskToken:
                     return parseJSDocAllType();
                 case SyntaxKind.QuestionToken:
-                // TODO: This parses recursively so it might not be the right place for it.
                     return parseJSDocUnknownOrNullableType();
                 case SyntaxKind.FunctionKeyword:
-                // TODO: This is *definitely* not the right place for this. Definitely.
-                // .... ok. *maybe* it is. There is some recursive stuff here.
+                    // TODO: Do we really need this lookahead?
                     if (lookAhead(nextTokenIsOpenParen)) {
                         return parseJSDocFunctionType();
                     }
@@ -2679,7 +2677,6 @@ namespace ts {
             parseExpected(SyntaxKind.OpenParenToken);
             // this should probably just use the same code that other stuff uses
             result.parameters = parseDelimitedList(ParsingContext.JSDocFunctionParameters, parseJSDocParameter);
-            // checkForTrailingComma(result.parameters);
             parseExpected(SyntaxKind.CloseParenToken);
 
             if (token() === SyntaxKind.ColonToken) {
@@ -2775,9 +2772,9 @@ namespace ts {
             let type = parseArrayTypeOrHigher();
             if (contextFlags & NodeFlags.JSDoc) {
                 // only parse postfix =, !, ? inside jsdoc, because it's ambiguous elsewhere
-                let node: OptionalEqualsTypeNode | JSDocNullableType | JSDocNonNullableType;
+                let node: JSDocOptionalType | JSDocNullableType | JSDocNonNullableType;
                 if (parseOptional(SyntaxKind.EqualsToken)) {
-                    node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as OptionalEqualsTypeNode;
+                    node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as JSDocOptionalType;
                 }
                 else if (parseOptional(SyntaxKind.ExclamationToken)) {
                     node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
@@ -6885,7 +6882,6 @@ namespace ts {
                     return finishNode(tag);
                 }
 
-                // TODO: This whole function needs an update
                 function parseTypedefTag(atToken: AtToken, tagName: Identifier): JSDocTypedefTag {
                     const typeExpression = tryParseTypeExpression();
                     skipWhitespace();

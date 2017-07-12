@@ -980,11 +980,6 @@ namespace ts {
         type: TypeNode;
     }
 
-    export interface OptionalEqualsTypeNode extends TypeNode {
-        kind: SyntaxKind.JSDocOptionalType;
-        type: TypeNode;
-    }
-
     export interface IndexedAccessTypeNode extends TypeNode {
         kind: SyntaxKind.IndexedAccessType;
         objectType: TypeNode;
@@ -2101,7 +2096,7 @@ namespace ts {
 
     export interface JSDocOptionalType extends JSDocType {
         kind: SyntaxKind.JSDocOptionalType;
-        type: JSDocType;
+        type: TypeNode;
     }
 
     export interface JSDocFunctionType extends JSDocType, SignatureDeclaration {
