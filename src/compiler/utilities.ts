@@ -1077,7 +1077,6 @@ namespace ts {
     export function getEntityNameFromTypeNode(node: TypeNode): EntityNameOrEntityNameExpression {
         switch (node.kind) {
             case SyntaxKind.TypeReference:
-            case SyntaxKind.JSDocTypeReference:
                 return (<TypeReferenceNode>node).typeName;
 
             case SyntaxKind.ExpressionWithTypeArguments:
@@ -4646,7 +4645,6 @@ namespace ts {
     }
 
     // JSDoc
-    // TODO: Should delete a lot of these.
 
     export function isJSDocTypeExpression(node: Node): node is JSDocTypeExpression {
         return node.kind === SyntaxKind.JSDocTypeExpression;
@@ -4660,32 +4658,12 @@ namespace ts {
         return node.kind === SyntaxKind.JSDocUnknownType;
     }
 
-    export function isJSDocArrayType(node: Node): node is JSDocArrayType {
-        return node.kind === SyntaxKind.JSDocArrayType;
-    }
-
-    export function isJSDocUnionType(node: Node): node is JSDocUnionType {
-        return node.kind === SyntaxKind.JSDocUnionType;
-    }
-
-    export function isJSDocTupleType(node: Node): node is JSDocTupleType {
-        return node.kind === SyntaxKind.JSDocTupleType;
-    }
-
     export function isJSDocNullableType(node: Node): node is JSDocNullableType {
         return node.kind === SyntaxKind.JSDocNullableType;
     }
 
     export function isJSDocNonNullableType(node: Node): node is JSDocNonNullableType {
         return node.kind === SyntaxKind.JSDocNonNullableType;
-    }
-
-    export function isJSDocRecordType(node: Node): node is JSDocRecordType {
-        return node.kind === SyntaxKind.JSDocRecordType;
-    }
-
-    export function isJSDocRecordMember(node: Node): node is JSDocRecordMember {
-        return node.kind === SyntaxKind.JSDocRecordMember;
     }
 
     export function isJSDocOptionalType(node: Node): node is JSDocOptionalType {
@@ -4742,10 +4720,6 @@ namespace ts {
 
     export function isJSDocTypeLiteral(node: Node): node is JSDocTypeLiteral {
         return node.kind === SyntaxKind.JSDocTypeLiteral;
-    }
-
-    export function isJSDocLiteralType(node: Node): node is JSDocLiteralType {
-        return node.kind === SyntaxKind.JSDocLiteralType;
     }
 }
 
