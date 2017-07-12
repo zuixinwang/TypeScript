@@ -7903,9 +7903,6 @@ namespace ts {
                 case SyntaxKind.JSDocConstructorType:
                 case SyntaxKind.JSDocThisType:
                 case SyntaxKind.JSDocOptionalType:
-                    // TODO: Need to add undefined to the type, right?
-                // The parent caller, getTypeForVariableLikeDeclaration, normally adds this
-                // (probably this is already handled there correctly. I hope.)
                     return getTypeFromTypeNode((<ParenthesizedTypeNode | JSDocTypeReferencingNode>node).type);
                 case SyntaxKind.JSDocRecordType:
                     return getTypeFromTypeNode((node as JSDocRecordType).literal);

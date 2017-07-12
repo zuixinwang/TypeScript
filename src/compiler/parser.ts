@@ -9,6 +9,7 @@ namespace ts {
         Type  = 1 << 2,
         RequireCompleteParameterList = 1 << 3,
         IgnoreMissingOpenBrace = 1 << 4,
+        JSDoc = 1 << 5,
     }
 
     let NodeConstructor: new (kind: SyntaxKind, pos: number, end: number) => Node;
@@ -2169,7 +2170,7 @@ namespace ts {
         }
 
         function isStartOfParameter(): boolean {
-            return token() === SyntaxKind.DotDotDotToken || isIdentifierOrPattern() || isModifierKind(token()) || token() === SyntaxKind.AtToken || token() === SyntaxKind.ThisKeyword;
+            return token() === SyntaxKind.DotDotDotToken || isIdentifierOrPattern() || isModifierKind(token()) || token() === SyntaxKind.AtToken || token() === SyntaxKind.ThisKeyword || token() === SyntaxKind.NewKeyword;
         }
 
         function parseParameter(): ParameterDeclaration {
@@ -2227,7 +2228,9 @@ namespace ts {
             returnToken: SyntaxKind.ColonToken | SyntaxKind.EqualsGreaterThanToken,
             flags: SignatureFlags,
             signature: SignatureDeclaration): void {
-            signature.typeParameters = parseTypeParameters();
+            if (!(flags & SignatureFlags.JSDoc)) {
+                signature.typeParameters = parseTypeParameters();
+            }
             signature.parameters = parseParameterList(flags);
 
             const returnTokenRequired = returnToken === SyntaxKind.EqualsGreaterThanToken;
@@ -2271,7 +2274,7 @@ namespace ts {
                 setYieldContext(!!(flags & SignatureFlags.Yield));
                 setAwaitContext(!!(flags & SignatureFlags.Await));
 
-                const result = parseDelimitedList(ParsingContext.Parameters, parseParameter);
+                const result = parseDelimitedList(ParsingContext.Parameters, flags & SignatureFlags.JSDoc ? parseJSDocParameter : parseParameter);
 
                 setYieldContext(savedYieldContext);
                 setAwaitContext(savedAwaitContext);
@@ -2670,29 +2673,13 @@ namespace ts {
         function parseJSDocFunctionType(): JSDocFunctionType {
             const result = <JSDocFunctionType>createNode(SyntaxKind.JSDocFunctionType);
             nextToken();
-
-            parseExpected(SyntaxKind.OpenParenToken);
-            // this should probably just use the same code that other stuff uses
-            result.parameters = parseDelimitedList(ParsingContext.JSDocFunctionParameters, parseJSDocParameter);
-            parseExpected(SyntaxKind.CloseParenToken);
-
-            if (token() === SyntaxKind.ColonToken) {
-                nextToken();
-                result.type = parseType();
-            }
-
+            fillSignature(SyntaxKind.ColonToken, SignatureFlags.Type | SignatureFlags.JSDoc, result);
             return finishNode(result);
         }
 
         function parseJSDocParameter(): ParameterDeclaration {
             const parameter = <ParameterDeclaration>createNode(SyntaxKind.Parameter);
             parameter.type = parseType();
-            // TODO: Probably not needed anymore now that parseType can handle it.
-            // However, I need to check that tests exist, or write some, for something like function(number=): string
-            if (parseOptional(SyntaxKind.EqualsToken)) {
-                // TODO(rbuckton): Can this be changed to SyntaxKind.QuestionToken?
-                parameter.questionToken = <QuestionToken>createNode(SyntaxKind.EqualsToken);
-            }
             return finishNode(parameter);
         }
 
@@ -2934,7 +2921,6 @@ namespace ts {
                 return parseFunctionOrConstructorType(SyntaxKind.FunctionType);
             }
             if (token() === SyntaxKind.NewKeyword) {
-                // Probably won't get past here with my new JSDoc parsing code
                 return parseFunctionOrConstructorType(SyntaxKind.ConstructorType);
             }
             return parseUnionTypeOrHigher();

@@ -2101,8 +2101,6 @@ namespace ts {
 
     export interface JSDocFunctionType extends JSDocType, SignatureDeclaration {
         kind: SyntaxKind.JSDocFunctionType;
-        parameters: NodeArray<ParameterDeclaration>;
-        type: TypeNode;
     }
 
     export interface JSDocVariadicType extends JSDocType {
