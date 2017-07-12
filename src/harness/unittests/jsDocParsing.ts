@@ -44,8 +44,8 @@ namespace ts {
                 parsesCorrectly("functionType1", "{function()}");
                 parsesCorrectly("functionType2", "{function(string, boolean)}");
                 parsesCorrectly("functionReturnType1", "{function(string, boolean)}");
-                parsesCorrectly("thisType1", "{{this:a.b}}");
-                parsesCorrectly("newType1", "{{new:a.b}}");
+                parsesCorrectly("thisType1", "{this:a.b}");
+                parsesCorrectly("newType1", "{new:a.b}");
                 parsesCorrectly("variadicType", "{...number}");
                 parsesCorrectly("optionalType", "{number=}");
                 parsesCorrectly("optionalNullable", "{?=}");
