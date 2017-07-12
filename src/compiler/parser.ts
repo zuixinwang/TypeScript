@@ -1224,10 +1224,6 @@ namespace ts {
             return parsePropertyNameWorker(/*allowComputedPropertyNames*/ true);
         }
 
-        function isSimplePropertyName() {
-            return token() === SyntaxKind.StringLiteral || token() === SyntaxKind.NumericLiteral || tokenIsIdentifierOrKeyword(token());
-        }
-
         function parseComputedPropertyName(): ComputedPropertyName {
             // PropertyName [Yield]:
             //      LiteralPropertyName
@@ -1375,13 +1371,6 @@ namespace ts {
                     return tokenIsIdentifierOrKeyword(token()) || token() === SyntaxKind.OpenBraceToken;
                 case ParsingContext.JsxChildren:
                     return true;
-                // TODO: I think these are no longer relevant
-                case ParsingContext.JSDocFunctionParameters:
-                case ParsingContext.JSDocTypeArguments:
-                case ParsingContext.JSDocTupleTypes:
-                    return JSDocParser.isJSDocType();
-                case ParsingContext.JSDocRecordMembers:
-                    return isSimplePropertyName();
             }
 
             Debug.fail("Non-exhaustive case in 'isListElement'.");
@@ -1476,14 +1465,6 @@ namespace ts {
                     return token() === SyntaxKind.GreaterThanToken || token() === SyntaxKind.SlashToken;
                 case ParsingContext.JsxChildren:
                     return token() === SyntaxKind.LessThanToken && lookAhead(nextTokenIsSlash);
-                case ParsingContext.JSDocFunctionParameters:
-                    return token() === SyntaxKind.CloseParenToken || token() === SyntaxKind.ColonToken || token() === SyntaxKind.CloseBraceToken;
-                case ParsingContext.JSDocTypeArguments:
-                    return token() === SyntaxKind.GreaterThanToken || token() === SyntaxKind.CloseBraceToken;
-                case ParsingContext.JSDocTupleTypes:
-                    return token() === SyntaxKind.CloseBracketToken || token() === SyntaxKind.CloseBraceToken;
-                case ParsingContext.JSDocRecordMembers:
-                    return token() === SyntaxKind.CloseBraceToken;
             }
         }
 
@@ -1869,10 +1850,6 @@ namespace ts {
                 case ParsingContext.ImportOrExportSpecifiers: return Diagnostics.Identifier_expected;
                 case ParsingContext.JsxAttributes: return Diagnostics.Identifier_expected;
                 case ParsingContext.JsxChildren: return Diagnostics.Identifier_expected;
-                case ParsingContext.JSDocFunctionParameters: return Diagnostics.Parameter_declaration_expected;
-                case ParsingContext.JSDocTypeArguments: return Diagnostics.Type_argument_expected;
-                case ParsingContext.JSDocTupleTypes: return Diagnostics.Type_expected;
-                case ParsingContext.JSDocRecordMembers: return Diagnostics.Property_assignment_expected;
             }
         }
 
@@ -2529,7 +2506,7 @@ namespace ts {
                 parseExpected(SyntaxKind.NewKeyword);
                 if (token() === SyntaxKind.ColonToken) {
                     // JSDoc -- `new:T` as in `function(new:T, string, string)`; an infix constructor-return-type
-                    return parseJSDocConstructorType();
+                    return parseJSDocTypedNode(SyntaxKind.JSDocConstructorType) as JSDocConstructorType;
                 }
             }
             fillSignature(SyntaxKind.EqualsGreaterThanToken, SignatureFlags.Type, node);
@@ -2577,9 +2554,9 @@ namespace ts {
                     node.typeName = parseIdentifierName();
                     return finishNode(node);
                 case SyntaxKind.DotDotDotToken:
-                    return parseJSDocVariadicType();
+                    return parseJSDocTypedNode(SyntaxKind.JSDocVariadicType);
                 case SyntaxKind.ExclamationToken:
-                    return parseJSDocNonNullableType();
+                    return parseJSDocTypedNode(SyntaxKind.JSDocNonNullableType);
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
                 case SyntaxKind.TrueKeyword:
@@ -2596,7 +2573,7 @@ namespace ts {
                         return parseThisTypePredicate(thisKeyword);
                     }
                     else if (token() === SyntaxKind.ColonToken) {
-                        return parseJSDocThisType();
+                        return parseJSDocTypedNode(SyntaxKind.JSDocThisType);
                     }
                     else {
                         return thisKeyword;
@@ -2667,29 +2644,8 @@ namespace ts {
             return finishNode(parameter);
         }
 
-        function parseJSDocVariadicType(): JSDocVariadicType {
-            const result = <JSDocVariadicType>createNode(SyntaxKind.JSDocVariadicType);
-            nextToken();
-            result.type = parseType();
-            return finishNode(result);
-        }
-
-        function parseJSDocNonNullableType(): JSDocNonNullableType {
-            const result = <JSDocNonNullableType>createNode(SyntaxKind.JSDocNonNullableType);
-            nextToken();
-            result.type = parseType();
-            return finishNode(result);
-        }
-
-        function parseJSDocThisType(): JSDocThisType {
-            const result = <JSDocThisType>createNode(SyntaxKind.JSDocThisType);
-            nextToken();
-            result.type = parseType();
-            return finishNode(result);
-        }
-
-        function parseJSDocConstructorType(): JSDocConstructorType {
-            const result = <JSDocConstructorType>createNode(SyntaxKind.JSDocConstructorType);
+        function parseJSDocTypedNode(kind: SyntaxKind): TypeNode {
+            const result = createNode(kind) as JSDocVariadicType | JSDocNonNullableType | JSDocThisType | JSDocConstructorType;
             nextToken();
             result.type = parseType();
             return finishNode(result);
@@ -6124,10 +6080,6 @@ namespace ts {
             TupleElementTypes,         // Element types in tuple element type list
             HeritageClauses,           // Heritage clauses for a class or interface declaration.
             ImportOrExportSpecifiers,  // Named import clause's import specifier list
-            JSDocFunctionParameters,
-            JSDocTypeArguments,
-            JSDocRecordMembers,
-            JSDocTupleTypes,
             Count                      // Number of parsing contexts
         }
 
