@@ -19,3 +19,5 @@ var variadic: ...boolean = [true, false, true];
 var most: !string = 'definite';
 var weird1: new:string = {};
 var weird2: this:string = {};
+var postfixdef: number! = 101;
+var postfixopt: number? = undefined;
