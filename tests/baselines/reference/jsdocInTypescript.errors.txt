@@ -5,6 +5,7 @@ tests/cases/conformance/jsdoc/jsdocInTypescript.ts(7,20): error TS8020: JSDoc ty
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(7,32): error TS8020: JSDoc types can only used inside documentation comments.
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(10,18): error TS8020: JSDoc types can only used inside documentation comments.
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(10,31): error TS8020: JSDoc types can only used inside documentation comments.
+tests/cases/conformance/jsdoc/jsdocInTypescript.ts(11,12): error TS2554: Expected 1 arguments, but got 2.
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(13,14): error TS8020: JSDoc types can only used inside documentation comments.
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(14,11): error TS8020: JSDoc types can only used inside documentation comments.
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(15,8): error TS8020: JSDoc types can only used inside documentation comments.
@@ -16,7 +17,7 @@ tests/cases/conformance/jsdoc/jsdocInTypescript.ts(19,5): error TS2322: Type '{}
 tests/cases/conformance/jsdoc/jsdocInTypescript.ts(19,17): error TS8020: JSDoc types can only used inside documentation comments.
 
 
-==== tests/cases/conformance/jsdoc/jsdocInTypescript.ts (16 errors) ====
+==== tests/cases/conformance/jsdoc/jsdocInTypescript.ts (17 errors) ====
     // grammar error from checker
     var ara: Array.<number> = [1,2,3];
              ~~~~~~~~~~~~~~
@@ -42,6 +43,8 @@ tests/cases/conformance/jsdoc/jsdocInTypescript.ts(19,17): error TS8020: JSDoc t
                                   ~~~~~~~~
 !!! error TS8020: JSDoc types can only used inside documentation comments.
         return f(12, 'hullo');
+               ~~~~~~~~~~~~~~
+!!! error TS2554: Expected 1 arguments, but got 2.
     }
     var whatevs: * = 1001;
                  ~
