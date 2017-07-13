@@ -280,7 +280,14 @@ namespace ts {
                     Debug.assert(node.parent.kind === SyntaxKind.JSDocFunctionType);
                     const functionType = <JSDocFunctionType>node.parent;
                     const index = indexOf(functionType.parameters, node);
-                    return "arg" + index as __String;
+                    switch ((node as ParameterDeclaration).type.kind) {
+                        case SyntaxKind.JSDocThisType:
+                            return "this" as __String;
+                        case SyntaxKind.JSDocConstructorType:
+                            return "new" as __String;
+                        default:
+                            return "arg" + index as __String;
+                    }
                 case SyntaxKind.JSDocTypedefTag:
                     const parentNode = node.parent && node.parent.parent;
                     let nameFromParentNode: __String;

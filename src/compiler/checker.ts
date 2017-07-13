@@ -6348,7 +6348,7 @@ namespace ts {
                         const resolvedSymbol = resolveName(param, paramSymbol.name, SymbolFlags.Value, undefined, undefined);
                         paramSymbol = resolvedSymbol;
                     }
-                    if (i === 0 && paramSymbol.name === "this") {
+                    if (i === 0 && paramSymbol.name === "this" || (param.type && param.type.kind === SyntaxKind.JSDocThisType)) {
                         hasThisParameter = true;
                         thisParameter = param.symbol;
                     }
