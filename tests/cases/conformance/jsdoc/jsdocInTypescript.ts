@@ -1,6 +1,8 @@
 // @strict: true
 
-// error from checker
+// grammar error from checker
+var ara: Array.<number> = [1,2,3];
+
 function f(x: ?number, y: Array.<number>) {
     return x ? x + y[1] : y[0];
 }
@@ -17,8 +19,3 @@ var variadic: ...boolean = [true, false, true];
 var most: !string = 'definite';
 var weird1: new:string = {};
 var weird2: this:string = {};
-
-// parse error (blocks grammar errors from checker)
-// function parse1(n: number=) { }
-// function parse2(n: number!) { }
-// function parse3(n: number?) { }
