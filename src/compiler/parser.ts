@@ -2694,24 +2694,22 @@ namespace ts {
             return token() === SyntaxKind.CloseParenToken || isStartOfParameter() || isStartOfType();
         }
 
-        function parseOptionalTypeOrHigher(): TypeNode {
+        function parseJSDocPostfixTypeOrHigher(): TypeNode {
             let type = parseArrayTypeOrHigher();
-            if (contextFlags & NodeFlags.JSDoc) {
-                // only parse postfix =, !, ? inside jsdoc, because it's ambiguous elsewhere
-                let node: JSDocOptionalType | JSDocNullableType | JSDocNonNullableType;
-                if (parseOptional(SyntaxKind.EqualsToken)) {
-                    node = createNode(SyntaxKind.JSDocOptionalType, type.pos) as JSDocOptionalType;
-                }
-                else if (parseOptional(SyntaxKind.ExclamationToken)) {
-                    node = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
-                }
-                else if (parseOptional(SyntaxKind.QuestionToken)) {
-                    node = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNullableType;
-                }
-                if (node) {
-                    node.type = type;
-                    type = finishNode(node);
-                }
+            let postfix: JSDocOptionalType | JSDocNonNullableType | JSDocNullableType;
+            // only parse postfix = inside jsdoc, because it's ambiguous elsewhere
+            if (contextFlags & NodeFlags.JSDoc && parseOptional(SyntaxKind.EqualsToken)) {
+                postfix = createNode(SyntaxKind.JSDocOptionalType, type.pos) as JSDocOptionalType;
+            }
+            else if (parseOptional(SyntaxKind.ExclamationToken)) {
+                postfix = createNode(SyntaxKind.JSDocNonNullableType, type.pos) as JSDocNonNullableType;
+            }
+            else if (parseOptional(SyntaxKind.QuestionToken)) {
+                postfix = createNode(SyntaxKind.JSDocNullableType, type.pos) as JSDocNullableType;
+            }
+            if (postfix) {
+                postfix.type = type;
+                type = finishNode(postfix);
             }
             return type;
         }
@@ -2749,7 +2747,7 @@ namespace ts {
                 case SyntaxKind.KeyOfKeyword:
                     return parseTypeOperator(SyntaxKind.KeyOfKeyword);
             }
-            return parseOptionalTypeOrHigher();
+            return parseJSDocPostfixTypeOrHigher();
         }
 
         function parseUnionOrIntersectionType(kind: SyntaxKind.UnionType | SyntaxKind.IntersectionType, parseConstituentType: () => TypeNode, operator: SyntaxKind.BarToken | SyntaxKind.AmpersandToken): TypeNode {
