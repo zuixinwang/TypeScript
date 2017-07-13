@@ -1,0 +1,23 @@
+tests/cases/conformance/jsdoc/jsdocInTypescript2.ts(2,27): error TS1109: Expression expected.
+tests/cases/conformance/jsdoc/jsdocInTypescript2.ts(3,17): error TS2322: Type 'boolean' is not assignable to type 'number'.
+tests/cases/conformance/jsdoc/jsdocInTypescript2.ts(3,26): error TS1005: '=' expected.
+tests/cases/conformance/jsdoc/jsdocInTypescript2.ts(3,27): error TS1109: Expression expected.
+tests/cases/conformance/jsdoc/jsdocInTypescript2.ts(4,26): error TS1005: ',' expected.
+
+
+==== tests/cases/conformance/jsdoc/jsdocInTypescript2.ts (5 errors) ====
+    // parse error (blocks grammar errors from checker)
+    function parse1(n: number=) { }
+                              ~
+!!! error TS1109: Expression expected.
+    function parse2(n: number!) { }
+                    ~~~~~~~~~~
+!!! error TS2322: Type 'boolean' is not assignable to type 'number'.
+                             ~
+!!! error TS1005: '=' expected.
+                              ~
+!!! error TS1109: Expression expected.
+    function parse3(n: number?) { }
+                             ~
+!!! error TS1005: ',' expected.
+    
