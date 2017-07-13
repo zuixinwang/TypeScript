@@ -1928,10 +1928,14 @@ namespace ts {
 
         // The allowReservedWords parameter controls whether reserved words are permitted after the first dot
         function parseEntityName(allowReservedWords: boolean, diagnosticMessage?: DiagnosticMessage): EntityName {
-            // TODO: Should record the trailing dot so that we can issue an error if we are in a TS file
             let entity: EntityName = allowReservedWords ? parseIdentifierName() : parseIdentifier(diagnosticMessage);
-            while (parseOptional(SyntaxKind.DotToken) && token() !== SyntaxKind.LessThanToken) {
-                const node: QualifiedName = <QualifiedName>createNode(SyntaxKind.QualifiedName, entity.pos);  // !!!
+            while (parseOptional(SyntaxKind.DotToken)) {
+                if (token() === SyntaxKind.LessThanToken) {
+                    // the entity is part of a JSDoc-style generic, so record this for later in case it's an error
+                    entity.jsdocDot = true;
+                    break;
+                }
+                const node: QualifiedName = <QualifiedName>createNode(SyntaxKind.QualifiedName, entity.pos);
                 node.left = entity;
                 node.right = parseRightSideOfDot(allowReservedWords);
                 entity = finishNode(node);

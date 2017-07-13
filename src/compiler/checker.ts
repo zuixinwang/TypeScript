@@ -18469,6 +18469,9 @@ namespace ts {
 
         function checkTypeReferenceNode(node: TypeReferenceNode | ExpressionWithTypeArguments) {
             checkGrammarTypeArguments(node, node.typeArguments);
+            if (node.kind === SyntaxKind.TypeReference && node.typeName.jsdocDot && !isInJavaScriptFile(node) && !findAncestor(node, n => n.kind === SyntaxKind.JSDocTypeExpression)) {
+                grammarErrorOnNode(node, Diagnostics.JSDoc_types_can_only_used_inside_documentation_comments);
+            }
             const type = getTypeFromTypeReference(node);
             if (type !== unknownType) {
                 if (node.typeArguments) {
@@ -21972,6 +21975,22 @@ namespace ts {
             }
         }
 
+        function checkJSDocComment(node: JSDoc) {
+            if (isInJavaScriptFile(node) && (node as JSDoc).tags) {
+                for (const tag of (node as JSDoc).tags) {
+                    checkSourceElement(tag);
+                }
+            }
+        }
+
+        function checkJSDocFunctionType(node: JSDocFunctionType) {
+            for (const p of node.parameters) {
+                // don't bother with normal parameter checking since jsdoc function parameters only consist of a type
+                checkSourceElement(p.type);
+            }
+            checkSourceElement(node.type);
+        }
+
         function checkSourceElement(node: Node): void {
             if (!node) {
                 return;
@@ -22031,19 +22050,12 @@ namespace ts {
                 case SyntaxKind.ParenthesizedType:
                 case SyntaxKind.TypeOperator:
                     return checkSourceElement((<ParenthesizedTypeNode | TypeOperatorNode>node).type);
-                // TODO: Move some (all?) of these JSDoc cases somewhere else since
-                // they will surely get more complicated
                 case SyntaxKind.JSDocComment:
-                    if (isInJavaScriptFile(node) && (node as JSDoc).tags) {
-                        for (const tag of (node as JSDoc).tags) {
-                            checkSourceElement(tag);
-                        }
-                    }
-                    return;
+                    return checkJSDocComment(node as JSDoc);
                 case SyntaxKind.JSDocParameterTag:
                     return checkSourceElement((node as JSDocParameterTag).typeExpression);
                 case SyntaxKind.JSDocFunctionType:
-                    // TODO: check parameters and return type
+                    checkJSDocFunctionType(node as JSDocFunctionType);
                     // fall through
                 case SyntaxKind.JSDocConstructorType:
                 case SyntaxKind.JSDocThisType:
@@ -22053,7 +22065,7 @@ namespace ts {
                 case SyntaxKind.JSDocAllType:
                 case SyntaxKind.JSDocUnknownType:
                     if (!isInJavaScriptFile(node) && !findAncestor(node, n => n.kind === SyntaxKind.JSDocTypeExpression)) {
-                        grammarErrorOnNode(node, Diagnostics.JSDoc_types_can_only_used_inside_doc_comments);
+                        grammarErrorOnNode(node, Diagnostics.JSDoc_types_can_only_used_inside_documentation_comments);
                     }
                     return;
                 case SyntaxKind.JSDocTypeExpression:
