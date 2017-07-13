@@ -2083,6 +2083,69 @@ namespace ts {
             return finishNode(node);
         }
 
+        function parseJSDocAllType(): JSDocAllType {
+            const result = <JSDocAllType>createNode(SyntaxKind.JSDocAllType);
+            nextToken();
+            return finishNode(result);
+        }
+
+        function parseJSDocUnknownOrNullableType(): JSDocUnknownType | JSDocNullableType {
+            const pos = scanner.getStartPos();
+            // skip the ?
+            nextToken();
+
+            // Need to lookahead to decide if this is a nullable or unknown type.
+
+            // Here are cases where we'll pick the unknown type:
+            //
+            //      Foo(?,
+            //      { a: ? }
+            //      Foo(?)
+            //      Foo<?>
+            //      Foo(?=
+            //      (?|
+            if (token() === SyntaxKind.CommaToken ||
+                token() === SyntaxKind.CloseBraceToken ||
+                token() === SyntaxKind.CloseParenToken ||
+                token() === SyntaxKind.GreaterThanToken ||
+                token() === SyntaxKind.EqualsToken ||
+                token() === SyntaxKind.BarToken) {
+
+                const result = <JSDocUnknownType>createNode(SyntaxKind.JSDocUnknownType, pos);
+                return finishNode(result);
+            }
+            else {
+                const result = <JSDocNullableType>createNode(SyntaxKind.JSDocNullableType, pos);
+                result.type = parseType();
+                return finishNode(result);
+            }
+        }
+
+        function parseJSDocFunctionType(): JSDocFunctionType | TypeReferenceNode {
+            if (lookAhead(nextTokenIsOpenParen)) {
+                const result = <JSDocFunctionType>createNode(SyntaxKind.JSDocFunctionType);
+                nextToken();
+                fillSignature(SyntaxKind.ColonToken, SignatureFlags.Type | SignatureFlags.JSDoc, result);
+                return finishNode(result);
+            }
+            const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
+            node.typeName = parseIdentifierName();
+            return finishNode(node);
+        }
+
+        function parseJSDocParameter(): ParameterDeclaration {
+            const parameter = <ParameterDeclaration>createNode(SyntaxKind.Parameter);
+            parameter.type = parseType();
+            return finishNode(parameter);
+        }
+
+        function parseJSDocNodeWithType(kind: SyntaxKind): TypeNode {
+            const result = createNode(kind) as JSDocVariadicType | JSDocNonNullableType | JSDocThisType | JSDocConstructorType;
+            nextToken();
+            result.type = parseType();
+            return finishNode(result);
+        }
+
         function parseTypeQuery(): TypeQueryNode {
             const node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
             parseExpected(SyntaxKind.TypeOfKeyword);
@@ -2550,13 +2613,7 @@ namespace ts {
                 case SyntaxKind.QuestionToken:
                     return parseJSDocUnknownOrNullableType();
                 case SyntaxKind.FunctionKeyword:
-                    // TODO: Do we really need this lookahead?
-                    if (lookAhead(nextTokenIsOpenParen)) {
-                        return parseJSDocFunctionType();
-                    }
-                    const node = <TypeReferenceNode>createNode(SyntaxKind.TypeReference);
-                    node.typeName = parseIdentifierName();
-                    return finishNode(node);
+                    return parseJSDocFunctionType();
                 case SyntaxKind.DotDotDotToken:
                     return parseJSDocNodeWithType(SyntaxKind.JSDocVariadicType);
                 case SyntaxKind.ExclamationToken:
@@ -2594,65 +2651,6 @@ namespace ts {
                 default:
                     return parseTypeReference();
             }
-        }
-
-        // TODO: Wrong location for these functions I think
-        function parseJSDocAllType(): JSDocAllType {
-            const result = <JSDocAllType>createNode(SyntaxKind.JSDocAllType);
-            nextToken();
-            return finishNode(result);
-        }
-
-        function parseJSDocUnknownOrNullableType(): JSDocUnknownType | JSDocNullableType {
-            const pos = scanner.getStartPos();
-            // skip the ?
-            nextToken();
-
-            // Need to lookahead to decide if this is a nullable or unknown type.
-
-            // Here are cases where we'll pick the unknown type:
-            //
-            //      Foo(?,
-            //      { a: ? }
-            //      Foo(?)
-            //      Foo<?>
-            //      Foo(?=
-            //      (?|
-            if (token() === SyntaxKind.CommaToken ||
-                token() === SyntaxKind.CloseBraceToken ||
-                token() === SyntaxKind.CloseParenToken ||
-                token() === SyntaxKind.GreaterThanToken ||
-                token() === SyntaxKind.EqualsToken ||
-                token() === SyntaxKind.BarToken) {
-
-                const result = <JSDocUnknownType>createNode(SyntaxKind.JSDocUnknownType, pos);
-                return finishNode(result);
-            }
-            else {
-                const result = <JSDocNullableType>createNode(SyntaxKind.JSDocNullableType, pos);
-                result.type = parseType();
-                return finishNode(result);
-            }
-        }
-
-        function parseJSDocFunctionType(): JSDocFunctionType {
-            const result = <JSDocFunctionType>createNode(SyntaxKind.JSDocFunctionType);
-            nextToken();
-            fillSignature(SyntaxKind.ColonToken, SignatureFlags.Type | SignatureFlags.JSDoc, result);
-            return finishNode(result);
-        }
-
-        function parseJSDocParameter(): ParameterDeclaration {
-            const parameter = <ParameterDeclaration>createNode(SyntaxKind.Parameter);
-            parameter.type = parseType();
-            return finishNode(parameter);
-        }
-
-        function parseJSDocNodeWithType(kind: SyntaxKind): TypeNode {
-            const result = createNode(kind) as JSDocVariadicType | JSDocNonNullableType | JSDocThisType | JSDocConstructorType;
-            nextToken();
-            result.type = parseType();
-            return finishNode(result);
         }
 
         function isStartOfType(): boolean {

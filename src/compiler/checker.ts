@@ -22056,7 +22056,7 @@ namespace ts {
                     return checkSourceElement((node as JSDocParameterTag).typeExpression);
                 case SyntaxKind.JSDocFunctionType:
                     checkJSDocFunctionType(node as JSDocFunctionType);
-                    // fall through
+                    // falls through
                 case SyntaxKind.JSDocConstructorType:
                 case SyntaxKind.JSDocThisType:
                 case SyntaxKind.JSDocVariadicType:
