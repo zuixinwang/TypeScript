@@ -92,18 +92,13 @@
                                 "end": 64
                             }
                         },
-                        "postParameterName": {
-                            "kind": "Identifier",
-                            "pos": 66,
-                            "end": 69,
-                            "text": "age"
-                        },
                         "name": {
                             "kind": "Identifier",
                             "pos": 66,
                             "end": 69,
                             "text": "age"
                         },
+                        "isParameterNameFirst": false,
                         "isBracketed": false
                     },
                     {
@@ -131,18 +126,13 @@
                                 "end": 91
                             }
                         },
-                        "postParameterName": {
-                            "kind": "Identifier",
-                            "pos": 93,
-                            "end": 97,
-                            "text": "name"
-                        },
                         "name": {
                             "kind": "Identifier",
                             "pos": 93,
                             "end": 97,
                             "text": "name"
                         },
+                        "isParameterNameFirst": false,
                         "isBracketed": false
                     }
                 ]
