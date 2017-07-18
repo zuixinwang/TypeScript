@@ -2121,11 +2121,9 @@ namespace ts {
         parent: JSDoc;
         kind: SyntaxKind.JSDocPropertyTag;
         name: Identifier;
-        /** the parameter name, if provided *before* the type (TypeScript-style) */
-        preParameterName?: Identifier;
-        /** the parameter name, if provided *after* the type (JSDoc-standard) */
-        postParameterName?: Identifier;
         typeExpression: JSDocTypeExpression;
+        /** Whether the property name came before the type -- non-standard for JSDoc, but Typescript-like */
+        isParameterNameFirst: boolean;
         isBracketed: boolean;
     }
 
@@ -2137,13 +2135,10 @@ namespace ts {
 
     export interface JSDocParameterTag extends JSDocTag {
         kind: SyntaxKind.JSDocParameterTag;
-        /** the parameter name, if provided *before* the type (TypeScript-style) */
-        preParameterName?: Identifier;
         typeExpression?: JSDocTypeExpression;
-        /** the parameter name, if provided *after* the type (JSDoc-standard) */
-        postParameterName?: Identifier;
-        /** the parameter name, regardless of the location it was provided */
         name: Identifier;
+        /** Whether the parameter name came before the type -- non-standard for JSDoc, but Typescript-like */
+        isParameterNameFirst: boolean;
         isBracketed: boolean;
     }
 
