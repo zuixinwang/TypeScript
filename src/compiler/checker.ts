@@ -5067,20 +5067,9 @@ namespace ts {
                     return unknownType;
                 }
 
-                let declaration: JSDocTypedefTag | TypeAliasDeclaration = getDeclarationOfKind<JSDocTypedefTag>(symbol, SyntaxKind.JSDocTypedefTag);
-                let type: Type;
-                if (declaration) {
-                    if (declaration.jsDocTypeLiteral) {
-                        type = getTypeFromTypeNode(declaration.jsDocTypeLiteral);
-                    }
-                    else {
-                        type = getTypeFromTypeNode(declaration.typeExpression.type);
-                    }
-                }
-                else {
-                    declaration = getDeclarationOfKind<TypeAliasDeclaration>(symbol, SyntaxKind.TypeAliasDeclaration);
-                    type = getTypeFromTypeNode(declaration.type);
-                }
+                const declaration = getDeclarationOfKind<JSDocTypedefTag>(symbol, SyntaxKind.JSDocTypedefTag) ||
+                    getDeclarationOfKind<TypeAliasDeclaration>(symbol, SyntaxKind.TypeAliasDeclaration);
+                let type = getTypeFromTypeNode(declaration.type);
 
                 if (popTypeResolution()) {
                     const typeParameters = getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol);

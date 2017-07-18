@@ -418,10 +418,9 @@ namespace ts {
             case SyntaxKind.JSDocTemplateTag:
                 return visitNodes(cbNode, cbNodes, (<JSDocTemplateTag>node).typeParameters);
             case SyntaxKind.JSDocTypedefTag:
-                return visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression) ||
-                    visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
+                return visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
                     visitNode(cbNode, (<JSDocTypedefTag>node).name) ||
-                    visitNode(cbNode, (<JSDocTypedefTag>node).jsDocTypeLiteral);
+                visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression);
             case SyntaxKind.JSDocTypeLiteral:
                 return visitNodes(cbNode, cbNodes, (<JSDocTypeLiteral>node).jsDocPropertyTags);
             case SyntaxKind.JSDocPropertyTag:
@@ -6550,6 +6549,7 @@ namespace ts {
                     const typedefTag = <JSDocTypedefTag>createNode(SyntaxKind.JSDocTypedefTag, atToken.pos);
                     typedefTag.atToken = atToken;
                     typedefTag.tagName = tagName;
+                    // I don't understand why we don't just parse a qualified name here
                     typedefTag.fullName = parseJSDocTypeNameWithNamespace(/*flags*/ 0);
                     if (typedefTag.fullName) {
                         let rightNode = typedefTag.fullName;
@@ -6567,15 +6567,11 @@ namespace ts {
                     skipWhitespace();
 
                     if (typeExpression) {
-                        if (isObjectTypeReference(typeExpression.type)) {
-                            typedefTag.jsDocTypeLiteral = scanChildTags();
-                        }
-                        if (!typedefTag.jsDocTypeLiteral) {
-                            typedefTag.jsDocTypeLiteral = <JSDocTypeLiteral>typeExpression.type;
-                        }
+                        typedefTag.type = typeExpression.type;
                     }
-                    else {
-                        typedefTag.jsDocTypeLiteral = scanChildTags();
+                    if (!typeExpression || isObjectTypeReference(typeExpression.type)) {
+                        typedefTag.typeExpression = scanChildTags();
+                        typedefTag.type = typedefTag.typeExpression;
                     }
 
                     return finishNode(typedefTag);
