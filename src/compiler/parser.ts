@@ -407,8 +407,14 @@ namespace ts {
             case SyntaxKind.JSDocComment:
                 return visitNodes(cbNode, cbNodes, (<JSDoc>node).tags);
             case SyntaxKind.JSDocParameterTag:
-                return visitNode(cbNode, (<JSDocParameterTag>node).typeExpression) ||
-                    visitNode(cbNode, (<JSDocParameterTag>node).name);
+                if ((node as JSDocParameterTag).isParameterNameFirst) {
+                    return visitNode(cbNode, (<JSDocParameterTag>node).name) ||
+                        visitNode(cbNode, (<JSDocParameterTag>node).typeExpression);
+                }
+                else {
+                    return visitNode(cbNode, (<JSDocParameterTag>node).typeExpression) ||
+                        visitNode(cbNode, (<JSDocParameterTag>node).name);
+                }
             case SyntaxKind.JSDocReturnTag:
                 return visitNode(cbNode, (<JSDocReturnTag>node).typeExpression);
             case SyntaxKind.JSDocTypeTag:
@@ -418,14 +424,27 @@ namespace ts {
             case SyntaxKind.JSDocTemplateTag:
                 return visitNodes(cbNode, cbNodes, (<JSDocTemplateTag>node).typeParameters);
             case SyntaxKind.JSDocTypedefTag:
-                return visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
-                    visitNode(cbNode, (<JSDocTypedefTag>node).name) ||
-                visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression);
+                if ((node as JSDocTypedefTag).typeExpression.kind === SyntaxKind.JSDocTypeExpression) {
+                    return visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression) ||
+                        visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
+                        visitNode(cbNode, (<JSDocTypedefTag>node).name);
+                }
+                else {
+                    return visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
+                        visitNode(cbNode, (<JSDocTypedefTag>node).name) ||
+                        visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression);
+                }
             case SyntaxKind.JSDocTypeLiteral:
                 return visitNodes(cbNode, cbNodes, (<JSDocTypeLiteral>node).jsDocPropertyTags);
             case SyntaxKind.JSDocPropertyTag:
-                return visitNode(cbNode, (<JSDocPropertyTag>node).typeExpression) ||
-                    visitNode(cbNode, (<JSDocPropertyTag>node).name);
+                if ((node as JSDocPropertyTag).isParameterNameFirst) {
+                    return visitNode(cbNode, (<JSDocPropertyTag>node).name) ||
+                        visitNode(cbNode, (<JSDocPropertyTag>node).typeExpression);
+                }
+                else {
+                    return visitNode(cbNode, (<JSDocPropertyTag>node).typeExpression) ||
+                        visitNode(cbNode, (<JSDocPropertyTag>node).name);
+                }
             case SyntaxKind.PartiallyEmittedExpression:
                 return visitNode(cbNode, (<PartiallyEmittedExpression>node).expression);
         }
