@@ -6477,10 +6477,10 @@ namespace ts {
                     });
                 }
 
-                function parseBracketNameInPropertyAndParamTag(): { name: Identifier, isBracketed: boolean } {
+                function parseBracketNameInPropertyAndParamTag(): { name: EntityName, isBracketed: boolean } {
                     // Looking for something like '[foo]' or 'foo'
                     const isBracketed = parseOptional(SyntaxKind.OpenBracketToken);
-                    const name = parseJSDocIdentifierName(/*createIfMissing*/ true);
+                    const name = parseJSDocEntityName(/*createIfMissing*/ true);
                     if (isBracketed) {
                         skipWhitespace();
 
@@ -6502,7 +6502,7 @@ namespace ts {
                     const { name, isBracketed } = parseBracketNameInPropertyAndParamTag();
                     skipWhitespace();
 
-                    let preName: Identifier, postName: Identifier;
+                    let preName: EntityName, postName: EntityName;
                     if (typeExpression) {
                         postName = name;
                     }
@@ -6738,6 +6738,17 @@ namespace ts {
 
                 function nextJSDocToken(): SyntaxKind {
                     return currentToken = scanner.scanJSDocToken();
+                }
+
+                function parseJSDocEntityName(createIfMissing = false): EntityName {
+                    let entity: EntityName = parseJSDocIdentifierName(createIfMissing);
+                    while (parseOptional(SyntaxKind.DotToken)) {
+                        const node: QualifiedName = createNode(SyntaxKind.QualifiedName, entity.pos) as QualifiedName;
+                        node.left = entity;
+                        node.right = parseJSDocIdentifierName(createIfMissing);
+                        entity = finishNode(node);
+                    }
+                    return entity;
                 }
 
                 function parseJSDocIdentifierName(createIfMissing = false): Identifier {
