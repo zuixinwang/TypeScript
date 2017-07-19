@@ -59,6 +59,9 @@ namespace ts {
      * @param node a given node to visit its children
      * @param cbNode a callback to be invoked for all child nodes
      * @param cbNodes a callback to be invoked for embedded array
+     *
+     * @remarks `forEachChild` must visit the children of a node in the order
+     * that they appear in the source code. The language service depends on this property to locate nodes by position.
      */
     export function forEachChild<T>(node: Node, cbNode: (node: Node) => T | undefined, cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined {
         if (!node || node.kind <= SyntaxKind.LastToken) {
@@ -6582,15 +6585,11 @@ namespace ts {
                             rightNode = rightNode.body;
                         }
                     }
-                    typedefTag.typeExpression = typeExpression;
                     skipWhitespace();
 
-                    if (typeExpression) {
-                        typedefTag.type = typeExpression.type;
-                    }
+                    typedefTag.typeExpression = typeExpression;
                     if (!typeExpression || isObjectTypeReference(typeExpression.type)) {
                         typedefTag.typeExpression = scanChildTags();
-                        typedefTag.type = typedefTag.typeExpression;
                     }
 
                     return finishNode(typedefTag);

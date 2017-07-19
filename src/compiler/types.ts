@@ -2113,8 +2113,7 @@ namespace ts {
         kind: SyntaxKind.JSDocTypedefTag;
         fullName?: JSDocNamespaceDeclaration | Identifier;
         name?: Identifier;
-        type?: TypeNode;
-        typeExpression?: TypeNode;
+        typeExpression?: JSDocTypeExpression | JSDocTypeLiteral;
     }
 
     export interface JSDocPropertyTag extends JSDocTag, TypeElement {
