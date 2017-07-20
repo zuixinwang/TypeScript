@@ -1560,7 +1560,7 @@ namespace ts {
         }
         else if (param.name.kind === SyntaxKind.Identifier) {
             const name = (param.name as Identifier).text;
-            return tags.filter((tag): tag is JSDocParameterTag => isJSDocParameterTag(tag) && isIdentifier(tag.name) && tag.name.text === name) as JSDocParameterTag[];
+            return tags.filter((tag): tag is JSDocParameterTag => isJSDocParameterTag(tag) && tag.name.text === name) as JSDocParameterTag[];
         }
         else {
             // TODO: it's a destructured parameter, so it should look up an "object type" series of multiple lines
@@ -1571,7 +1571,7 @@ namespace ts {
 
     /** Does the opposite of `getJSDocParameterTags`: given a JSDoc parameter, finds the parameter corresponding to it. */
     export function getParameterFromJSDoc(node: JSDocParameterTag): ParameterDeclaration | undefined {
-        if (!isIdentifier(node.name)) {
+        if (!isIdentifier(node.fullName)) {
             // `@param {T} obj.prop` is not a top-level param, so it doesn't map to a top-level parameter
             return undefined;
         }

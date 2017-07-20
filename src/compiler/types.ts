@@ -748,6 +748,7 @@ namespace ts {
     // SyntaxKind.ShorthandPropertyAssignment
     // SyntaxKind.EnumMember
     // SyntaxKind.JSDocPropertyTag
+    // SyntaxKind.JSDocParameterTag
     export interface VariableLikeDeclaration extends NamedDeclaration {
         propertyName?: PropertyName;
         dotDotDotToken?: DotDotDotToken;
@@ -2116,14 +2117,19 @@ namespace ts {
         typeExpression?: JSDocTypeExpression | JSDocTypeLiteral;
     }
 
-    export interface JSDocPropertyTag extends JSDocTag, TypeElement {
+    export interface JSDocPropertyLikeTag extends JSDocTag, VariableLikeDeclaration { // TypeElement :> NamedDeclaration :> Declaration :> Node -vs- VariableLikeDeclaration
         parent: JSDoc;
-        kind: SyntaxKind.JSDocPropertyTag;
+        // TODO: Remove all the isIdentifier checks around name and turn them into checks for fullName instead (or something)
+        fullName?: EntityName;
         name: Identifier;
         typeExpression: JSDocTypeExpression;
         /** Whether the property name came before the type -- non-standard for JSDoc, but Typescript-like */
         isParameterNameFirst: boolean;
         isBracketed: boolean;
+    }
+
+    export interface JSDocPropertyTag extends JSDocPropertyLikeTag {
+        kind: SyntaxKind.JSDocPropertyTag;
     }
 
     export interface JSDocTypeLiteral extends JSDocType {
@@ -2132,13 +2138,8 @@ namespace ts {
         jsDocTypeTag?: JSDocTypeTag;
     }
 
-    export interface JSDocParameterTag extends JSDocTag {
+    export interface JSDocParameterTag extends JSDocPropertyLikeTag {
         kind: SyntaxKind.JSDocParameterTag;
-        typeExpression?: JSDocTypeExpression;
-        name: EntityName;
-        /** Whether the parameter name came before the type -- non-standard for JSDoc, but Typescript-like */
-        isParameterNameFirst: boolean;
-        isBracketed: boolean;
     }
 
     export const enum FlowFlags {
