@@ -1,0 +1,105 @@
+=== tests/cases/conformance/jsdoc/0.js ===
+/**
+ * @param {Object} notSpecial
+ * @param {string} unrelated - not actually related because it's not notSpecial.unrelated
+ */
+function normal(notSpecial) {
+>normal : (notSpecial: any) => void
+>notSpecial : any
+
+    notSpecial; // should just be 'any'
+>notSpecial : any
+}
+//normal(12);
+
+/**
+ * @param {Object} opts doc1
+ * @param {string} opts.x doc2
+ * @param {string=} opts.y doc3
+ * @param {string} [opts.z] doc4
+ * @param {string} [opts.w="hi"] doc5
+ */
+function foo(opts) {
+>foo : (opts: { x: string; y?: string; z?: string; w?: string; }) => void
+>opts : { x: string; y?: string; z?: string; w?: string; }
+
+    opts.x;
+>opts.x : string
+>opts : { x: string; y?: string; z?: string; w?: string; }
+>x : string
+}
+
+foo({x: 'abc'});
+>foo({x: 'abc'}) : void
+>foo : (opts: { x: string; y?: string; z?: string; w?: string; }) => void
+>{x: 'abc'} : { x: string; }
+>x : string
+>'abc' : "abc"
+
+/**
+ * @param {Object[]} opts
+ * @param {string} opts[].anotherX
+ * @param {string=} opts[].anotherY
+ */
+function foo1(/** @param opts bad idea theatre! */opts) {
+>foo1 : (opts: { anotherX: string; anotherY?: string; }[]) => void
+>opts : { anotherX: string; anotherY?: string; }[]
+
+    opts[0].anotherX;
+>opts[0].anotherX : string
+>opts[0] : { anotherX: string; anotherY?: string; }
+>opts : { anotherX: string; anotherY?: string; }[]
+>0 : 0
+>anotherX : string
+}
+
+foo1([{anotherX: "world"}]);
+>foo1([{anotherX: "world"}]) : void
+>foo1 : (opts: { anotherX: string; anotherY?: string; }[]) => void
+>[{anotherX: "world"}] : { anotherX: string; }[]
+>{anotherX: "world"} : { anotherX: string; }
+>anotherX : string
+>"world" : "world"
+
+/**
+ * @param {object} opts
+ * @param {string} opts.x
+ */
+function foo2(opts) {
+>foo2 : (opts: { x: string; }) => void
+>opts : { x: string; }
+
+    opts.x;
+>opts.x : string
+>opts : { x: string; }
+>x : string
+}
+foo2({x: 'abc'});
+>foo2({x: 'abc'}) : void
+>foo2 : (opts: { x: string; }) => void
+>{x: 'abc'} : { x: string; }
+>x : string
+>'abc' : "abc"
+
+/**
+ * @param {object[]} opts
+ * @param {string} opts[].x
+ * @param {string=} opts[].y
+ * @param {string} [opts[].z]
+ * @param {string} [opts[].w="hi"]
+ */
+function foo3(opts) {
+>foo3 : (opts: { x: string; y?: string; z?: string; w?: string; }[]) => void
+>opts : { x: string; y?: string; z?: string; w?: string; }[]
+
+    opts[0].x;
+>opts[0].x : string
+>opts[0] : { x: string; y?: string; z?: string; w?: string; }
+>opts : { x: string; y?: string; z?: string; w?: string; }[]
+>0 : 0
+>x : string
+}
+
+// TODO: Support multiple nesting levels?
+// PROBABLY SO
+

@@ -1,0 +1,91 @@
+=== tests/cases/conformance/jsdoc/0.js ===
+/**
+ * @param {Object} notSpecial
+ * @param {string} unrelated - not actually related because it's not notSpecial.unrelated
+ */
+function normal(notSpecial) {
+>normal : Symbol(normal, Decl(0.js, 0, 0))
+>notSpecial : Symbol(notSpecial, Decl(0.js, 4, 16))
+
+    notSpecial; // should just be 'any'
+>notSpecial : Symbol(notSpecial, Decl(0.js, 4, 16))
+}
+//normal(12);
+
+/**
+ * @param {Object} opts doc1
+ * @param {string} opts.x doc2
+ * @param {string=} opts.y doc3
+ * @param {string} [opts.z] doc4
+ * @param {string} [opts.w="hi"] doc5
+ */
+function foo(opts) {
+>foo : Symbol(foo, Decl(0.js, 6, 1))
+>opts : Symbol(opts, Decl(0.js, 16, 13))
+
+    opts.x;
+>opts.x : Symbol(x, Decl(0.js, 11, 3))
+>opts : Symbol(opts, Decl(0.js, 16, 13))
+>x : Symbol(x, Decl(0.js, 11, 3))
+}
+
+foo({x: 'abc'});
+>foo : Symbol(foo, Decl(0.js, 6, 1))
+>x : Symbol(x, Decl(0.js, 20, 5))
+
+/**
+ * @param {Object[]} opts
+ * @param {string} opts[].anotherX
+ * @param {string=} opts[].anotherY
+ */
+function foo1(/** @param opts bad idea theatre! */opts) {
+>foo1 : Symbol(foo1, Decl(0.js, 20, 16))
+>opts : Symbol(opts, Decl(0.js, 27, 14))
+
+    opts[0].anotherX;
+>opts[0].anotherX : Symbol(anotherX, Decl(0.js, 24, 3))
+>opts : Symbol(opts, Decl(0.js, 27, 14))
+>anotherX : Symbol(anotherX, Decl(0.js, 24, 3))
+}
+
+foo1([{anotherX: "world"}]);
+>foo1 : Symbol(foo1, Decl(0.js, 20, 16))
+>anotherX : Symbol(anotherX, Decl(0.js, 31, 7))
+
+/**
+ * @param {object} opts
+ * @param {string} opts.x
+ */
+function foo2(opts) {
+>foo2 : Symbol(foo2, Decl(0.js, 31, 28))
+>opts : Symbol(opts, Decl(0.js, 37, 14))
+
+    opts.x;
+>opts.x : Symbol(x, Decl(0.js, 35, 3))
+>opts : Symbol(opts, Decl(0.js, 37, 14))
+>x : Symbol(x, Decl(0.js, 35, 3))
+}
+foo2({x: 'abc'});
+>foo2 : Symbol(foo2, Decl(0.js, 31, 28))
+>x : Symbol(x, Decl(0.js, 40, 6))
+
+/**
+ * @param {object[]} opts
+ * @param {string} opts[].x
+ * @param {string=} opts[].y
+ * @param {string} [opts[].z]
+ * @param {string} [opts[].w="hi"]
+ */
+function foo3(opts) {
+>foo3 : Symbol(foo3, Decl(0.js, 40, 17))
+>opts : Symbol(opts, Decl(0.js, 49, 14))
+
+    opts[0].x;
+>opts[0].x : Symbol(x, Decl(0.js, 44, 3))
+>opts : Symbol(opts, Decl(0.js, 49, 14))
+>x : Symbol(x, Decl(0.js, 44, 3))
+}
+
+// TODO: Support multiple nesting levels?
+// PROBABLY SO
+
