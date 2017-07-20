@@ -21,31 +21,31 @@ normal(12);
  * @param {string} [opts1.z] doc4
  * @param {string} [opts1.w="hi"] doc5
  */
-function foo(opts1) {
+function foo1(opts1) {
     opts1.x;
 }
 
-foo({x: 'abc'});
+foo1({x: 'abc'});
 
 /**
  * @param {Object[]} opts2
  * @param {string} opts2[].anotherX
  * @param {string=} opts2[].anotherY
  */
-function foo1(/** @param opts2 bad idea theatre! */opts2) {
+function foo2(/** @param opts2 bad idea theatre! */opts2) {
     opts2[0].anotherX;
 }
 
-foo1([{anotherX: "world"}]);
+foo2([{anotherX: "world"}]);
 
 /**
  * @param {object} opts3
  * @param {string} opts3.x
  */
-function foo2(opts3) {
+function foo3(opts3) {
     opts3.x;
 }
-foo2({x: 'abc'});
+foo3({x: 'abc'});
 
 /**
  * @param {object[]} opts4
@@ -54,10 +54,11 @@ foo2({x: 'abc'});
  * @param {string} [opts4[].z]
  * @param {string} [opts4[].w="hi"]
  */
-function foo3(opts4) {
+function foo4(opts4) {
     opts4[0].x;
 }
 
+foo4([{ x: 'hi' }]);
 
 /**
  * @param {object[]} opts5 - Let's test out some multiple nesting levels
@@ -69,7 +70,11 @@ function foo3(opts4) {
  * @param {boolean} opts5[].what.bad[].oh - Oh ... that's how you do it.
  * @param {number} opts5[].unnest - Here we are almost all the way back at the beginning.
  */
-function foo4(opts5) {
+function foo5(opts5) {
     opts5[0].what.bad[0].idea;
     opts5[0].unnest;
 }
+
+foo5([{ help: "help", what: { a: 'a', bad: [{ idea: 'idea', oh: false }] }, unnest: 1 }]);
+
+// TODO: Also write these ridiculous object[] / nested tests for @typedef as well
