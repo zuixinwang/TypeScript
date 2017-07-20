@@ -2136,6 +2136,8 @@ namespace ts {
         kind: SyntaxKind.JSDocTypeLiteral;
         jsDocPropertyTags?: NodeArray<JSDocPropertyTag>;
         jsDocTypeTag?: JSDocTypeTag;
+        /** If true, then this type literal represents an *array* of its type. */
+        isArrayType?: boolean;
     }
 
     export interface JSDocParameterTag extends JSDocPropertyLikeTag {
