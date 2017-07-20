@@ -12,51 +12,64 @@
 function normal(notSpecial) {
     notSpecial; // should just be 'any'
 }
-//normal(12);
+normal(12);
 
 /**
- * @param {Object} opts doc1
- * @param {string} opts.x doc2
- * @param {string=} opts.y doc3
- * @param {string} [opts.z] doc4
- * @param {string} [opts.w="hi"] doc5
+ * @param {Object} opts1 doc1
+ * @param {string} opts1.x doc2
+ * @param {string=} opts1.y doc3
+ * @param {string} [opts1.z] doc4
+ * @param {string} [opts1.w="hi"] doc5
  */
-function foo(opts) {
-    opts.x;
+function foo(opts1) {
+    opts1.x;
 }
 
 foo({x: 'abc'});
 
 /**
- * @param {Object[]} opts
- * @param {string} opts[].anotherX
- * @param {string=} opts[].anotherY
+ * @param {Object[]} opts2
+ * @param {string} opts2[].anotherX
+ * @param {string=} opts2[].anotherY
  */
-function foo1(/** @param opts bad idea theatre! */opts) {
-    opts[0].anotherX;
+function foo1(/** @param opts2 bad idea theatre! */opts2) {
+    opts2[0].anotherX;
 }
 
 foo1([{anotherX: "world"}]);
 
 /**
- * @param {object} opts
- * @param {string} opts.x
+ * @param {object} opts3
+ * @param {string} opts3.x
  */
-function foo2(opts) {
-    opts.x;
+function foo2(opts3) {
+    opts3.x;
 }
 foo2({x: 'abc'});
 
 /**
- * @param {object[]} opts
- * @param {string} opts[].x
- * @param {string=} opts[].y
- * @param {string} [opts[].z]
- * @param {string} [opts[].w="hi"]
+ * @param {object[]} opts4
+ * @param {string} opts4[].x
+ * @param {string=} opts4[].y
+ * @param {string} [opts4[].z]
+ * @param {string} [opts4[].w="hi"]
  */
-function foo3(opts) {
-    opts[0].x;
+function foo3(opts4) {
+    opts4[0].x;
 }
 
-// TODO: Support multiple nesting levels?
-// PROBABLY SO
+
+/**
+ * @param {object[]} opts5 - Let's test out some multiple nesting levels
+ * @param {string} opts5[].help - (This one is just normal)
+ * @param {object} opts5[].what - Look at us go! Here's the first nest!
+ * @param {string} opts5[].what.a - (Another normal one)
+ * @param {Object[]} opts5[].what.bad - Now we're nesting inside a nested type
+ * @param {string} opts5[].what.bad[].idea - I don't think you can get back out of this level...
+ * @param {boolean} opts5[].what.bad[].oh - Oh ... that's how you do it.
+ * @param {number} opts5[].unnest - Here we are almost all the way back at the beginning.
+ */
+function foo4(opts5) {
+    opts5[0].what.bad[0].idea;
+    opts5[0].unnest;
+}

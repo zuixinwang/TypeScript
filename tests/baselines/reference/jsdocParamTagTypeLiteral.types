@@ -10,96 +10,132 @@ function normal(notSpecial) {
     notSpecial; // should just be 'any'
 >notSpecial : any
 }
-//normal(12);
+normal(12);
+>normal(12) : void
+>normal : (notSpecial: any) => void
+>12 : 12
 
 /**
- * @param {Object} opts doc1
- * @param {string} opts.x doc2
- * @param {string=} opts.y doc3
- * @param {string} [opts.z] doc4
- * @param {string} [opts.w="hi"] doc5
+ * @param {Object} opts1 doc1
+ * @param {string} opts1.x doc2
+ * @param {string=} opts1.y doc3
+ * @param {string} [opts1.z] doc4
+ * @param {string} [opts1.w="hi"] doc5
  */
-function foo(opts) {
->foo : (opts: { x: string; y?: string; z?: string; w?: string; }) => void
->opts : { x: string; y?: string; z?: string; w?: string; }
+function foo(opts1) {
+>foo : (opts1: { x: string; y?: string; z?: string; w?: string; }) => void
+>opts1 : { x: string; y?: string; z?: string; w?: string; }
 
-    opts.x;
->opts.x : string
->opts : { x: string; y?: string; z?: string; w?: string; }
+    opts1.x;
+>opts1.x : string
+>opts1 : { x: string; y?: string; z?: string; w?: string; }
 >x : string
 }
 
 foo({x: 'abc'});
 >foo({x: 'abc'}) : void
->foo : (opts: { x: string; y?: string; z?: string; w?: string; }) => void
+>foo : (opts1: { x: string; y?: string; z?: string; w?: string; }) => void
 >{x: 'abc'} : { x: string; }
 >x : string
 >'abc' : "abc"
 
 /**
- * @param {Object[]} opts
- * @param {string} opts[].anotherX
- * @param {string=} opts[].anotherY
+ * @param {Object[]} opts2
+ * @param {string} opts2[].anotherX
+ * @param {string=} opts2[].anotherY
  */
-function foo1(/** @param opts bad idea theatre! */opts) {
->foo1 : (opts: { anotherX: string; anotherY?: string; }[]) => void
->opts : { anotherX: string; anotherY?: string; }[]
+function foo1(/** @param opts2 bad idea theatre! */opts2) {
+>foo1 : (opts2: { anotherX: string; anotherY?: string; }[]) => void
+>opts2 : { anotherX: string; anotherY?: string; }[]
 
-    opts[0].anotherX;
->opts[0].anotherX : string
->opts[0] : { anotherX: string; anotherY?: string; }
->opts : { anotherX: string; anotherY?: string; }[]
+    opts2[0].anotherX;
+>opts2[0].anotherX : string
+>opts2[0] : { anotherX: string; anotherY?: string; }
+>opts2 : { anotherX: string; anotherY?: string; }[]
 >0 : 0
 >anotherX : string
 }
 
 foo1([{anotherX: "world"}]);
 >foo1([{anotherX: "world"}]) : void
->foo1 : (opts: { anotherX: string; anotherY?: string; }[]) => void
+>foo1 : (opts2: { anotherX: string; anotherY?: string; }[]) => void
 >[{anotherX: "world"}] : { anotherX: string; }[]
 >{anotherX: "world"} : { anotherX: string; }
 >anotherX : string
 >"world" : "world"
 
 /**
- * @param {object} opts
- * @param {string} opts.x
+ * @param {object} opts3
+ * @param {string} opts3.x
  */
-function foo2(opts) {
->foo2 : (opts: { x: string; }) => void
->opts : { x: string; }
+function foo2(opts3) {
+>foo2 : (opts3: { x: string; }) => void
+>opts3 : { x: string; }
 
-    opts.x;
->opts.x : string
->opts : { x: string; }
+    opts3.x;
+>opts3.x : string
+>opts3 : { x: string; }
 >x : string
 }
 foo2({x: 'abc'});
 >foo2({x: 'abc'}) : void
->foo2 : (opts: { x: string; }) => void
+>foo2 : (opts3: { x: string; }) => void
 >{x: 'abc'} : { x: string; }
 >x : string
 >'abc' : "abc"
 
 /**
- * @param {object[]} opts
- * @param {string} opts[].x
- * @param {string=} opts[].y
- * @param {string} [opts[].z]
- * @param {string} [opts[].w="hi"]
+ * @param {object[]} opts4
+ * @param {string} opts4[].x
+ * @param {string=} opts4[].y
+ * @param {string} [opts4[].z]
+ * @param {string} [opts4[].w="hi"]
  */
-function foo3(opts) {
->foo3 : (opts: { x: string; y?: string; z?: string; w?: string; }[]) => void
->opts : { x: string; y?: string; z?: string; w?: string; }[]
+function foo3(opts4) {
+>foo3 : (opts4: { x: string; y?: string; z?: string; w?: string; }[]) => void
+>opts4 : { x: string; y?: string; z?: string; w?: string; }[]
 
-    opts[0].x;
->opts[0].x : string
->opts[0] : { x: string; y?: string; z?: string; w?: string; }
->opts : { x: string; y?: string; z?: string; w?: string; }[]
+    opts4[0].x;
+>opts4[0].x : string
+>opts4[0] : { x: string; y?: string; z?: string; w?: string; }
+>opts4 : { x: string; y?: string; z?: string; w?: string; }[]
 >0 : 0
 >x : string
 }
 
-// TODO: Support multiple nesting levels?
-// PROBABLY SO
+
+/**
+ * @param {object[]} opts5 - Let's test out some multiple nesting levels
+ * @param {string} opts5[].help - (This one is just normal)
+ * @param {object} opts5[].what - Look at us go! Here's the first nest!
+ * @param {string} opts5[].what.a - (Another normal one)
+ * @param {Object[]} opts5[].what.bad - Now we're nesting inside a nested type
+ * @param {string} opts5[].what.bad[].idea - I don't think you can get back out of this level...
+ * @param {boolean} opts5[].what.bad[].oh - Oh ... that's how you do it.
+ * @param {number} opts5[].unnest - Here we are almost all the way back at the beginning.
+ */
+function foo4(opts5) {
+>foo4 : (opts5: { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }[]) => void
+>opts5 : { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }[]
+
+    opts5[0].what.bad[0].idea;
+>opts5[0].what.bad[0].idea : string
+>opts5[0].what.bad[0] : { idea: string; oh: boolean; }
+>opts5[0].what.bad : { idea: string; oh: boolean; }[]
+>opts5[0].what : { a: string; bad: { idea: string; oh: boolean; }[]; }
+>opts5[0] : { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }
+>opts5 : { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }[]
+>0 : 0
+>what : { a: string; bad: { idea: string; oh: boolean; }[]; }
+>bad : { idea: string; oh: boolean; }[]
+>0 : 0
+>idea : string
+
+    opts5[0].unnest;
+>opts5[0].unnest : number
+>opts5[0] : { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }
+>opts5 : { help: string; what: { a: string; bad: { idea: string; oh: boolean; }[]; }; unnest: number; }[]
+>0 : 0
+>unnest : number
+}
 
