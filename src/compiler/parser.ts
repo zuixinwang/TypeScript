@@ -6512,10 +6512,10 @@ namespace ts {
                     const result: JSDocPropertyLikeTag = shouldParseParamTag ?
                         <JSDocParameterTag>createNode(SyntaxKind.JSDocParameterTag, atToken.pos) :
                         <JSDocPropertyTag>createNode(SyntaxKind.JSDocPropertyTag, atToken.pos);
-                    if (typeExpression && isObjectOrObjectArrayTypeReference(typeExpression.type) && ts.isIdentifier(fullName)) {
+                    if (typeExpression && isObjectOrObjectArrayTypeReference(typeExpression.type)) {
                         let child: JSDocPropertyLikeTag;
                         let jsdocTypeLiteral: JSDocTypeLiteral;
-                        while(child = tryParse(() => parseChildParameterOrPropertyTag(/*parentName*/ fullName.text))) {
+                        while(child = tryParse(() => parseChildParameterOrPropertyTag(/*parentName*/ fullName))) {
                             if (!jsdocTypeLiteral) {
                                 jsdocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, scanner.getStartPos())
                                 jsdocTypeLiteral.jsDocPropertyTags = [] as NodeArray<JSDocPropertyTag>;
@@ -6541,11 +6541,17 @@ namespace ts {
                     result.isBracketed = isBracketed;
                     return finishNode(result);
 
-                    function leftmost(name: EntityName): Identifier {
-                        return ts.isIdentifier(name) ? name : leftmost(name.left);
+                    function textsEqual(parent: EntityName, name: EntityName): boolean {
+                        if (ts.isIdentifier(parent) && ts.isIdentifier(name) && parent.text === name.text) {
+                            return true;
+                        }
+                        else if (!ts.isIdentifier(parent) && !ts.isIdentifier(name)) {
+                            return textsEqual(parent.left, name.left) && parent.right.text === name.right.text;
+                        }
+                        return false;
                     }
 
-                    function parseChildParameterOrPropertyTag(parentName: __String): JSDocPropertyLikeTag | undefined {
+                    function parseChildParameterOrPropertyTag(parentName: EntityName): JSDocPropertyLikeTag | undefined {
                         let resumePos = scanner.getStartPos();
                         let canParseTag = true;
                         let seenAsterisk = false;
@@ -6557,7 +6563,7 @@ namespace ts {
                                 case SyntaxKind.AtToken:
                                     if (canParseTag) {
                                         const kid = tryParseChildTag2();
-                                        if (kid && !ts.isIdentifier(kid.fullName) && leftmost(kid.fullName).text === parentName) {
+                                        if (kid && !ts.isIdentifier(kid.fullName) && textsEqual(parentName, kid.fullName.left)) {
                                             // TODO: Cleanup here? Maybe, because in this we don't roll back the parse
                                             // plus we might need to advance some stuff
                                             // for example, we *definitely* don't even try to parse the comments that come after the other tag data in tryParseChildTag2
