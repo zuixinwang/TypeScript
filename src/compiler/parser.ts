@@ -1134,8 +1134,8 @@ namespace ts {
                     new TokenConstructor(kind, pos, pos);
         }
 
-        function createNodeArray<T extends Node>(elements?: T[], pos?: number): NodeArray<T> {
-            const array = <NodeArray<T>>(elements || []);
+        function createNodeArray<T extends Node>(elements?: T[], pos?: number): MutableNodeArray<T> {
+            const array = <MutableNodeArray<T>>(elements || []);
             if (!(pos >= 0)) {
                 pos = getNodePos();
             }
@@ -5408,7 +5408,7 @@ namespace ts {
         }
 
         function parseDecorators(): NodeArray<Decorator> {
-            let decorators: NodeArray<Decorator>;
+            let decorators: NodeArray<Decorator> & Decorator[];
             while (true) {
                 const decoratorStart = getNodePos();
                 if (!parseOptional(SyntaxKind.AtToken)) {
@@ -5439,7 +5439,7 @@ namespace ts {
          * In such situations, 'permitInvalidConstAsModifier' should be set to true.
          */
         function parseModifiers(permitInvalidConstAsModifier?: boolean): NodeArray<Modifier> | undefined {
-            let modifiers: NodeArray<Modifier> | undefined;
+            let modifiers: MutableNodeArray<Modifier> | undefined;
             while (true) {
                 const modifierStart = scanner.getStartPos();
                 const modifierKind = token();
@@ -6178,7 +6178,7 @@ namespace ts {
                 Debug.assert(start <= end);
                 Debug.assert(end <= content.length);
 
-                let tags: NodeArray<JSDocTag>;
+                let tags: MutableNodeArray<JSDocTag>;
                 const comments: string[] = [];
                 let result: JSDoc;
 
@@ -6522,9 +6522,9 @@ namespace ts {
                         while (child = tryParse(() => parseChildParameterOrPropertyTag(/*shouldParseParamTag*/ true, fullName))) {
                             if (!jsdocTypeLiteral) {
                                 jsdocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, start);
-                                jsdocTypeLiteral.jsDocPropertyTags = [] as NodeArray<JSDocPropertyTag>;
+                                jsdocTypeLiteral.jsDocPropertyTags = [] as MutableNodeArray<JSDocPropertyTag>;
                             }
-                            jsdocTypeLiteral.jsDocPropertyTags.push(child as JSDocPropertyTag);
+                            (jsdocTypeLiteral.jsDocPropertyTags as MutableNodeArray<JSDocPropertyTag>).push(child as JSDocPropertyTag);
                         }
                         if (jsdocTypeLiteral) {
                             if (typeExpression.type.kind === SyntaxKind.ArrayType) {
@@ -6631,9 +6631,9 @@ namespace ts {
                             }
                             else {
                                 if (!jsdocTypeLiteral.jsDocPropertyTags) {
-                                    jsdocTypeLiteral.jsDocPropertyTags = [] as NodeArray<JSDocPropertyTag>;
+                                    jsdocTypeLiteral.jsDocPropertyTags = [] as MutableNodeArray<JSDocPropertyTag>;
                                 }
-                                jsdocTypeLiteral.jsDocPropertyTags.push(child);
+                                (jsdocTypeLiteral.jsDocPropertyTags as MutableNodeArray<JSDocPropertyTag>).push(child);
                             }
                         }
                         if (jsdocTypeLiteral) {
