@@ -6595,7 +6595,6 @@ namespace ts {
                     const typedefTag = <JSDocTypedefTag>createNode(SyntaxKind.JSDocTypedefTag, atToken.pos);
                     typedefTag.atToken = atToken;
                     typedefTag.tagName = tagName;
-                    // I don't understand why we don't just parse a qualified name here
                     typedefTag.fullName = parseJSDocTypeNameWithNamespace(/*flags*/ 0);
                     if (typedefTag.fullName) {
                         let rightNode = typedefTag.fullName;
@@ -6680,9 +6679,9 @@ namespace ts {
                     return parent.text === name.text;
                 }
 
-                function parseChildParameterOrPropertyTag(shouldParseParamTag: true, fullName?: EntityName): JSDocParameterTag | false;
                 function parseChildParameterOrPropertyTag(shouldParseParamTag: false): JSDocTypeTag | JSDocPropertyTag | false;
-                function parseChildParameterOrPropertyTag(shouldParseParamTag: boolean, fullName?: EntityName): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | undefined | false {
+                function parseChildParameterOrPropertyTag(shouldParseParamTag: true, fullName: EntityName): JSDocPropertyTag | JSDocParameterTag | false;
+                function parseChildParameterOrPropertyTag(shouldParseParamTag: boolean, fullName?: EntityName): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | false {
                     let resumePos = scanner.getStartPos();
                     let canParseTag = true;
                     let seenAsterisk = false;
@@ -6690,7 +6689,6 @@ namespace ts {
                         nextJSDocToken();
                         switch (token()) {
                         case SyntaxKind.AtToken:
-                            // TODO: Would it be possible to reuse the main loop parser? Or at least the parse enum instead of old-style booleans?
                             if (canParseTag) {
                                 const child = tryParseChildTag(shouldParseParamTag);
                                 if (child && child.kind === SyntaxKind.JSDocParameterTag &&
@@ -6733,17 +6731,12 @@ namespace ts {
                     if (!tagName) {
                         return false;
                     }
-
                     switch (tagName.text) {
                         case "type":
-                            if (alreadyHasTypeTag || shouldParseParamTag) {
-                                // already has a @type tag, terminate the parent tag now.
-                                return false;
-                            }
-                            return parseTypeTag(atToken, tagName);
+                            return !alreadyHasTypeTag && !shouldParseParamTag && parseTypeTag(atToken, tagName);
                         case "prop":
                         case "property":
-                            return !shouldParseParamTag && parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ false) as JSDocPropertyTag;
+                            return !shouldParseParamTag && parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ false);
                         case "arg":
                         case "argument":
                         case "param":
@@ -6800,16 +6793,16 @@ namespace ts {
                     let entity: EntityName = parseJSDocIdentifierName(createIfMissing);
                     if (parseOptional(SyntaxKind.OpenBracketToken)) {
                         parseExpected(SyntaxKind.CloseBracketToken);
-                        // entity.postfixArray = true;
+                        // Note that y[] is accepted as an entity name, but the postfix brackets are not saved for checking.
+                        // Technically usejsdoc.org requires them for specifying a property of a type equivalent to Array<{ x: ...}>
+                        // but it's not worth it to enforce that restriction.
                     }
-                    // :( have to parse [] suffix
                     while (parseOptional(SyntaxKind.DotToken)) {
                         const node: QualifiedName = createNode(SyntaxKind.QualifiedName, entity.pos) as QualifiedName;
                         node.left = entity;
                         node.right = parseJSDocIdentifierName(createIfMissing);
                         if (parseOptional(SyntaxKind.OpenBracketToken)) {
                             parseExpected(SyntaxKind.CloseBracketToken);
-                            // node.right.postfixArray = true;
                         }
                         entity = finishNode(node);
                     }
