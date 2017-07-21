@@ -428,7 +428,8 @@ namespace ts {
             case SyntaxKind.JSDocTemplateTag:
                 return visitNodes(cbNode, cbNodes, (<JSDocTemplateTag>node).typeParameters);
             case SyntaxKind.JSDocTypedefTag:
-                if ((node as JSDocTypedefTag).typeExpression.kind === SyntaxKind.JSDocTypeExpression) {
+                if ((node as JSDocTypedefTag).typeExpression &&
+                    (node as JSDocTypedefTag).typeExpression.kind === SyntaxKind.JSDocTypeExpression) {
                     return visitNode(cbNode, (<JSDocTypedefTag>node).typeExpression) ||
                         visitNode(cbNode, (<JSDocTypedefTag>node).fullName) ||
                         visitNode(cbNode, (<JSDocTypedefTag>node).name);
@@ -6493,6 +6494,8 @@ namespace ts {
                         node.kind === SyntaxKind.ArrayType && isObjectOrObjectArrayTypeReference((node as ArrayTypeNode).elementType);
                 }
 
+                function parseParameterOrPropertyTag(atToken: AtToken, tagName: Identifier, shouldParseParamTag: true): JSDocParameterTag;
+                function parseParameterOrPropertyTag(atToken: AtToken, tagName: Identifier, shouldParseParamTag: false): JSDocPropertyTag;
                 function parseParameterOrPropertyTag(atToken: AtToken, tagName: Identifier, shouldParseParamTag: boolean): JSDocPropertyLikeTag {
                     let typeExpression = tryParseTypeExpression();
                     skipWhitespace();
@@ -6513,11 +6516,12 @@ namespace ts {
                         <JSDocParameterTag>createNode(SyntaxKind.JSDocParameterTag, atToken.pos) :
                         <JSDocPropertyTag>createNode(SyntaxKind.JSDocPropertyTag, atToken.pos);
                     if (typeExpression && isObjectOrObjectArrayTypeReference(typeExpression.type)) {
-                        let child: JSDocPropertyLikeTag;
+                        let child: JSDocPropertyLikeTag | false;
                         let jsdocTypeLiteral: JSDocTypeLiteral;
-                        while(child = tryParse(() => parseChildParameterOrPropertyTag(/*parentName*/ fullName))) {
+                        const start = scanner.getStartPos();
+                        while (child = tryParse(() => parseChildParameterOrPropertyTag(/*shouldParseParamTag*/ true, fullName))) {
                             if (!jsdocTypeLiteral) {
-                                jsdocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, scanner.getStartPos())
+                                jsdocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, start);
                                 jsdocTypeLiteral.jsDocPropertyTags = [] as NodeArray<JSDocPropertyTag>;
                             }
                             jsdocTypeLiteral.jsDocPropertyTags.push(child as JSDocPropertyTag);
@@ -6541,85 +6545,6 @@ namespace ts {
                     result.isBracketed = isBracketed;
                     return finishNode(result);
 
-                    function textsEqual(parent: EntityName, name: EntityName): boolean {
-                        if (ts.isIdentifier(parent) && ts.isIdentifier(name) && parent.text === name.text) {
-                            return true;
-                        }
-                        else if (!ts.isIdentifier(parent) && !ts.isIdentifier(name)) {
-                            return textsEqual(parent.left, name.left) && parent.right.text === name.right.text;
-                        }
-                        return false;
-                    }
-
-                    function parseChildParameterOrPropertyTag(parentName: EntityName): JSDocPropertyLikeTag | undefined {
-                        let resumePos = scanner.getStartPos();
-                        let canParseTag = true;
-                        let seenAsterisk = false;
-                        // let parentTagTerminated = false;
-
-                        while (token() !== SyntaxKind.EndOfFileToken) {
-                            nextJSDocToken();
-                            switch (token()) {
-                                case SyntaxKind.AtToken:
-                                    if (canParseTag) {
-                                        const kid = tryParseChildTag2();
-                                        if (kid && !ts.isIdentifier(kid.fullName) && textsEqual(parentName, kid.fullName.left)) {
-                                            // TODO: Cleanup here? Maybe, because in this we don't roll back the parse
-                                            // plus we might need to advance some stuff
-                                            // for example, we *definitely* don't even try to parse the comments that come after the other tag data in tryParseChildTag2
-                                            return kid;
-                                        }
-                                        else {
-                                            // TODO: Cleanup here? Probably not needed since this is speculative
-                                            return;
-                                        }
-
-                                    }
-                                    seenAsterisk = false;
-                                    break;
-                                case SyntaxKind.NewLineTrivia:
-                                    resumePos = scanner.getStartPos() - 1;
-                                    canParseTag = true;
-                                    seenAsterisk = false;
-                                    break;
-                                case SyntaxKind.AsteriskToken:
-                                    if (seenAsterisk) {
-                                        canParseTag = false;
-                                    }
-                                    seenAsterisk = true;
-                                    break;
-                                case SyntaxKind.Identifier:
-                                    canParseTag = false;
-                                    break;
-                                case SyntaxKind.EndOfFileToken:
-                                    break;
-                            }
-                        }
-                        scanner.setTextPos(resumePos);
-                    }
-
-                    function tryParseChildTag2(): JSDocPropertyLikeTag | undefined {
-                        Debug.assert(token() === SyntaxKind.AtToken);
-                        const atToken = <AtToken>createNode(SyntaxKind.AtToken, scanner.getStartPos());
-                        atToken.end = scanner.getTextPos();
-                        nextJSDocToken();
-
-                        const tagName = parseJSDocIdentifierName();
-                        skipWhitespace();
-                        if (!tagName) {
-                            return;
-                        }
-
-                        switch (tagName.text) {
-                            case "prop":
-                            case "property":
-                                return parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ false);
-                            case "arg":
-                            case "argument":
-                            case "param":
-                                return parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ true);
-                        }
-                    }
                 }
 
                 function parseReturnTag(atToken: AtToken, tagName: Identifier): JSDocReturnTag {
@@ -6688,56 +6613,40 @@ namespace ts {
 
                     typedefTag.typeExpression = typeExpression;
                     if (!typeExpression || isObjectOrObjectArrayTypeReference(typeExpression.type)) {
-                        const jsdocTypeLiteral = scanChildTags();
-                        if (typeExpression && typeExpression.type.kind === SyntaxKind.ArrayType) {
-                            jsdocTypeLiteral.isArrayType = true;
+                        let child: JSDocTypeTag | JSDocPropertyTag | false;
+                        let jsdocTypeLiteral: JSDocTypeLiteral;
+                        let alreadyHasTypeTag = false;
+                        const start = scanner.getStartPos();
+                        while (child = tryParse(() => parseChildParameterOrPropertyTag(/*shouldParseParamTag*/ false))) {
+                            if (!jsdocTypeLiteral) {
+                                jsdocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, start);
+                            }
+                            if (child.kind === SyntaxKind.JSDocTypeTag) {
+                                if (alreadyHasTypeTag) {
+                                    break;
+                                }
+                                else {
+                                    jsdocTypeLiteral.jsDocTypeTag = child;
+                                    alreadyHasTypeTag = true;
+                                }
+                            }
+                            else {
+                                if (!jsdocTypeLiteral.jsDocPropertyTags) {
+                                    jsdocTypeLiteral.jsDocPropertyTags = [] as NodeArray<JSDocPropertyTag>;
+                                }
+                                jsdocTypeLiteral.jsDocPropertyTags.push(child);
+                            }
                         }
-                        typedefTag.typeExpression = jsdocTypeLiteral;
+                        if (jsdocTypeLiteral) {
+                            if (typeExpression && typeExpression.type.kind === SyntaxKind.ArrayType) {
+                                jsdocTypeLiteral.isArrayType = true;
+                            }
+                            typedefTag.typeExpression = finishNode(jsdocTypeLiteral);
+                        }
                     }
 
                     return finishNode(typedefTag);
 
-
-                    function scanChildTags(): JSDocTypeLiteral {
-                        const jsDocTypeLiteral = <JSDocTypeLiteral>createNode(SyntaxKind.JSDocTypeLiteral, scanner.getStartPos());
-                        let resumePos = scanner.getStartPos();
-                        let canParseTag = true;
-                        let seenAsterisk = false;
-                        let parentTagTerminated = false;
-
-                        while (token() !== SyntaxKind.EndOfFileToken && !parentTagTerminated) {
-                            nextJSDocToken();
-                            switch (token()) {
-                                case SyntaxKind.AtToken:
-                                    if (canParseTag) {
-                                        parentTagTerminated = !tryParseChildTag(jsDocTypeLiteral);
-                                        if (!parentTagTerminated) {
-                                            resumePos = scanner.getStartPos();
-                                        }
-                                    }
-                                    seenAsterisk = false;
-                                    break;
-                                case SyntaxKind.NewLineTrivia:
-                                    resumePos = scanner.getStartPos() - 1;
-                                    canParseTag = true;
-                                    seenAsterisk = false;
-                                    break;
-                                case SyntaxKind.AsteriskToken:
-                                    if (seenAsterisk) {
-                                        canParseTag = false;
-                                    }
-                                    seenAsterisk = true;
-                                    break;
-                                case SyntaxKind.Identifier:
-                                    canParseTag = false;
-                                    break;
-                                case SyntaxKind.EndOfFileToken:
-                                    break;
-                            }
-                        }
-                        scanner.setTextPos(resumePos);
-                        return finishNode(jsDocTypeLiteral);
-                    }
 
                     function parseJSDocTypeNameWithNamespace(flags: NodeFlags) {
                         const pos = scanner.getTokenPos();
@@ -6758,7 +6667,62 @@ namespace ts {
                     }
                 }
 
-                function tryParseChildTag(parentTag: JSDocTypeLiteral): boolean {
+                function textsEqual(parent: EntityName, name: EntityName): boolean {
+                    while (!ts.isIdentifier(parent) || !ts.isIdentifier(name)) {
+                        if (!ts.isIdentifier(parent) && !ts.isIdentifier(name) && parent.right.text === name.right.text) {
+                            parent = parent.left;
+                            name = name.left;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                    return parent.text === name.text;
+                }
+
+                function parseChildParameterOrPropertyTag(shouldParseParamTag: true, fullName?: EntityName): JSDocParameterTag | false;
+                function parseChildParameterOrPropertyTag(shouldParseParamTag: false): JSDocTypeTag | JSDocPropertyTag | false;
+                function parseChildParameterOrPropertyTag(shouldParseParamTag: boolean, fullName?: EntityName): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | undefined | false {
+                    let resumePos = scanner.getStartPos();
+                    let canParseTag = true;
+                    let seenAsterisk = false;
+                    while (token() !== SyntaxKind.EndOfFileToken) {
+                        nextJSDocToken();
+                        switch (token()) {
+                        case SyntaxKind.AtToken:
+                            // TODO: Would it be possible to reuse the main loop parser? Or at least the parse enum instead of old-style booleans?
+                            if (canParseTag) {
+                                const child = tryParseChildTag(shouldParseParamTag);
+                                if (child && child.kind === SyntaxKind.JSDocParameterTag &&
+                                    (ts.isIdentifier(child.fullName) || !textsEqual(fullName, child.fullName.left))) {
+                                    break;
+                                }
+                                return child;
+                            }
+                            seenAsterisk = false;
+                            break;
+                        case SyntaxKind.NewLineTrivia:
+                            resumePos = scanner.getStartPos() - 1;
+                            canParseTag = true;
+                            seenAsterisk = false;
+                            break;
+                        case SyntaxKind.AsteriskToken:
+                            if (seenAsterisk) {
+                                canParseTag = false;
+                            }
+                            seenAsterisk = true;
+                            break;
+                        case SyntaxKind.Identifier:
+                            canParseTag = false;
+                            break;
+                        case SyntaxKind.EndOfFileToken:
+                            break;
+                        }
+                    }
+                    scanner.setTextPos(resumePos);
+                }
+
+                function tryParseChildTag(shouldParseParamTag: boolean, alreadyHasTypeTag?: boolean): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | false {
                     Debug.assert(token() === SyntaxKind.AtToken);
                     const atToken = <AtToken>createNode(SyntaxKind.AtToken, scanner.getStartPos());
                     atToken.end = scanner.getTextPos();
@@ -6772,24 +6736,18 @@ namespace ts {
 
                     switch (tagName.text) {
                         case "type":
-                            if (parentTag.jsDocTypeTag) {
+                            if (alreadyHasTypeTag || shouldParseParamTag) {
                                 // already has a @type tag, terminate the parent tag now.
                                 return false;
                             }
-                            parentTag.jsDocTypeTag = parseTypeTag(atToken, tagName);
-                            return true;
+                            return parseTypeTag(atToken, tagName);
                         case "prop":
                         case "property":
-                            const propertyTag = parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ false) as JSDocPropertyTag;
-                            if (propertyTag) {
-                                if (!parentTag.jsDocPropertyTags) {
-                                    parentTag.jsDocPropertyTags = <NodeArray<JSDocPropertyTag>>[];
-                                }
-                                parentTag.jsDocPropertyTags.push(propertyTag);
-                                return true;
-                            }
-                            // Error parsing property tag
-                            return false;
+                            return !shouldParseParamTag && parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ false) as JSDocPropertyTag;
+                        case "arg":
+                        case "argument":
+                        case "param":
+                            return shouldParseParamTag && parseParameterOrPropertyTag(atToken, tagName, /*shouldParseParamTag*/ true);
                     }
                     return false;
                 }

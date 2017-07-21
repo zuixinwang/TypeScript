@@ -2117,9 +2117,8 @@ namespace ts {
         typeExpression?: JSDocTypeExpression | JSDocTypeLiteral;
     }
 
-    export interface JSDocPropertyLikeTag extends JSDocTag, VariableLikeDeclaration { // TypeElement :> NamedDeclaration :> Declaration :> Node -vs- VariableLikeDeclaration
+    export interface JSDocPropertyLikeTag extends JSDocTag, VariableLikeDeclaration {
         parent: JSDoc;
-        // TODO: Remove all the isIdentifier checks around name and turn them into checks for fullName instead (or something)
         fullName?: EntityName;
         name: Identifier;
         typeExpression: JSDocTypeExpression;
@@ -2132,16 +2131,16 @@ namespace ts {
         kind: SyntaxKind.JSDocPropertyTag;
     }
 
+    export interface JSDocParameterTag extends JSDocPropertyLikeTag {
+        kind: SyntaxKind.JSDocParameterTag;
+    }
+
     export interface JSDocTypeLiteral extends JSDocType {
         kind: SyntaxKind.JSDocTypeLiteral;
         jsDocPropertyTags?: NodeArray<JSDocPropertyLikeTag>;
         jsDocTypeTag?: JSDocTypeTag;
         /** If true, then this type literal represents an *array* of its type. */
         isArrayType?: boolean;
-    }
-
-    export interface JSDocParameterTag extends JSDocPropertyLikeTag {
-        kind: SyntaxKind.JSDocParameterTag;
     }
 
     export const enum FlowFlags {
