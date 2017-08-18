@@ -9190,6 +9190,39 @@ namespace ts {
                 return result;
             }
 
+            function checkTypeReferenceMaybeStack(source: Type, target: Type): Ternary {
+                if (!(getObjectFlags(source) & ObjectFlags.Reference) || !(getObjectFlags(target) & ObjectFlags.Reference)) {
+                    return Ternary.False;
+                }
+                const sourceArguments = (source as TypeReference).typeArguments;
+                const targetArguments = (source as TypeReference).typeArguments;
+                const sourceGeneric = (source as TypeReference).target;
+                const targetGeneric = (source as TypeReference).target;
+
+                const onlyTypeParametersAsArguments =
+                    arrayIsEqualTo(sourceArguments, targetArguments) &&
+                    sourceArguments && sourceArguments.length > 0 &&
+                    every(sourceArguments, t => !!(t.flags & TypeFlags.TypeParameter));
+                if (!onlyTypeParametersAsArguments) {
+                    return Ternary.False;
+                }
+                const id = (relation !== identityRelation || sourceGeneric.id < targetGeneric.id ? sourceGeneric.id + "," + targetGeneric.id : targetGeneric.id + "," + sourceGeneric.id) +
+                    "<" + map(sourceArguments, t => { let c = getConstraintFromTypeParameter(t as TypeParameter); return c ? c.id : "" }).join(',') + ">";
+                if (!maybeReferenceKeys) {
+                    maybeReferenceKeys = [];
+                }
+                else {
+                    for (let i = 0; i < maybeReferenceCount; i++) {
+                        if (id === maybeReferenceKeys[i]) {
+                            return Ternary.Maybe;
+                        }
+                    }
+                }
+                maybeReferenceKeys[maybeReferenceCount] = id;
+                maybeReferenceCount++;
+                return Ternary.False;
+            }
+
             // Determine if possibly recursive types are related. First, check if the result is already available in the global cache.
             // Second, check if we have already started a comparison of the given two types in which case we assume the result to be true.
             // Third, check if both types are part of deeply nested chains of generic type instantiations and if so assume the types are
@@ -9198,29 +9231,6 @@ namespace ts {
             function recursiveTypeRelatedTo(source: Type, target: Type, reportErrors: boolean): Ternary {
                 if (overflow) {
                     return Ternary.False;
-                }
-
-                if (getObjectFlags(source) & ObjectFlags.Reference &&
-                    getObjectFlags(target) & ObjectFlags.Reference &&
-                    (source as TypeReference).typeArguments && (source as TypeReference).typeArguments.length > 0 &&
-                    arrayIsEqualTo((source as TypeReference).typeArguments, (target as TypeReference).typeArguments, (a1, m1) => a1 === m1)) {
-                    // Same type arguments, let's see if we've already seen this pair before
-                    // this is a copy of the normal code! It can probably be merged somehow.
-                    const src = (source as TypeReference).target;
-                    const trg = (target as TypeReference).target;
-                    const id = relation !== identityRelation || src.id < trg.id ? src.id + "," + trg.id : trg.id + "," + src.id;
-                    if (!maybeReferenceKeys) {
-                        maybeReferenceKeys = [];
-                    }
-                    else {
-                        for (let i = 0; i < maybeReferenceCount; i++) {
-                            if (id === maybeReferenceKeys[i]) {
-                                return Ternary.Maybe;
-                            }
-                        }
-                    }
-                    maybeReferenceKeys[maybeReferenceCount] = id;
-                    maybeReferenceCount++;
                 }
 
                 const id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
@@ -9253,6 +9263,10 @@ namespace ts {
                         return Ternary.False;
                     }
                 }
+                if (checkTypeReferenceMaybeStack(source, target) === Ternary.Maybe) {
+                    return Ternary.Maybe;
+                }
+
                 const maybeStart = maybeCount;
                 maybeKeys[maybeCount] = id;
                 maybeCount++;
