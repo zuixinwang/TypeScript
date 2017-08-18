@@ -931,11 +931,11 @@ namespace ts {
     }
 
     export function getContainingFunction(node: Node): FunctionLike {
-        return findAncestor(node.parent, isFunctionLike);
+        return findAncestorWhere(node.parent, isFunctionLike);
     }
 
     export function getContainingClass(node: Node): ClassLikeDeclaration {
-        return findAncestor(node.parent, isClassLike);
+        return findAncestorWhere(node.parent, isClassLike);
     }
 
     export function getThisContainer(node: Node, includeArrowFunctions: boolean): Node {

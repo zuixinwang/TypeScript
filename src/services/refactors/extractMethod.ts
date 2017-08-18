@@ -495,7 +495,7 @@ namespace ts.refactor.extractMethod {
             // A function parameter's initializer is actually in the outer scope, not the function declaration
             if (current && current.parent && current.parent.kind === SyntaxKind.Parameter) {
                 // Skip all the way to the outer scope of the function that declared this parameter
-                current = findAncestor(current, parent => isFunctionLike(parent)).parent;
+                current = findAncestorWhere(current, isFunctionLike).parent;
             }
             else {
                 current = current.parent;

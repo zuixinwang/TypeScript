@@ -775,7 +775,7 @@ namespace ts {
                     // still might be illegal if declaration and usage are both binding elements (eg var [a = b, b = b] = [1, 2])
                     const errorBindingElement = getAncestor(usage, SyntaxKind.BindingElement) as BindingElement;
                     if (errorBindingElement) {
-                        return findAncestor(errorBindingElement, isBindingElement) !== findAncestor(declaration, isBindingElement) ||
+                        return findAncestorWhere(errorBindingElement, isBindingElement) !== findAncestorWhere(declaration, isBindingElement) ||
                             declaration.pos < errorBindingElement.pos;
                     }
                     // or it might be illegal if usage happens before parent variable is declared (eg var [a] = a)
@@ -824,10 +824,7 @@ namespace ts {
             }
 
             function isUsedInFunctionOrInstanceProperty(usage: Node, declaration: Node, container?: Node): boolean {
-                return !!findAncestor(usage, current => {
-                    if (current === container) {
-                        return "quit";
-                    }
+                return !!findAncestorUpTo(usage, container, current => {
                     if (isFunctionLike(current)) {
                         return true;
                     }
@@ -849,6 +846,8 @@ namespace ts {
                             }
                         }
                     }
+
+                    return false;
                 });
             }
         }
@@ -1327,7 +1326,7 @@ namespace ts {
          * Return false if 'stopAt' node is reached or isFunctionLike(current) === true.
          */
         function isSameScopeDescendentOf(initial: Node, parent: Node, stopAt: Node): boolean {
-            return parent && !!findAncestor(initial, n => n === stopAt || isFunctionLike(n) ? "quit" : n === parent);
+            return parent && !!findAncestor(initial, n => n === stopAt || isFunctionLike(n) ? FA.Quit : n === parent ? FA.Yes : FA.Continue);
         }
 
         function getAnyImportSyntax(node: Node): AnyImportSyntax {
@@ -1336,7 +1335,7 @@ namespace ts {
                     return <ImportEqualsDeclaration>node;
                 }
 
-                return findAncestor(node, isImportDeclaration);
+                return findAncestorWhere(node, isImportDeclaration);
             }
         }
 
@@ -2228,7 +2227,7 @@ namespace ts {
             return { accessibility: SymbolAccessibility.Accessible };
 
             function getExternalModuleContainer(declaration: Node) {
-                const node = findAncestor(declaration, hasExternalModuleSymbol);
+                const node = findAncestorWhere(declaration, hasExternalModuleSymbol);
                 return node && getSymbolOfNode(node);
             }
         }
@@ -3066,7 +3065,7 @@ namespace ts {
 
         function getTypeAliasForTypeLiteral(type: Type): Symbol {
             if (type.symbol && type.symbol.flags & SymbolFlags.TypeLiteral) {
-                const node = findAncestor(type.symbol.declarations[0].parent, n => n.kind !== SyntaxKind.ParenthesizedType);
+                const node = findAncestorWhere(type.symbol.declarations[0].parent, n => n.kind !== SyntaxKind.ParenthesizedType);
                 if (node.kind === SyntaxKind.TypeAliasDeclaration) {
                     return getSymbolOfNode(node);
                 }
@@ -4047,7 +4046,7 @@ namespace ts {
         }
 
         function getDeclarationContainer(node: Node): Node {
-            node = findAncestor(getRootDeclaration(node), node => {
+            node = findAncestorWhere(getRootDeclaration(node), node => {
                 switch (node.kind) {
                     case SyntaxKind.VariableDeclaration:
                     case SyntaxKind.VariableDeclarationList:
@@ -8231,10 +8230,11 @@ namespace ts {
             // the type parameters introduced by enclosing declarations. We just pick the first
             // declaration since multiple declarations will all have the same parent anyway.
             return !!findAncestor(symbol.declarations[0], node => {
-                if (node.kind === SyntaxKind.ModuleDeclaration || node.kind === SyntaxKind.SourceFile) {
-                    return "quit";
-                }
                 switch (node.kind) {
+                    case SyntaxKind.ModuleDeclaration:
+                    case SyntaxKind.SourceFile:
+                        return FA.Quit;
+
                     case SyntaxKind.FunctionType:
                     case SyntaxKind.ConstructorType:
                     case SyntaxKind.FunctionDeclaration:
@@ -8256,31 +8256,32 @@ namespace ts {
                         if (typeParameters) {
                             for (const d of typeParameters) {
                                 if (contains(mappedTypes, getDeclaredTypeOfTypeParameter(getSymbolOfNode(d)))) {
-                                    return true;
+                                    return FA.Yes;
                                 }
                             }
                         }
                         if (isClassLike(node) || node.kind === SyntaxKind.InterfaceDeclaration) {
                             const thisType = getDeclaredTypeOfClassOrInterface(getSymbolOfNode(node)).thisType;
                             if (thisType && contains(mappedTypes, thisType)) {
-                                return true;
+                                return FA.Yes;
                             }
                         }
                         break;
                     case SyntaxKind.MappedType:
                         if (contains(mappedTypes, getDeclaredTypeOfTypeParameter(getSymbolOfNode((<MappedTypeNode>node).typeParameter)))) {
-                            return true;
+                            return FA.Yes;
                         }
                         break;
                     case SyntaxKind.JSDocFunctionType:
                         const func = node as JSDocFunctionType;
                         for (const p of func.parameters) {
                             if (contains(mappedTypes, getTypeOfNode(p))) {
-                                return true;
+                                return FA.Yes;
                             }
                         }
                         break;
                 }
+                return FA.Continue;
             });
         }
 
@@ -9067,7 +9068,7 @@ namespace ts {
                                 else {
                                     // use the property's value declaration if the property is assigned inside the literal itself
                                     const objectLiteralDeclaration = source.symbol && firstOrUndefined(source.symbol.declarations);
-                                    if (prop.valueDeclaration && findAncestor(prop.valueDeclaration, d => d === objectLiteralDeclaration)) {
+                                    if (prop.valueDeclaration && findAncestorWhere(prop.valueDeclaration, d => d === objectLiteralDeclaration)) {
                                         errorNode = prop.valueDeclaration;
                                     }
                                     reportError(Diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1,
@@ -10791,9 +10792,17 @@ namespace ts {
             // TypeScript 1.0 spec (April 2014): 3.6.3
             // A type query consists of the keyword typeof followed by an expression.
             // The expression is restricted to a single identifier or a sequence of identifiers separated by periods
-            return !!findAncestor(
-                node,
-                n => n.kind === SyntaxKind.TypeQuery ? true : n.kind === SyntaxKind.Identifier || n.kind === SyntaxKind.QualifiedName ? false : "quit");
+            return !!findAncestor(node, n => {
+                switch (n.kind) {
+                    case SyntaxKind.TypeQuery:
+                        return FA.Yes;
+                    case SyntaxKind.Identifier:
+                    case SyntaxKind.QualifiedName:
+                        return FA.Continue;
+                    default:
+                        return FA.Quit;
+                }
+            });
         }
 
         // Return the flow cache key for a "dotted name" (i.e. a sequence of identifiers
@@ -12059,7 +12068,7 @@ namespace ts {
         }
 
         function getControlFlowContainer(node: Node): Node {
-            return findAncestor(node.parent, node =>
+            return findAncestorWhere(node.parent, node =>
                 isFunctionLike(node) && !getImmediatelyInvokedFunctionExpression(node) ||
                 node.kind === SyntaxKind.ModuleBlock ||
                 node.kind === SyntaxKind.SourceFile ||
@@ -12080,7 +12089,7 @@ namespace ts {
         }
 
         function hasParentWithAssignmentsMarked(node: Node) {
-            return !!findAncestor(node.parent, node => isFunctionLike(node) && !!(getNodeLinks(node).flags & NodeCheckFlags.AssignmentsMarked));
+            return !!findAncestorWhere(node.parent, node => isFunctionLike(node) && !!(getNodeLinks(node).flags & NodeCheckFlags.AssignmentsMarked));
         }
 
         function markParameterAssignments(node: Node) {
@@ -12291,10 +12300,6 @@ namespace ts {
             return assignmentKind ? getBaseTypeOfLiteralType(flowType) : flowType;
         }
 
-        function isInsideFunction(node: Node, threshold: Node): boolean {
-            return !!findAncestor(node, n => n === threshold ? "quit" : isFunctionLike(n));
-        }
-
         function checkNestedBlockScopedBinding(node: Identifier, symbol: Symbol): void {
             if (languageVersion >= ScriptTarget.ES2015 ||
                 (symbol.flags & (SymbolFlags.BlockScopedVariable | SymbolFlags.Class)) === 0 ||
@@ -12308,7 +12313,7 @@ namespace ts {
             // if there is an iteration statement in between declaration and boundary (is binding/class declared inside iteration statement)
 
             const container = getEnclosingBlockScopeContainer(symbol.valueDeclaration);
-            const usedInFunction = isInsideFunction(node.parent, container);
+            const usedInFunction = !!findAncestorUpTo(node.parent, container, isFunctionLike);
             let current = container;
 
             let containedInIterationStatement = false;
@@ -12366,7 +12371,7 @@ namespace ts {
 
             // at this point we know that node is the target of assignment
             // now check that modification happens inside the statement part of the ForStatement
-            return !!findAncestor(current, n => n === container ? "quit" : n === container.statement);
+            return !!findAncestorUpTo(current, container, n => n === container.statement);
         }
 
         function captureLexicalThis(node: Node, container: Node): void {
@@ -12550,7 +12555,7 @@ namespace ts {
         }
 
         function isInConstructorArgumentInitializer(node: Node, constructorDecl: Node): boolean {
-            return !!findAncestor(node, n => n === constructorDecl ? "quit" : n.kind === SyntaxKind.Parameter);
+            return !!findAncestorUpTo(node, constructorDecl, n => n.kind === SyntaxKind.Parameter);
         }
 
         function checkSuperExpression(node: Node): Type {
@@ -12576,7 +12581,7 @@ namespace ts {
                 // class B {
                 //     [super.foo()]() {}
                 // }
-                const current = findAncestor(node, n => n === container ? "quit" : n.kind === SyntaxKind.ComputedPropertyName);
+                const current = findAncestorUpTo(node, container, n => n.kind === SyntaxKind.ComputedPropertyName);
                 if (current && current.kind === SyntaxKind.ComputedPropertyName) {
                     error(node, Diagnostics.super_cannot_be_referenced_in_a_computed_property_name);
                 }
@@ -13216,7 +13221,7 @@ namespace ts {
         }
 
         function getContextualMapper(node: Node) {
-            node = findAncestor(node, n => !!n.contextualMapper);
+            node = findAncestorWhere(node, n => !!n.contextualMapper); //This will usually not exist?
             return node ? node.contextualMapper : identityMapper;
         }
 
@@ -19936,8 +19941,9 @@ namespace ts {
                     else {
                         error(node, Diagnostics.Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference);
                     }
-                    return true;
+                    return FA.Quit;
                 }
+                return FA.Continue;
             });
         }
 
@@ -19951,8 +19957,9 @@ namespace ts {
                     else {
                         error(node, Diagnostics.Expression_resolves_to_variable_declaration_newTarget_that_compiler_uses_to_capture_new_target_meta_property_reference);
                     }
-                    return true;
+                    return FA.Quit;
                 }
+                return FA.Continue;
             });
         }
 
@@ -20138,19 +20145,14 @@ namespace ts {
                                 return;
                             }
                             // - parameter is wrapped in function-like entity
-                            if (findAncestor(
-                                n,
-                                current => {
-                                    if (current === node.initializer) {
-                                        return "quit";
-                                    }
-                                    return isFunctionLike(current.parent) ||
-                                        // computed property names/initializers in instance property declaration of class like entities
-                                        // are executed in constructor and thus deferred
-                                        (current.parent.kind === SyntaxKind.PropertyDeclaration &&
-                                         !(hasModifier(current.parent, ModifierFlags.Static)) &&
-                                         isClassLike(current.parent.parent));
-                                    })) {
+                            const isInFunctionLikeEntity = findAncestorUpTo(n, node.initializer, current =>
+                                isFunctionLike(current.parent) ||
+                                    // computed property names/initializers in instance property declaration of class like entities
+                                    // are executed in constructor and thus deferred
+                                    current.parent.kind === SyntaxKind.PropertyDeclaration &&
+                                        !(hasModifier(current.parent, ModifierFlags.Static)) &&
+                                        isClassLike(current.parent.parent));
+                            if (isInFunctionLikeEntity) {
                                 return;
                             }
                             // fall through to report error
@@ -20954,17 +20956,17 @@ namespace ts {
         function checkLabeledStatement(node: LabeledStatement) {
             // Grammar checking
             if (!checkGrammarStatementInAmbientContext(node)) {
-                findAncestor(node.parent,
-                             current => {
-                                 if (isFunctionLike(current)) {
-                                     return "quit";
-                                 }
-                                 if (current.kind === SyntaxKind.LabeledStatement && (<LabeledStatement>current).label.escapedText === node.label.escapedText) {
-                                     const sourceFile = getSourceFileOfNode(node);
-                                     grammarErrorOnNode(node.label, Diagnostics.Duplicate_label_0, getTextOfNodeFromSourceText(sourceFile.text, node.label));
-                                     return true;
-                                 }
-                             });
+                findAncestor(node.parent, current => {
+                    if (isFunctionLike(current)) {
+                        return FA.Quit;
+                    }
+                    if (current.kind === SyntaxKind.LabeledStatement && (<LabeledStatement>current).label.escapedText === node.label.escapedText) {
+                        const sourceFile = getSourceFileOfNode(node);
+                        grammarErrorOnNode(node.label, Diagnostics.Duplicate_label_0, getTextOfNodeFromSourceText(sourceFile.text, node.label));
+                        return FA.Yes;
+                    }
+                    return FA.Continue;
+                });
             }
 
             // ensure that label is unique
@@ -23202,7 +23204,7 @@ namespace ts {
                             const symbolIsUmdExport = symbolFile !== referenceFile;
                             return symbolIsUmdExport ? undefined : symbolFile;
                         }
-                        return findAncestor(node.parent, (n): n is ModuleDeclaration | EnumDeclaration => isModuleOrEnumDeclaration(n) && getSymbolOfNode(n) === parentSymbol);
+                        return findAncestorWhere(node.parent, (n): n is ModuleDeclaration | EnumDeclaration => isModuleOrEnumDeclaration(n) && getSymbolOfNode(n) === parentSymbol);
                     }
                 }
             }

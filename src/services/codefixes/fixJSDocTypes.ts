@@ -8,7 +8,7 @@ namespace ts.codefix {
     function getActionsForJSDocTypes(context: CodeFixContext): CodeAction[] | undefined {
         const sourceFile = context.sourceFile;
         const node = getTokenAtPosition(sourceFile, context.span.start, /*includeJsDocComment*/ false);
-        const decl = ts.findAncestor(node, n => n.kind === SyntaxKind.VariableDeclaration);
+        const decl = findAncestorWhere(node, n => n.kind === SyntaxKind.VariableDeclaration);
         if (!decl) return;
         const checker = context.program.getTypeChecker();
 

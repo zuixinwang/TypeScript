@@ -183,26 +183,59 @@ namespace ts {
         }
         return undefined;
     }
+
+    export const enum FA {
+        Yes,
+        Continue,
+        Quit
+    }
+
+    export function findAncestorWhere<T extends Node>(node: Node, callback: (element: Node) => element is T): T | undefined;
+    export function findAncestorWhere(node: Node, callback: (element: Node) => boolean): Node | undefined;
+    export function findAncestorWhere<T extends Node>(node: Node, callback: (element: Node) => element is T): T | undefined {
+        while (true) {
+            if (callback(node)) {
+                return node;
+            }
+            node = node.parent;
+            if (!node) return undefined;
+        }
+    }
+
     /**
      * Iterates through the parent chain of a node and performs the callback on each parent until the callback
      * returns a truthy value, then returns that value.
      * If no such value is found, it applies the callback until the parent pointer is undefined or the callback returns "quit"
      * At that point findAncestor returns undefined.
      */
-    export function findAncestor<T extends Node>(node: Node, callback: (element: Node) => element is T): T | undefined;
-    export function findAncestor(node: Node, callback: (element: Node) => boolean | "quit"): Node | undefined;
-    export function findAncestor(node: Node, callback: (element: Node) => boolean | "quit"): Node {
-        while (node) {
+    //export function findAncestor<T extends Node>(node: Node, callback: (element: Node) => element is T): T | undefined;
+    //export function findAncestor(node: Node, callback: (element: Node) => FA): Node | undefined;
+    export function findAncestor(node: Node, callback: (element: Node) => FA): Node {
+        while (true) {
             const result = callback(node);
-            if (result === "quit") {
-                return undefined;
-            }
-            else if (result) {
-                return node;
+            switch (result) {
+                case FA.Yes:
+                    return node;
+                case FA.Quit:
+                    return undefined;
+                case FA.Continue:
+                    break;
+                default:
+                    throw new Error();
             }
             node = node.parent;
         }
-        return undefined;
+    }
+
+    export function findAncestorUpTo(node: Node, container: Node, callback: (node: Node) => boolean): Node {
+        while (true) {
+            if (node === container) {
+                return undefined;
+            }
+            if (callback(node)) {
+                return node;
+            }
+        }
     }
 
     export function zipWith<T, U>(arrayA: ReadonlyArray<T>, arrayB: ReadonlyArray<U>, callback: (a: T, b: U, index: number) => void): void {

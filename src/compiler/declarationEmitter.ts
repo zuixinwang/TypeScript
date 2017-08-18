@@ -1167,7 +1167,7 @@ namespace ts {
                         diagnosticMessage: Diagnostics.extends_clause_of_exported_class_0_has_or_is_using_private_name_1,
                         errorNode: baseTypeNode,
                         typeName: node.name
-                    }, !findAncestor(node, n => n.kind === SyntaxKind.ModuleDeclaration));
+                    }, !findAncestorWhere(node, n => n.kind === SyntaxKind.ModuleDeclaration));
             }
 
             emitJsDocComments(node);
