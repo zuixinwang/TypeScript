@@ -12583,7 +12583,7 @@ namespace ts {
                 // class B {
                 //     [super.foo()]() {}
                 // }
-                const current = findAncestorUpTo(node, container, n => n.kind === SyntaxKind.ComputedPropertyName);
+                const current = findAncestorUpTo2(node, container, n => n.kind === SyntaxKind.ComputedPropertyName);
                 if (current && current.kind === SyntaxKind.ComputedPropertyName) {
                     error(node, Diagnostics.super_cannot_be_referenced_in_a_computed_property_name);
                 }
@@ -19933,20 +19933,18 @@ namespace ts {
         }
 
         // this function will run after checking the source file so 'CaptureThis' is correct for all nodes
-        function checkIfThisIsCapturedInEnclosingScope(node: Node): void {
-            findAncestor(node, current => {
-                if (getNodeCheckFlags(current) & NodeCheckFlags.CaptureThis) {
-                    const isDeclaration = node.kind !== SyntaxKind.Identifier;
-                    if (isDeclaration) {
-                        error(getNameOfDeclaration(<Declaration>node), Diagnostics.Duplicate_identifier_this_Compiler_uses_variable_declaration_this_to_capture_this_reference);
-                    }
-                    else {
-                        error(node, Diagnostics.Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference);
-                    }
-                    return FA.Quit;
-                }
-                return FA.Continue;
-            });
+        function checkIfThisIsCapturedInEnclosingScope(node: Declaration | Identifier): void {
+            if (!findAncestorWhere(node, current => !!(getNodeCheckFlags(current) & NodeCheckFlags.CaptureThis))) {
+                return;
+            }
+
+            const isDeclaration = node.kind !== SyntaxKind.Identifier;
+            if (isDeclaration) {
+                error(getNameOfDeclaration(<Declaration>node), Diagnostics.Duplicate_identifier_this_Compiler_uses_variable_declaration_this_to_capture_this_reference);
+            }
+            else {
+                error(node, Diagnostics.Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference);
+            }
         }
 
         function checkIfNewTargetIsCapturedInEnclosingScope(node: Node): void {
