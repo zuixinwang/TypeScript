@@ -5364,7 +5364,7 @@ namespace ts {
             return <InterfaceTypeWithDeclaredMembers>type;
         }
 
-        function getTypeWithThisArgument(type: Type, thisArgument?: Type): Type {
+        function getTypeWithThisArgument(type: Type, thisArgument: Type): Type {
             if (getObjectFlags(type) & ObjectFlags.Reference) {
                 const target = (<TypeReference>type).target;
                 const typeArguments = (<TypeReference>type).typeArguments;
@@ -8830,6 +8830,8 @@ namespace ts {
             let sourceStack: Type[];
             let targetStack: Type[];
             let maybeCount = 0;
+            let maybeReferenceKeys: string[];
+            let maybeReferenceCount = 0;
             let depth = 0;
             let expandingFlags = 0;
             let overflow = false;
@@ -9197,6 +9199,30 @@ namespace ts {
                 if (overflow) {
                     return Ternary.False;
                 }
+
+                if (getObjectFlags(source) & ObjectFlags.Reference &&
+                    getObjectFlags(target) & ObjectFlags.Reference &&
+                    (source as TypeReference).typeArguments && (source as TypeReference).typeArguments.length > 0 &&
+                    arrayIsEqualTo((source as TypeReference).typeArguments, (target as TypeReference).typeArguments, (a1, m1) => a1 === m1)) {
+                    // Same type arguments, let's see if we've already seen this pair before
+                    // this is a copy of the normal code! It can probably be merged somehow.
+                    const src = (source as TypeReference).target;
+                    const trg = (target as TypeReference).target;
+                    const id = relation !== identityRelation || src.id < trg.id ? src.id + "," + trg.id : trg.id + "," + src.id;
+                    if (!maybeReferenceKeys) {
+                        maybeReferenceKeys = [];
+                    }
+                    else {
+                        for (let i = 0; i < maybeReferenceCount; i++) {
+                            if (id === maybeReferenceKeys[i]) {
+                                return Ternary.Maybe;
+                            }
+                        }
+                    }
+                    maybeReferenceKeys[maybeReferenceCount] = id;
+                    maybeReferenceCount++;
+                }
+
                 const id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
                 const related = relation.get(id);
                 if (related !== undefined) {
@@ -9209,6 +9235,7 @@ namespace ts {
                         return related === RelationComparisonResult.Succeeded ? Ternary.True : Ternary.False;
                     }
                 }
+
                 if (!maybeKeys) {
                     maybeKeys = [];
                     sourceStack = [];
@@ -21258,7 +21285,7 @@ namespace ts {
             checkExportsOnMergedDeclarations(node);
             const symbol = getSymbolOfNode(node);
             const type = <InterfaceType>getDeclaredTypeOfSymbol(symbol);
-            const typeWithThis = getTypeWithThisArgument(type);
+            const typeWithThis = getTypeWithThisArgument(type, type.thisType);
             const staticType = <ObjectType>getTypeOfSymbol(symbol);
             checkTypeParameterListsIdentical(symbol);
             checkClassForDuplicateDeclarations(node);
@@ -21506,7 +21533,7 @@ namespace ts {
                 const firstInterfaceDecl = getDeclarationOfKind<InterfaceDeclaration>(symbol, SyntaxKind.InterfaceDeclaration);
                 if (node === firstInterfaceDecl) {
                     const type = <InterfaceType>getDeclaredTypeOfSymbol(symbol);
-                    const typeWithThis = getTypeWithThisArgument(type);
+                    const typeWithThis = getTypeWithThisArgument(type, type.thisType);
                     // run subsequent checks only if first set succeeded
                     if (checkInheritedPropertiesAreIdentical(type, node.name)) {
                         for (const baseType of getBaseTypes(type)) {
