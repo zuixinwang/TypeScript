@@ -824,11 +824,13 @@ namespace ts {
             }
 
             function isUsedInFunctionOrInstanceProperty(usage: Node, declaration: Node, container?: Node): boolean {
-                return !!findAncestorUpTo(usage, container, current => {
+                return !!findAncestorUpTo2(usage, container, current => {
                     if (isFunctionLike(current)) {
                         return true;
                     }
 
+                    //TODO: this should never *not* be in the initializer if parent is a property declaratino.
+                    //So just use current instead of current.parent, and `if (current.kind === SyntaxKind.PropertyDeclaration)`... (use current instead of current.parent inside)
                     const initializerOfProperty = current.parent &&
                         current.parent.kind === SyntaxKind.PropertyDeclaration &&
                         (<PropertyDeclaration>current.parent).initializer === current;
@@ -12313,7 +12315,7 @@ namespace ts {
             // if there is an iteration statement in between declaration and boundary (is binding/class declared inside iteration statement)
 
             const container = getEnclosingBlockScopeContainer(symbol.valueDeclaration);
-            const usedInFunction = !!findAncestorUpTo(node.parent, container, isFunctionLike);
+            const usedInFunction = !!findAncestorUpTo2(node.parent, container, isFunctionLike);
             let current = container;
 
             let containedInIterationStatement = false;

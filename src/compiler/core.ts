@@ -198,7 +198,9 @@ namespace ts {
                 return node;
             }
             node = node.parent;
-            if (!node) return undefined;
+            if (!node) {
+                return undefined;
+            }
         }
     }
 
@@ -208,8 +210,6 @@ namespace ts {
      * If no such value is found, it applies the callback until the parent pointer is undefined or the callback returns "quit"
      * At that point findAncestor returns undefined.
      */
-    //export function findAncestor<T extends Node>(node: Node, callback: (element: Node) => element is T): T | undefined;
-    //export function findAncestor(node: Node, callback: (element: Node) => FA): Node | undefined;
     export function findAncestor(node: Node, callback: (element: Node) => FA): Node {
         while (true) {
             const result = callback(node);
@@ -224,16 +224,40 @@ namespace ts {
                     throw new Error();
             }
             node = node.parent;
+            if (!node) {
+                return undefined;
+            }
         }
     }
 
-    export function findAncestorUpTo(node: Node, container: Node, callback: (node: Node) => boolean): Node {
+    export function findAncestorUpTo(node: Node, container: Node, callback: (node: Node) => boolean): Node | undefined {
+        Debug.assert(!!node); //todo:kill
+        Debug.assert(!!container); //todo:kill
         while (true) {
             if (node === container) {
                 return undefined;
             }
             if (callback(node)) {
                 return node;
+            }
+            node = node.parent;
+        }
+    }
+
+    //like findAncestorUpTo, but node might not even be in the container. Or container could be undefined.
+    //TODO: that's probably a bad thing???
+    export function findAncestorUpTo2(node: Node, container: Node | undefined, callback: (node: Node) => boolean): Node | undefined {
+        Debug.assert(!!node); //todo:kill
+        while (true) {
+            if (node === container) {
+                return undefined;
+            }
+            if (callback(node)) {
+                return node;
+            }
+            node = node.parent;
+            if (!node) {
+                return undefined;
             }
         }
     }
