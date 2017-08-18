@@ -469,10 +469,25 @@ namespace ts {
         };
 
         const subtypeRelation = createMap<RelationComparisonResult>();
+        const subtypeRelationErrors = createMap<DiagnosticMessageChain>();
         const assignableRelation = createMap<RelationComparisonResult>();
+        const assignableRelationErrors = createMap<DiagnosticMessageChain>();
         const comparableRelation = createMap<RelationComparisonResult>();
+        const comparableRelationErrors = createMap<DiagnosticMessageChain>();
         const identityRelation = createMap<RelationComparisonResult>();
+        const identityRelationErrors = createMap<DiagnosticMessageChain>();
         const enumRelation = createMap<boolean>();
+        const enumRelationErrors = createMap<DiagnosticMessageChain>();
+
+        function getErrorCache(relation: Map<RelationComparisonResult> | Map<boolean>) {
+            switch (true) {
+                case relation === subtypeRelation: return subtypeRelationErrors;
+                case relation === assignableRelation: return assignableRelationErrors;
+                case relation === comparableRelation: return comparableRelationErrors;
+                case relation === identityRelation: return identityRelationErrors;
+                case relation === enumRelation: return enumRelationErrors;
+            }
+        }
 
         // This is for caching the result of getSymbolDisplayBuilder. Do not access directly.
         let _displayBuilder: SymbolDisplayBuilder;
@@ -8918,6 +8933,17 @@ namespace ts {
              * * Ternary.False if they are not related.
              */
             function isRelatedTo(source: Type, target: Type, reportErrors?: boolean, headMessage?: DiagnosticMessage): Ternary {
+                const comparisonId = comparisonTypeId(source, target);
+                const cachedResult = fetchRelationResult(comparisonId);
+                if (cachedResult !== undefined) {
+                    if (reportErrors && cachedResult === Ternary.False) {
+                        const cachedChain = getErrorCache(relation).get(comparisonId);
+                        if (cachedChain) {
+                            errorInfo = concatenateDiagnosticMessageChains(errorInfo, cachedChain);
+                        }
+                    }
+                    return cachedResult;
+                }
                 if (source.flags & TypeFlags.StringOrNumberLiteral && source.flags & TypeFlags.FreshLiteral) {
                     source = (<LiteralType>source).regularType;
                 }
@@ -9028,6 +9054,14 @@ namespace ts {
                     }
                     reportRelationError(headMessage, source, target);
                 }
+
+                if (fetchRelationResult(comparisonId) === undefined) {
+                    relation.set(comparisonId, result ? RelationComparisonResult.Succeeded : reportErrors ? RelationComparisonResult.FailedAndReported : RelationComparisonResult.Failed);
+                    if (reportErrors && errorInfo) {
+                        getErrorCache(relation).set(comparisonId, errorInfo);
+                    }
+                }
+
                 return result;
             }
 
@@ -9190,6 +9224,24 @@ namespace ts {
                 return result;
             }
 
+            function comparisonTypeId(source: Type, target: Type) {
+                return relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
+            }
+
+            function fetchRelationResult(id: string, reportErrors?: boolean): Ternary | undefined {
+                const related = relation.get(id);
+                if (related !== undefined) {
+                    if (reportErrors && related === RelationComparisonResult.Failed) {
+                        // We are elaborating errors and the cached result is an unreported failure. Record the result as a reported
+                        // failure and continue computing the relation such that errors get reported.
+                        relation.set(id, RelationComparisonResult.FailedAndReported);
+                    }
+                    else {
+                        return related === RelationComparisonResult.Succeeded ? Ternary.True : Ternary.False;
+                    }
+                }
+            }
+
             // Determine if possibly recursive types are related. First, check if the result is already available in the global cache.
             // Second, check if we have already started a comparison of the given two types in which case we assume the result to be true.
             // Third, check if both types are part of deeply nested chains of generic type instantiations and if so assume the types are
@@ -9208,7 +9260,7 @@ namespace ts {
                     // this is a copy of the normal code! It can probably be merged somehow.
                     const src = (source as TypeReference).target;
                     const trg = (target as TypeReference).target;
-                    const id = relation !== identityRelation || src.id < trg.id ? src.id + "," + trg.id : trg.id + "," + src.id;
+                    const id = comparisonTypeId(src, trg);
                     if (!maybeReferenceKeys) {
                         maybeReferenceKeys = [];
                     }
@@ -9223,19 +9275,11 @@ namespace ts {
                     maybeReferenceCount++;
                 }
 
-                const id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
-                const related = relation.get(id);
-                if (related !== undefined) {
-                    if (reportErrors && related === RelationComparisonResult.Failed) {
-                        // We are elaborating errors and the cached result is an unreported failure. Record the result as a reported
-                        // failure and continue computing the relation such that errors get reported.
-                        relation.set(id, RelationComparisonResult.FailedAndReported);
-                    }
-                    else {
-                        return related === RelationComparisonResult.Succeeded ? Ternary.True : Ternary.False;
-                    }
+                const id = comparisonTypeId(source, target);
+                const cachedResult = fetchRelationResult(id);
+                if (cachedResult !== undefined) {
+                    return cachedResult;
                 }
-
                 if (!maybeKeys) {
                     maybeKeys = [];
                     sourceStack = [];
