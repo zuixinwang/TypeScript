@@ -8830,8 +8830,7 @@ namespace ts {
             let sourceStack: Type[];
             let targetStack: Type[];
             let maybeCount = 0;
-            let maybeReferenceKeys: string[];
-            let maybeReferenceCount = 0;
+            let maybeReferences: Map<true>;
             let depth = 0;
             let expandingFlags = 0;
             let overflow = false;
@@ -9190,37 +9189,34 @@ namespace ts {
                 return result;
             }
 
-            function checkTypeReferenceMaybeStack(source: Type, target: Type): Ternary {
+            function getTypePairKey(source: Type, target: Type) {
+                return relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
+            }
+
+            function alreadyComparingTypeReferences(source: Type, target: Type) {
                 if (!(getObjectFlags(source) & ObjectFlags.Reference) || !(getObjectFlags(target) & ObjectFlags.Reference)) {
-                    return Ternary.False;
+                    return false;
                 }
                 const sourceArguments = (source as TypeReference).typeArguments;
                 const targetArguments = (source as TypeReference).typeArguments;
-                const sourceGeneric = (source as TypeReference).target;
-                const targetGeneric = (source as TypeReference).target;
 
                 const onlyTypeParametersAsArguments =
                     arrayIsEqualTo(sourceArguments, targetArguments) &&
                     sourceArguments && sourceArguments.length > 0 &&
                     every(sourceArguments, t => !!(t.flags & TypeFlags.TypeParameter));
                 if (!onlyTypeParametersAsArguments) {
-                    return Ternary.False;
+                    return false;
                 }
-                const id = (relation !== identityRelation || sourceGeneric.id < targetGeneric.id ? sourceGeneric.id + "," + targetGeneric.id : targetGeneric.id + "," + sourceGeneric.id) +
-                    "<" + map(sourceArguments, t => { let c = getConstraintFromTypeParameter(t as TypeParameter); return c ? c.id : "" }).join(',') + ">";
-                if (!maybeReferenceKeys) {
-                    maybeReferenceKeys = [];
+                const id = getTypePairKey(source, target) +
+                    "<" + map(sourceArguments, t => { let c = getConstraintFromTypeParameter(t as TypeParameter); return c ? c.id : "" }).join(',');
+                if (!maybeReferences) {
+                    maybeReferences = createMap<true>();
                 }
-                else {
-                    for (let i = 0; i < maybeReferenceCount; i++) {
-                        if (id === maybeReferenceKeys[i]) {
-                            return Ternary.Maybe;
-                        }
-                    }
+                else if (maybeReferences.has(id)) {
+                    return true;
                 }
-                maybeReferenceKeys[maybeReferenceCount] = id;
-                maybeReferenceCount++;
-                return Ternary.False;
+                maybeReferences.set(id, true);
+                return false;
             }
 
             // Determine if possibly recursive types are related. First, check if the result is already available in the global cache.
@@ -9233,7 +9229,7 @@ namespace ts {
                     return Ternary.False;
                 }
 
-                const id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
+                const id = getTypePairKey(source, target);
                 const related = relation.get(id);
                 if (related !== undefined) {
                     if (reportErrors && related === RelationComparisonResult.Failed) {
@@ -9263,7 +9259,7 @@ namespace ts {
                         return Ternary.False;
                     }
                 }
-                if (checkTypeReferenceMaybeStack(source, target) === Ternary.Maybe) {
+                if (alreadyComparingTypeReferences(source, target)) {
                     return Ternary.Maybe;
                 }
 
