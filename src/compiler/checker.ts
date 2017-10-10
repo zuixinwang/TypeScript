@@ -8505,8 +8505,8 @@ namespace ts {
             return isTypeComparableTo(type1, type2) || isTypeComparableTo(type2, type1);
         }
 
-        function checkTypeAssignableTo(source: Type, target: Type, errorNode: Node, headMessage?: DiagnosticMessage, containingMessageChain?: DiagnosticMessageChain): boolean {
-            return checkTypeRelatedTo(source, target, assignableRelation, errorNode, headMessage, containingMessageChain);
+        function checkTypeAssignableTo(source: Type, target: Type, errorNode: Node, headMessage?: DiagnosticMessage, containingMessageChain?: DiagnosticMessageChain, fullStructuralRelation?: boolean): boolean {
+            return checkTypeRelatedTo(source, target, assignableRelation, errorNode, headMessage, containingMessageChain, fullStructuralRelation);
         }
 
         /**
@@ -8837,7 +8837,8 @@ namespace ts {
             relation: Map<RelationComparisonResult>,
             errorNode: Node,
             headMessage?: DiagnosticMessage,
-            containingMessageChain?: DiagnosticMessageChain): boolean {
+            containingMessageChain?: DiagnosticMessageChain,
+            fullStructuralRelation?: boolean): boolean {
 
             let errorInfo: DiagnosticMessageChain;
             let maybeKeys: string[];
@@ -9188,6 +9189,24 @@ namespace ts {
                 return result;
             }
 
+            function someTypesRelatedToType(sourceTypes: Type[], target: Type, reportErrors: boolean): Ternary {
+                if (containsType(sourceTypes, target)) {
+                    return Ternary.True;
+                }
+                const len = sourceTypes.length;
+                for (let i = 0; i < len; i++) {
+                    const saveFSR = fullStructuralRelation;
+                    fullStructuralRelation = true;
+                    const related = isRelatedTo(sourceTypes[i], target, reportErrors && i === len - 1);
+                    fullStructuralRelation = saveFSR;
+                    if (related) {
+                        return related;
+                    }
+                }
+                return Ternary.False;
+            }
+
+
             function someTypeRelatedToType(source: UnionOrIntersectionType, target: Type, reportErrors: boolean): Ternary {
                 const sourceTypes = source.types;
                 if (source.flags & TypeFlags.Union && containsType(sourceTypes, target)) {
@@ -9451,6 +9470,28 @@ namespace ts {
                                 return Ternary.False;
                             }
                             errorInfo = saveErrorInfo;
+                        }
+                    }
+                    if (!fullStructuralRelation && getObjectFlags(source) & ObjectFlags.Reference &&
+                        getObjectFlags((source as TypeReference).target) & (ObjectFlags.Class | ObjectFlags.Interface) &&
+                        !(source.flags & TypeFlags.MarkerType)) {
+                        const ref = source as TypeReference;
+                        const baseTypes = getBaseTypes(ref.target as InterfaceType);
+                        if (baseTypes.length) {
+                            // TODO: This is certainly wrong (but might be good enough to see if the idea works)
+                            // (note the wrong assertion `t as GenericType`)
+
+                            const typeParameters = ref.target.typeParameters || [];
+                            const lasst = lastOrUndefined(ref.typeArguments)
+                            const typeArguments = lasst && lasst.flags & TypeFlags.TypeParameter && (lasst as TypeParameter).isThisType ?
+                                ref.typeArguments.slice(0, -1) :
+                                ref.typeArguments;
+                            // && ref.typeArguments.length === typeParameters.length ? ref.typeArguments : concatenate(ref.typeArguments, [ref]);
+                            const mapper = createTypeMapper(typeParameters, typeArguments);
+                            const instantiatedBaseTypes = baseTypes.map(t => getObjectFlags(t) & ObjectFlags.Reference ? instantiateType((t as TypeReference).target, mapper) : t);
+                            if (result = someTypesRelatedToType(instantiatedBaseTypes, target, reportErrors)) {
+                                return result;
+                            }
                         }
                     }
                     // Even if relationship doesn't hold for unions, intersections, or generic type references,
@@ -21718,9 +21759,14 @@ namespace ts {
                             }
                         }
                     }
-                    checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType, type.thisType), node.name || node, Diagnostics.Class_0_incorrectly_extends_base_class_1);
-                    checkTypeAssignableTo(staticType, getTypeWithoutSignatures(staticBaseType), node.name || node,
-                        Diagnostics.Class_static_side_0_incorrectly_extends_base_class_static_side_1);
+                    checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType, type.thisType), node.name || node, Diagnostics.Class_0_incorrectly_extends_base_class_1, undefined, true);
+                    checkTypeAssignableTo(
+                        staticType,
+                        getTypeWithoutSignatures(staticBaseType),
+                        node.name || node,
+                        Diagnostics.Class_static_side_0_incorrectly_extends_base_class_static_side_1,
+                        undefined,
+                        true);
                     if (baseConstructorType.flags & TypeFlags.TypeVariable && !isMixinConstructorType(staticType)) {
                         error(node.name || node, Diagnostics.A_mixin_class_must_have_a_constructor_with_a_single_rest_parameter_of_type_any);
                     }
@@ -21750,7 +21796,7 @@ namespace ts {
                         const t = getTypeFromTypeNode(typeRefNode);
                         if (t !== unknownType) {
                             if (isValidBaseType(t)) {
-                                checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(t, type.thisType), node.name || node, Diagnostics.Class_0_incorrectly_implements_interface_1);
+                                checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(t, type.thisType), node.name || node, Diagnostics.Class_0_incorrectly_implements_interface_1, undefined, true);
                             }
                             else {
                                 error(typeRefNode, Diagnostics.A_class_may_only_implement_another_class_or_interface);
