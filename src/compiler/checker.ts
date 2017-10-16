@@ -55,6 +55,8 @@ namespace ts {
         let typeCount = 0;
         let symbolCount = 0;
         let enumCount = 0;
+        let lolCount = 0;
+        let lolTotal = 0;
         let symbolInstantiationDepth = 0;
 
         const emptySymbols = createSymbolTable();
@@ -89,7 +91,7 @@ namespace ts {
             getNodeCount: () => sum(host.getSourceFiles(), "nodeCount"),
             getIdentifierCount: () => sum(host.getSourceFiles(), "identifierCount"),
             getSymbolCount: () => sum(host.getSourceFiles(), "symbolCount") + symbolCount,
-            getTypeCount: () => typeCount,
+            getTypeCount: () => lolCount / lolTotal,
             isUndefinedSymbol: symbol => symbol === undefinedSymbol,
             isArgumentsSymbol: symbol => symbol === argumentsSymbol,
             isUnknownSymbol: symbol => symbol === unknownSymbol,
@@ -9488,6 +9490,7 @@ namespace ts {
                     }
                 }
                 else {
+                    lolTotal++;
                     if (getObjectFlags(source) & ObjectFlags.Reference && getObjectFlags(target) & ObjectFlags.Reference && (<TypeReference>source).target === (<TypeReference>target).target &&
                         !(source.flags & TypeFlags.MarkerType || target.flags & TypeFlags.MarkerType)) {
                         // We have type references to the same generic type, and the type references are not marker
@@ -9522,7 +9525,7 @@ namespace ts {
                         !(source.flags & TypeFlags.MarkerType || target.flags & TypeFlags.MarkerType)) {
                         const ref = source as TypeReference;
                         const original = ref.target;
-                        const baseTypes = getBaseTypes(original).filter(bt => getObjectFlags(bt) & ObjectFlags.Reference && (bt as TypeReference).target === (target as TypeReference).target);
+                        const baseTypes = getAllBaseTypes(original, (target as TypeReference).target);
                         if (baseTypes.length) {
                             const typeParameters = original.typeParameters || [];
                             // TODO: Fix this hackiness
@@ -9533,6 +9536,7 @@ namespace ts {
                             const mapper = createTypeMapper(typeParameters, typeArguments);
                             const instantiatedBaseTypes = baseTypes.map(t => instantiateType(t, mapper));
                             if (containsType(instantiatedBaseTypes, target)) {
+                                lolCount++;
                                 return Ternary.True;
                             }
                         }
@@ -9578,6 +9582,11 @@ namespace ts {
                     }
                 }
                 return Ternary.False;
+            }
+
+            function getAllBaseTypes(type: InterfaceType, target: GenericType): BaseType[] {
+                const bases = getBaseTypes(type).filter(bt => getObjectFlags(bt) & ObjectFlags.Reference) as TypeReference[];
+                return flatMap(bases, bt => getAllBaseTypes(bt.target, target)).concat(bases.filter(bt => bt.target === target));
             }
 
             // A type [P in S]: X is related to a type [Q in T]: Y if T is related to S and X' is
