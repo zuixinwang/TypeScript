@@ -9535,23 +9535,22 @@ namespace ts {
                             errorInfo = saveErrorInfo;
                         }
                     }
-                    if (!fullStructuralRelation && getObjectFlags(source) & ObjectFlags.Reference &&
+                    if (!fullStructuralRelation && getObjectFlags(source) & ObjectFlags.Reference && getObjectFlags(target) & ObjectFlags.Reference &&
                         getObjectFlags((source as TypeReference).target) & (ObjectFlags.Class | ObjectFlags.Interface) &&
-                        !(source.flags & TypeFlags.MarkerType)) {
+                        !(source.flags & TypeFlags.MarkerType || target.flags & TypeFlags.MarkerType)) {
                         const ref = source as TypeReference;
-                        const baseTypes = getBaseTypes(ref.target as InterfaceType);
+                        const original = ref.target;
+                        const baseTypes = getBaseTypes(original).filter(bt => getObjectFlags(bt) & ObjectFlags.Reference && (bt as TypeReference).target === (target as TypeReference).target);
                         if (baseTypes.length) {
-                            // TODO: This is certainly wrong (but might be good enough to see if the idea works)
-                            // (note the wrong assertion `t as GenericType`)
-
-                            const typeParameters = ref.target.typeParameters || [];
+                            const typeParameters = original.typeParameters || [];
+                            // TODO: Fix this hackiness
                             const lasst = lastOrUndefined(ref.typeArguments)
                             const typeArguments = lasst && lasst.flags & TypeFlags.TypeParameter && (lasst as TypeParameter).isThisType ?
                                 ref.typeArguments.slice(0, -1) :
                                 ref.typeArguments;
-                            // && ref.typeArguments.length === typeParameters.length ? ref.typeArguments : concatenate(ref.typeArguments, [ref]);
                             const mapper = createTypeMapper(typeParameters, typeArguments);
-                            const instantiatedBaseTypes = baseTypes.map(t => getObjectFlags(t) & ObjectFlags.Reference ? instantiateType((t as TypeReference).target, mapper) : t);
+                            const instantiatedBaseTypes = baseTypes.map(t => instantiateType(t, mapper));
+                            // TODO: Probably just the contains check would be faster.
                             if (result = someTypesRelatedToType(instantiatedBaseTypes, target, reportErrors)) {
                                 return result;
                             }
@@ -22063,7 +22062,7 @@ namespace ts {
                     // run subsequent checks only if first set succeeded
                     if (checkInheritedPropertiesAreIdentical(type, node.name)) {
                         for (const baseType of getBaseTypes(type)) {
-                            checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType, type.thisType), node.name, Diagnostics.Interface_0_incorrectly_extends_interface_1);
+                            checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType, type.thisType), node.name, Diagnostics.Interface_0_incorrectly_extends_interface_1, undefined, true);
                         }
                         checkIndexConstraints(type);
                     }
