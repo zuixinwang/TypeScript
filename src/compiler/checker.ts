@@ -9252,24 +9252,6 @@ namespace ts {
                 return result;
             }
 
-            function someTypesRelatedToType(sourceTypes: Type[], target: Type, reportErrors: boolean): Ternary {
-                if (containsType(sourceTypes, target)) {
-                    return Ternary.True;
-                }
-                const len = sourceTypes.length;
-                for (let i = 0; i < len; i++) {
-                    const saveFSR = fullStructuralRelation;
-                    fullStructuralRelation = true;
-                    const related = isRelatedTo(sourceTypes[i], target, reportErrors && i === len - 1);
-                    fullStructuralRelation = saveFSR;
-                    if (related) {
-                        return related;
-                    }
-                }
-                return Ternary.False;
-            }
-
-
             function someTypeRelatedToType(source: UnionOrIntersectionType, target: Type, reportErrors: boolean): Ternary {
                 const sourceTypes = source.types;
                 if (source.flags & TypeFlags.Union && containsType(sourceTypes, target)) {
@@ -9550,9 +9532,8 @@ namespace ts {
                                 ref.typeArguments;
                             const mapper = createTypeMapper(typeParameters, typeArguments);
                             const instantiatedBaseTypes = baseTypes.map(t => instantiateType(t, mapper));
-                            // TODO: Probably just the contains check would be faster.
-                            if (result = someTypesRelatedToType(instantiatedBaseTypes, target, reportErrors)) {
-                                return result;
+                            if (containsType(instantiatedBaseTypes, target)) {
+                                return Ternary.True;
                             }
                         }
                     }
