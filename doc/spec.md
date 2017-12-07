@@ -1149,7 +1149,13 @@ The only possible values for the Void type are `null` and `undefined`. The Void 
 
 *NOTE: We might consider disallowing declaring variables of type Void as they serve no useful purpose. However, because Void is permitted as a type argument to a generic type or function it is not feasible to disallow Void properties or parameters*.
 
-### <a name="3.2.6"/>3.2.6 The Null Type
+### Unit Types { #unit-types }
+
+Unit types are types with a single value. The unit types in TypeScript are `null`, `undefined`, string literal types, number literal types and boolean literal types.
+
+TODO: Update the null and undefined sections in my other draft PR.
+
+#### The Null Type { #null-type }
 
 The Null type corresponds to the similarly named JavaScript primitive type and is the type of the `null` literal.
 
@@ -1165,7 +1171,7 @@ var x = null;           // Same as x: any = null
 var e: Null;            // Error, can't reference Null type
 ```
 
-### <a name="3.2.7"/>3.2.7 The Undefined Type
+#### The Undefined Type { #undefined-type }
 
 The Undefined type corresponds to the similarly named JavaScript primitive type and is the type of the `undefined` literal.
 
@@ -1181,19 +1187,42 @@ var x = undefined;      // Same as x: any = undefined
 var e: Undefined;       // Error, can't reference Undefined type
 ```
 
+#### Literal types { #literal-types }
+
+TypeScript supports string, number and boolean literal types, but not regular expression literal types.
+Literal types use the syntax of their respective literal values.
+For example, the boolean literal type `true` uses the same keyword as the boolean literal value `true`.
+
+Similarly, literal types are subclasses of their respective literal values' types:
+
+* The supertype of the literal types `true` and `false` is the Boolean primitive type.
+* The supertype of numeric literal types is the Number primitive type.
+* The supertype of string literal types is the String primitive type.
+
+##### Widening { #literal-widening }
+
+This is basically the most complicated part.
+
+##### Type relations { #literal-type-relations }
+
+TODO: This is not THAT complicated ok. Well, maybe it is.
+
+#### Example with unions and narrowing
+
+TODO: An ADT example here.
+
 ### <a name="3.2.8"/>3.2.8 Enum Types
 
 Enum types are distinct user defined subtypes of the Number primitive type. Enum types are declared using enum declarations (section [9.1](#9.1)) and referenced using type references (section [3.8.2](#3.8.2)).
 
 Enum types are assignable to the Number primitive type, and vice versa, but different enum types are not assignable to each other.
 
-### <a name="3.2.9"/>3.2.9 String Literal Types
-
-Specialized signatures (section [3.9.2.4](#3.9.2.4)) permit string literals to be used as types in parameter type annotations. String literal types are permitted only in that context and nowhere else.
-
-All string literal types are subtypes of the String primitive type.
-
-*TODO: Update to reflect [expanded support for string literal types](https://github.com/Microsoft/TypeScript/pull/5185)*.
+TODO: This section should be updated to discuss:
+1. Normal versus Const enums
+2. Computed versus Union enums
+3. Exceptions to enum nominality
+4. Union enums in detail
+5. Enum type relations to the number type.
 
 ## <a name="3.3"/>3.3 Object Types
 
