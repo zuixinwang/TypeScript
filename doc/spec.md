@@ -1199,13 +1199,7 @@ Similarly, literal types are subclasses of their respective literal values' type
 * The supertype of numeric literal types is the Number primitive type.
 * The supertype of string literal types is the String primitive type.
 
-##### Widening { #literal-widening }
-
-This is basically the most complicated part.
-
-##### Type relations { #literal-type-relations }
-
-TODO: This is not THAT complicated ok. Well, maybe it is.
+TODO: Maybe a note about the numeric syntax since that support is a bit wobbly.
 
 #### Example with unions and narrowing
 
@@ -2515,6 +2509,8 @@ var b = undefined;            // var b: any
 var c = { x: 0, y: null };    // var c: { x: number, y: any }  
 var d = [ null, undefined ];  // var d: any[]
 ```
+
+TODO: Literal type widening is about 10 times more complicated than this, and old-style widening doesn't apply in strict null checks mode anymore.
 
 <br/>
 
