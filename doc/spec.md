@@ -2499,18 +2499,39 @@ In several situations TypeScript infers types from context, alleviating the need
 var name = "Steve";
 ```
 
-infers the type of 'name' to be the String primitive type since that is the type of the value used to initialize it. When inferring the type of a variable, property or function result from an expression, the ***widened*** form of the source type is used as the inferred type of the target. The widened form of a type is the type in which all occurrences of the Null and Undefined types have been replaced with the type `any`.
+infers the type of 'name' to be the String type since that is the type of the value used to initialize it.
+When inferring the type of a variable, property or function result from an expression, the ***widened*** form of the source type is used as the inferred type of the target.
+The widened form of a type is the type in which all literal types have been replaced with their base types, according to the following rule:
 
-The following example shows the results of widening types to produce inferred variable types.
+If the type is:
+* A string literal type, the result is the String type
+* A number literal type, the result is the Number type.
+* A boolean literal type, the result is the Boolean type.
+* A union type, the result is the widened type of each of its members.
+* Any other type, the result is the original type.
 
-```TypeScript
-var a = null;                 // var a: any  
-var b = undefined;            // var b: any  
-var c = { x: 0, y: null };    // var c: { x: number, y: any }  
-var d = [ null, undefined ];  // var d: any[]
+Note that literal types that arise from type syntax do not widen. That is,
+
+```ts
+let choice: "yes" | "no";
 ```
 
-TODO: Literal type widening is about 10 times more complicated than this, and old-style widening doesn't apply in strict null checks mode anymore.
+declares a variable with the type `"yes" | "no"`, not the type string.
+
+Literal types that arise from expressions are initially *fresh*. Fresh literal types widen in certain (TODO: Define!) locations.
+Literal types lose their freshness at other locations (TODO: Define!).
+These types will no longer widen.
+
+Places that literal types lose freshness:
+* Calls to getRegularTypeOfObjectLiteral (duh)
+* When added to an intersection (when does this happen?)
+* Case clause expressions
+* 
+
+Places that literal types widen (generally mutable locations):
+* getWidenedTypeFromJSSpecialPropertyDeclarations (this.x = 'hi', p.x = 'hi', etc?)
+
+Here's an example
 
 <br/>
 
