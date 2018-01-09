@@ -135,6 +135,7 @@ declare namespace FourSlashInterface {
         file(index: number, content?: string, scriptKindName?: string): any;
         file(name: string, content?: string, scriptKindName?: string): any;
         select(startMarker: string, endMarker: string): void;
+        selectRange(range: Range): void;
     }
     class verifyNegatable {
         private negative;
@@ -188,7 +189,10 @@ declare namespace FourSlashInterface {
     class verify extends verifyNegatable {
         assertHasRanges(ranges: Range[]): void;
         caretAtMarker(markerName?: string): void;
-        completionsAt(markerName: string, completions: string[], options?: { isNewIdentifierLocation?: boolean }): void;
+        completionsAt(markerName: string, completions: ReadonlyArray<string | { name: string, insertText?: string, replacementSpan?: Range }>, options?: {
+            isNewIdentifierLocation?: boolean;
+            includeInsertTextCompletions?: boolean;
+        }): void;
         completionsAndDetailsAt(
             markerName: string,
             completions: {
