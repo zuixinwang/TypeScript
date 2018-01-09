@@ -14,3 +14,5 @@ three(1, ...wpair)
 three(...pair, 1)
 three(...wpair, 1)
 
+
+// TODO: Multiple spreads, calls with rests (exact and inexact), overloads, generics

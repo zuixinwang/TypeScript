@@ -16403,6 +16403,7 @@ namespace ts {
                 callIsIncomplete = callExpression.arguments.end === callExpression.end;
 
                 typeArguments = callExpression.typeArguments;
+                // TODO: should allow multiple spreads if they are all tuples
                 spreadArgIndex = getSpreadArgumentIndex(args);
             }
 
@@ -16419,7 +16420,7 @@ namespace ts {
             // If a spread argument is present, check that it corresponds to a rest parameter or at least that it's in the valid range.
             if (spreadArgIndex >= 0) {
                 const length = lengthOfTuple(getEffectiveArgument(node, args, spreadArgIndex) as SpreadElement);
-                if (0 < length && length === signature.parameters.length - spreadArgIndex) {
+                if (0 < length && (args.length - 1 + length) === signature.parameters.length) {
                     // ignore complicated variants for now
                     return true;
                 }
@@ -16665,6 +16666,7 @@ namespace ts {
                         for (let k = 0; k < length; k++) {
                             const paramType = getTypeAtPosition(signature, j);
                             // TODO: Probably there's a shortcut for tuple types already
+                            // TODO: Error reporting should indicate that the error is from a tuple argument, and report the index
                             const argType = getTypeOfPropertyOfType(checkExpression((arg as SpreadElement).expression), "" + k as __String);
                             const errorNode = reportErrors ? getEffectiveArgumentErrorNode(node, i, arg) : undefined;
                             if (!checkTypeRelatedTo(argType, paramType, relation, errorNode, headMessage)) {
