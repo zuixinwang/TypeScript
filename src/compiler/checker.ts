@@ -16418,6 +16418,11 @@ namespace ts {
 
             // If a spread argument is present, check that it corresponds to a rest parameter or at least that it's in the valid range.
             if (spreadArgIndex >= 0) {
+                const length = lengthOfTuple(getEffectiveArgument(node, args, spreadArgIndex) as SpreadElement);
+                if (0 < length && length === signature.parameters.length - spreadArgIndex) {
+                    // ignore complicated variants for now
+                    return true;
+                }
                 return isRestParameterIndex(signature, spreadArgIndex) ||
                     signature.minArgumentCount <= spreadArgIndex && spreadArgIndex < signature.parameters.length;
             }
@@ -16430,6 +16435,17 @@ namespace ts {
             // If the call is incomplete, we should skip the lower bound check.
             const hasEnoughArguments = argCount >= signature.minArgumentCount;
             return callIsIncomplete || hasEnoughArguments;
+        }
+
+        function lengthOfTuple(spread: SpreadElement) {
+            const t = checkExpression(spread.expression);
+            if (isTupleLikeType(t)) {
+                const length = getTypeOfPropertyOfType(t, "length" as __String);
+                if (length.flags & TypeFlags.NumberLiteral) {
+                    return (length as NumberLiteralType).value;
+                }
+            }
+            return 0;
         }
 
         // If type has a single call signature and no other members, return that signature. Otherwise, return undefined.
@@ -16639,12 +16655,29 @@ namespace ts {
             }
             const headMessage = Diagnostics.Argument_of_type_0_is_not_assignable_to_parameter_of_type_1;
             const argCount = getEffectiveArgumentCount(node, args, signature);
+            let j = 0;
             for (let i = 0; i < argCount; i++) {
                 const arg = getEffectiveArgument(node, args, i);
+                if (arg && arg.kind === SyntaxKind.SpreadElement && (!signature.hasRestParameter || j < signature.parameters.length)) {
+                    const length = lengthOfTuple(arg as SpreadElement);
+                    if (length > 0) {
+                        // subloop: increment j and k
+                        for (let k = 0; k < length; k++) {
+                            const paramType = getTypeAtPosition(signature, j);
+                            // TODO: Probably there's a shortcut for tuple types already
+                            const argType = getTypeOfPropertyOfType(checkExpression((arg as SpreadElement).expression), "" + k as __String);
+                            const errorNode = reportErrors ? getEffectiveArgumentErrorNode(node, i, arg) : undefined;
+                            if (!checkTypeRelatedTo(argType, paramType, relation, errorNode, headMessage)) {
+                                return false;
+                            }
+                            j++;
+                        }
+                    }
+                }
                 // If the effective argument is 'undefined', then it is an argument that is present but is synthetic.
                 if (arg === undefined || arg.kind !== SyntaxKind.OmittedExpression) {
                     // Check spread elements against rest type (from arity check we know spread argument corresponds to a rest parameter)
-                    const paramType = getTypeAtPosition(signature, i);
+                    const paramType = getTypeAtPosition(signature, j);
                     // If the effective argument type is undefined, there is no synthetic type for the argument.
                     // In that case, we should check the argument.
                     const argType = getEffectiveArgumentType(node, i) ||
@@ -16659,6 +16692,7 @@ namespace ts {
                         return false;
                     }
                 }
+                j++;
             }
 
             return true;
