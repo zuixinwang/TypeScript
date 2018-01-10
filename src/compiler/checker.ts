@@ -16459,11 +16459,35 @@ namespace ts {
             }
         }
 
-        function getSpreadArgumentIndex(args: ReadonlyArray<Expression>): number {
+        function getSpreadArgumentIndices(args: ReadonlyArray<Expression>): number[] {
+            let ns: number[];
             for (let i = 0; i < args.length; i++) {
                 const arg = args[i];
                 if (arg && arg.kind === SyntaxKind.SpreadElement) {
-                    return i;
+                    (ns || (ns = [])).push(i);
+                }
+            }
+            return ns || emptyArray;
+        }
+
+        function getSpreadTupleLength(node: CallLikeExpression, args: ReadonlyArray<Expression>, indices: number[]): number {
+            let sum = 0;
+            for (const i of indices) {
+                const length = getLengthOfTuple(getEffectiveArgument(node, args, i) as SpreadElement);
+                if (length === -1) {
+                    return -1;
+                }
+                sum += length;
+            }
+            return sum;
+        }
+
+        function getLengthOfTuple(spread: SpreadElement) {
+            const t = checkExpression(spread.expression);
+            if (isTupleLikeType(t)) {
+                const length = getTypeOfPropertyOfType(t, "length" as __String);
+                if (length.flags & TypeFlags.NumberLiteral) {
+                    return (length as NumberLiteralType).value;
                 }
             }
             return -1;
@@ -16473,7 +16497,7 @@ namespace ts {
             let argCount: number;            // Apparent number of arguments we will have in this call
             let typeArguments: NodeArray<TypeNode>;  // Type arguments (undefined if none)
             let callIsIncomplete: boolean;           // In incomplete call we want to be lenient when we have too few arguments
-            let spreadArgIndex = -1;
+            let spreadArgIndices: number[];
 
             if (isJsxOpeningLikeElement(node)) {
                 // The arity check will be done in "checkApplicableSignatureForJsxOpeningLikeElement".
@@ -16524,8 +16548,7 @@ namespace ts {
                 callIsIncomplete = callExpression.arguments.end === callExpression.end;
 
                 typeArguments = callExpression.typeArguments;
-                // TODO: should allow multiple spreads if they are all tuples
-                spreadArgIndex = getSpreadArgumentIndex(args);
+                spreadArgIndices = getSpreadArgumentIndices(args);
             }
 
             // If the user supplied type arguments, but the number of type arguments does not match
@@ -16539,14 +16562,14 @@ namespace ts {
             }
 
             // If a spread argument is present, check that it corresponds to a rest parameter or at least that it's in the valid range.
-            if (spreadArgIndex >= 0) {
-                const length = lengthOfTuple(getEffectiveArgument(node, args, spreadArgIndex) as SpreadElement);
-                if (0 < length && (args.length - 1 + length) === signature.parameters.length) {
-                    // ignore complicated variants for now
+            if (spreadArgIndices && spreadArgIndices.length) {
+                const sum = getSpreadTupleLength(node, args, spreadArgIndices);
+                if (sum > -1 && (sum + args.length - spreadArgIndices.length) === signature.parameters.length) {
+                    // ignore inexact variants for now
                     return true;
                 }
-                return isRestParameterIndex(signature, spreadArgIndex) ||
-                    signature.minArgumentCount <= spreadArgIndex && spreadArgIndex < signature.parameters.length;
+                return isRestParameterIndex(signature, spreadArgIndices[0]) ||
+                      signature.minArgumentCount <= spreadArgIndices[0] && spreadArgIndices[0] < signature.parameters.length;
             }
 
             // Too many arguments implies incorrect arity.
@@ -16557,17 +16580,6 @@ namespace ts {
             // If the call is incomplete, we should skip the lower bound check.
             const hasEnoughArguments = argCount >= signature.minArgumentCount;
             return callIsIncomplete || hasEnoughArguments;
-        }
-
-        function lengthOfTuple(spread: SpreadElement) {
-            const t = checkExpression(spread.expression);
-            if (isTupleLikeType(t)) {
-                const length = getTypeOfPropertyOfType(t, "length" as __String);
-                if (length.flags & TypeFlags.NumberLiteral) {
-                    return (length as NumberLiteralType).value;
-                }
-            }
-            return 0;
         }
 
         // If type has a single call signature and no other members, return that signature. Otherwise, return undefined.
@@ -16781,8 +16793,8 @@ namespace ts {
             for (let i = 0; i < argCount; i++) {
                 const arg = getEffectiveArgument(node, args, i);
                 if (arg && arg.kind === SyntaxKind.SpreadElement && (!signature.hasRestParameter || j < signature.parameters.length)) {
-                    const length = lengthOfTuple(arg as SpreadElement);
-                    if (length > 0) {
+                    const length = getLengthOfTuple(arg as SpreadElement);
+                    if (length > -1) {
                         // subloop: increment j and k
                         for (let k = 0; k < length; k++) {
                             const paramType = getTypeAtPosition(signature, j);
@@ -17286,13 +17298,18 @@ namespace ts {
                     min = Math.min(min, sig.minArgumentCount);
                     max = Math.max(max, sig.parameters.length);
                 }
+                const spreadIndices = getSpreadArgumentIndices(args);
+                const spreadLength = getSpreadTupleLength(node, args, spreadIndices);
+                const hasSpreadArgument = spreadIndices.length && spreadLength === -1;
                 const hasRestParameter = some(signatures, sig => sig.hasRestParameter);
-                const hasSpreadArgument = getSpreadArgumentIndex(args) > -1;
                 const paramCount = hasRestParameter ? min :
                     min < max ? min + "-" + max :
                     min;
                 let argCount = args.length;
-                if (argCount <= max && hasSpreadArgument) {
+                if (spreadLength > -1) {
+                    argCount = argCount - spreadIndices.length + spreadLength;
+                }
+                else if (argCount <= max && hasSpreadArgument) {
                     argCount--;
                 }
                 const error = hasRestParameter && hasSpreadArgument ? Diagnostics.Expected_at_least_0_arguments_but_got_1_or_more :
@@ -17503,9 +17520,9 @@ namespace ts {
 
         function resolveNewExpression(node: NewExpression, candidatesOutArray: Signature[]): Signature {
             if (node.arguments && languageVersion < ScriptTarget.ES5) {
-                const spreadIndex = getSpreadArgumentIndex(node.arguments);
-                if (spreadIndex >= 0) {
-                    error(node.arguments[spreadIndex], Diagnostics.Spread_operator_in_new_expressions_is_only_available_when_targeting_ECMAScript_5_and_higher);
+                const spreadIndices = getSpreadArgumentIndices(node.arguments);
+                if (spreadIndices.length) {
+                    error(node.arguments[spreadIndices[0]], Diagnostics.Spread_operator_in_new_expressions_is_only_available_when_targeting_ECMAScript_5_and_higher);
                 }
             }
 

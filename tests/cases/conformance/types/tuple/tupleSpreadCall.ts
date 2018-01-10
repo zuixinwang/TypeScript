@@ -7,12 +7,20 @@ declare function two(n: number, m: number): void;
 declare function three(n: number, m: number, total: number): void;
 
 two(...pair)
-two(...wpair)
+two(...wpair) // wrong type
 three(1, ...pair)
-three(1, ...wpair)
-// syntatically disallowed too early
+three(1, ...wpair) // wrong type
 three(...pair, 1)
-three(...wpair, 1)
+three(...wpair, 1) // wrong type
 
+// multiple spreads
+three(...singleton, ...pair);
+three(...pair, ...singleton);
+three(12, ...singleton, ...singleton);
+three(...singleton, 12, ...singleton);
+three(...singleton, ...singleton, 12);
 
-// TODO: Multiple spreads, calls with rests (exact and inexact), overloads, generics
+three(...wpair, ...singleton); // wrong type
+three(...pair, ...pair); // wrong arity
+
+// TODO: calls with rests+optionals (exact and inexact), overloads, generics
