@@ -11281,6 +11281,9 @@ namespace ts {
                     }
                     diagnostic = Diagnostics._0_which_lacks_return_type_annotation_implicitly_has_an_1_return_type;
                     break;
+                case SyntaxKind.MappedType:
+                    error(declaration, Diagnostics.Mapped_object_type_implicitly_has_an_any_template_type);
+                    return;
                 default:
                     diagnostic = Diagnostics.Variable_0_implicitly_has_an_1_type;
             }
@@ -15159,7 +15162,7 @@ namespace ts {
          * element is not a class element, or the class element type cannot be determined, returns 'undefined'.
          * For example, in the element <MyClass>, the element instance type is `MyClass` (not `typeof MyClass`).
          */
-        function getJsxElementInstanceType(node: JsxOpeningLikeElement, valueType: Type, sourceAttributesType: Type) {
+        function getJsxElementInstanceType(node: JsxOpeningLikeElement, valueType: Type, sourceAttributesType: Type | undefined) {
             Debug.assert(!(valueType.flags & TypeFlags.Union));
             if (isTypeAny(valueType)) {
                 // Short-circuit if the class tag is using an element type 'any'
@@ -15178,20 +15181,27 @@ namespace ts {
                 }
             }
 
-            const instantiatedSignatures = [];
-            for (const signature of signatures) {
-                if (signature.typeParameters) {
-                    const isJavascript = isInJavaScriptFile(node);
-                    const inferenceContext = createInferenceContext(signature, /*flags*/ isJavascript ? InferenceFlags.AnyDefault : 0);
-                    const typeArguments = inferJsxTypeArguments(signature, sourceAttributesType, inferenceContext);
-                    instantiatedSignatures.push(getSignatureInstantiation(signature, typeArguments, isJavascript));
+            if (sourceAttributesType) {
+                // Instantiate in context of source type
+                const instantiatedSignatures = [];
+                for (const signature of signatures) {
+                    if (signature.typeParameters) {
+                        const isJavascript = isInJavaScriptFile(node);
+                        const inferenceContext = createInferenceContext(signature, /*flags*/ isJavascript ? InferenceFlags.AnyDefault : 0);
+                        const typeArguments = inferJsxTypeArguments(signature, sourceAttributesType, inferenceContext);
+                        instantiatedSignatures.push(getSignatureInstantiation(signature, typeArguments, isJavascript));
+                    }
+                    else {
+                        instantiatedSignatures.push(signature);
+                    }
                 }
-                else {
-                    instantiatedSignatures.push(signature);
-                }
-            }
 
-            return getUnionType(map(instantiatedSignatures, getReturnTypeOfSignature), UnionReduction.Subtype);
+                return getUnionType(map(instantiatedSignatures, getReturnTypeOfSignature), UnionReduction.Subtype);
+            }
+            else {
+                // Do not instantiate if no source type is provided - type parameters and their constraints will be used by contextual typing
+                return getUnionType(map(signatures, getReturnTypeOfSignature), UnionReduction.Subtype);
+            }
         }
 
         /**
@@ -15415,7 +15425,7 @@ namespace ts {
             }
 
             // Get the element instance type (the result of newing or invoking this tag)
-            const elemInstanceType = getJsxElementInstanceType(openingLikeElement, elementType, sourceAttributesType || emptyObjectType);
+            const elemInstanceType = getJsxElementInstanceType(openingLikeElement, elementType, sourceAttributesType);
 
             // If we should include all stateless attributes type, then get all attributes type from all stateless function signature.
             // Otherwise get only attributes type from the signature picked by choose-overload logic.
@@ -20365,6 +20375,11 @@ namespace ts {
         function checkMappedType(node: MappedTypeNode) {
             checkSourceElement(node.typeParameter);
             checkSourceElement(node.type);
+
+            if (noImplicitAny && !node.type) {
+                reportImplicitAnyError(node, anyType);
+            }
+
             const type = <MappedType>getTypeFromMappedTypeNode(node);
             const constraintType = getConstraintTypeFromMappedType(type);
             checkTypeAssignableTo(constraintType, stringType, node.typeParameter.constraint);

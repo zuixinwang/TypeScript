@@ -3571,7 +3571,10 @@
         "category": "Error",
         "code": 7038
     },
-
+    "Mapped object type implicitly has an 'any' template type.": {
+        "category": "Error",
+        "code": 7039
+    },
     "You cannot rename this element.": {
         "category": "Error",
         "code": 8000
@@ -3873,6 +3876,10 @@
     "Call decorator expression": {
         "category": "Message",
         "code": 90028
+    },
+    "Add async modifier to containing function": {
+        "category": "Message",
+        "code": 90029
     },
     "Convert function to an ES2015 class": {
         "category": "Message",
