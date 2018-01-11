@@ -16573,13 +16573,26 @@ namespace ts {
 
             // If a spread argument is present, check that it corresponds to a rest parameter or at least that it's in the valid range.
             if (spreadArgIndices && spreadArgIndices.length) {
-                const sum = getSpreadTupleLength(node, args, spreadArgIndices);
-                if (sum > -1 && (sum + args.length - spreadArgIndices.length) === signature.parameters.length) {
-                    // ignore inexact variants for now
-                    return true;
+                let len = 0;
+                const endsWithOptionals = signature.minArgumentCount < signature.parameters.length;
+                for (var i = 0; i < args.length; i++) {
+                    if (args[i].kind === SyntaxKind.SpreadElement) {
+                        const tlen = getLengthOfTuple(args[i] as SpreadElement)
+                        if (tlen === -1) {
+                            return isRestParameterIndex(signature, i) || (signature.minArgumentCount <= len && len < signature.parameters.length);
+                        }
+                        else {
+                            len += tlen;
+                        }
+                    }
+                    else {
+                        len++;
+                    }
+                    if (len > signature.parameters.length && (args[i].kind !== SyntaxKind.SpreadElement || !endsWithOptionals)) {
+                        return false;
+                    }
                 }
-                return isRestParameterIndex(signature, spreadArgIndices[0]) ||
-                      signature.minArgumentCount <= spreadArgIndices[0] && spreadArgIndices[0] < signature.parameters.length;
+                return len >= signature.minArgumentCount;
             }
 
             // Too many arguments implies incorrect arity.
