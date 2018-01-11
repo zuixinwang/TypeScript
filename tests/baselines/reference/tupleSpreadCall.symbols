@@ -1,0 +1,172 @@
+=== tests/cases/conformance/types/tuple/tupleSpreadCall.ts ===
+declare let singleton: [number]
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+declare let pair: [number, number]
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+declare let wpair: [number, string]
+>wpair : Symbol(wpair, Decl(tupleSpreadCall.ts, 2, 11))
+
+declare let triple: [number, number, number]
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+declare let ns: number[]
+>ns : Symbol(ns, Decl(tupleSpreadCall.ts, 4, 11))
+
+declare function one(n: number): void;
+>one : Symbol(one, Decl(tupleSpreadCall.ts, 4, 24))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 5, 21))
+
+declare function two(n: number, m: number): void;
+>two : Symbol(two, Decl(tupleSpreadCall.ts, 5, 38))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 6, 21))
+>m : Symbol(m, Decl(tupleSpreadCall.ts, 6, 31))
+
+declare function three(n: number, m: number, total: number): void;
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 7, 23))
+>m : Symbol(m, Decl(tupleSpreadCall.ts, 7, 33))
+>total : Symbol(total, Decl(tupleSpreadCall.ts, 7, 44))
+
+declare function opt2(n: number, m?: number): void;
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 8, 22))
+>m : Symbol(m, Decl(tupleSpreadCall.ts, 8, 32))
+
+declare function opt3(n: number, m: number, total?: number): void;
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 9, 22))
+>m : Symbol(m, Decl(tupleSpreadCall.ts, 9, 32))
+>total : Symbol(total, Decl(tupleSpreadCall.ts, 9, 43))
+
+declare function rest(n: number, ...ns: number[]): void;
+>rest : Symbol(rest, Decl(tupleSpreadCall.ts, 9, 66))
+>n : Symbol(n, Decl(tupleSpreadCall.ts, 10, 22))
+>ns : Symbol(ns, Decl(tupleSpreadCall.ts, 10, 32))
+
+two(...pair)
+>two : Symbol(two, Decl(tupleSpreadCall.ts, 5, 38))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+two(...wpair) // wrong type
+>two : Symbol(two, Decl(tupleSpreadCall.ts, 5, 38))
+>wpair : Symbol(wpair, Decl(tupleSpreadCall.ts, 2, 11))
+
+three(1, ...pair)
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+three(1, ...wpair) // wrong type
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>wpair : Symbol(wpair, Decl(tupleSpreadCall.ts, 2, 11))
+
+three(...pair, 1)
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+three(...wpair, 1) // wrong type
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>wpair : Symbol(wpair, Decl(tupleSpreadCall.ts, 2, 11))
+
+// multiple spreads
+three(...singleton, ...pair);
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+three(...pair, ...singleton);
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+three(12, ...singleton, ...singleton);
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+three(...singleton, 12, ...singleton);
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+three(...singleton, ...singleton, 12);
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+three(...wpair, ...singleton); // wrong type
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>wpair : Symbol(wpair, Decl(tupleSpreadCall.ts, 2, 11))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+three(...pair, ...pair); // Expected 3, got 4
+>three : Symbol(three, Decl(tupleSpreadCall.ts, 6, 49))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+// optionals (exact and inexact)
+opt2(...pair);
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+opt2(1, ...singleton);
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+opt2(...pair, 1); // Expected 1-2, got 3
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+opt2(...singleton);
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+opt3(...singleton); // Expected 2-3, got 1
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+
+opt3(...singleton, ...pair);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+// OK: arrays of any length are spreadable into optional arguments
+opt2(...triple);
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+opt2(1, ...pair);
+>opt2 : Symbol(opt2, Decl(tupleSpreadCall.ts, 7, 66))
+>pair : Symbol(pair, Decl(tupleSpreadCall.ts, 1, 11))
+
+opt3(...singleton, 2, ...triple);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+opt3(2, ...triple);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+opt3(2, ...singleton, ...triple);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+opt3(2, 3, ...triple);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>triple : Symbol(triple, Decl(tupleSpreadCall.ts, 3, 11))
+
+opt3(...singleton, 2, ...ns);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>ns : Symbol(ns, Decl(tupleSpreadCall.ts, 4, 11))
+
+opt3(2, ...singleton, ...ns);
+>opt3 : Symbol(opt3, Decl(tupleSpreadCall.ts, 8, 51))
+>singleton : Symbol(singleton, Decl(tupleSpreadCall.ts, 0, 11))
+>ns : Symbol(ns, Decl(tupleSpreadCall.ts, 4, 11))
+
+// TODO: calls with rests (exact and inexact), overloads, generics
+
