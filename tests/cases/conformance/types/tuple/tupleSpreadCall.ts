@@ -9,6 +9,7 @@ declare function three(n: number, m: number, total: number): void;
 declare function opt2(n: number, m?: number): void;
 declare function opt3(n: number, m: number, total?: number): void;
 declare function rest(n: number, ...ns: number[]): void;
+declare function rest2(n: number, m: number, ...ns: number[]): void;
 
 two(...pair)
 two(...wpair) // wrong type
@@ -46,4 +47,13 @@ opt3(2, 3, ...triple);
 opt3(...singleton, 2, ...ns);
 opt3(2, ...singleton, ...ns);
 
-// TODO: calls with rests (exact and inexact), overloads, generics
+//calls with rests (exact and inexact)
+rest(...pair);
+rest(1, ...pair);
+
+rest2(...singleton); // Expected at least 2, got 1
+rest2(...singleton, ...singleton);
+rest2(...singleton, ...singleton, ...singleton);
+rest2(...singleton, ...singleton, ...triple);
+
+// TODO: overloads, generics
