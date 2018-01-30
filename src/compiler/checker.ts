@@ -16183,8 +16183,13 @@ namespace ts {
                     else {
                         len++;
                     }
-                    if (len > signature.parameters.length && (args[i].kind !== SyntaxKind.SpreadElement || !endsWithOptionals)) {
-                        return false;
+                    if (len > signature.parameters.length) {
+                        if (args[i].kind !== SyntaxKind.SpreadElement) {
+                            return signature.hasRestParameter;
+                        }
+                        else if (!endsWithOptionals) {
+                            return false;
+                        }
                     }
                 }
                 return len >= signature.minArgumentCount;

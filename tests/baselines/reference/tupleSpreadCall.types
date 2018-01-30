@@ -14,10 +14,6 @@ declare let triple: [number, number, number]
 declare let ns: number[]
 >ns : number[]
 
-declare function one(n: number): void;
->one : (n: number) => void
->n : number
-
 declare function two(n: number, m: number): void;
 >two : (n: number, m: number) => void
 >n : number
@@ -44,6 +40,44 @@ declare function rest(n: number, ...ns: number[]): void;
 >rest : (n: number, ...ns: number[]) => void
 >n : number
 >ns : number[]
+
+declare function rest2(n: number, m: number, ...ns: number[]): void;
+>rest2 : (n: number, m: number, ...ns: number[]) => void
+>n : number
+>m : number
+>ns : number[]
+
+type First = { first }
+>First : First
+>first : any
+
+type Second = { second }
+>Second : Second
+>second : any
+
+declare function onetwo(n: number): First;
+>onetwo : { (n: number): First; (n: number, m: number): Second; }
+>n : number
+>First : First
+
+declare function onetwo(n: number, m: number): Second;
+>onetwo : { (n: number): First; (n: number, m: number): Second; }
+>n : number
+>m : number
+>Second : Second
+
+declare function optwothree(n: number, m?: number): First;
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>n : number
+>m : number
+>First : First
+
+declare function optwothree(n: number, m: number, total?: number): Second;
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>n : number
+>m : number
+>total : number
+>Second : Second
 
 two(...pair)
 >two(...pair) : void
@@ -251,5 +285,130 @@ opt3(2, ...singleton, ...ns);
 >...ns : number
 >ns : number[]
 
-// TODO: calls with rests (exact and inexact), overloads, generics
+//calls with rests (exact and inexact)
+rest(...pair);
+>rest(...pair) : void
+>rest : (n: number, ...ns: number[]) => void
+>...pair : number
+>pair : [number, number]
+
+rest(1, ...pair);
+>rest(1, ...pair) : void
+>rest : (n: number, ...ns: number[]) => void
+>1 : 1
+>...pair : number
+>pair : [number, number]
+
+rest2(...singleton); // Expected at least 2, got 1
+>rest2(...singleton) : void
+>rest2 : (n: number, m: number, ...ns: number[]) => void
+>...singleton : number
+>singleton : [number]
+
+rest2(...singleton, ...singleton);
+>rest2(...singleton, ...singleton) : void
+>rest2 : (n: number, m: number, ...ns: number[]) => void
+>...singleton : number
+>singleton : [number]
+>...singleton : number
+>singleton : [number]
+
+rest2(...singleton, ...singleton, ...singleton);
+>rest2(...singleton, ...singleton, ...singleton) : void
+>rest2 : (n: number, m: number, ...ns: number[]) => void
+>...singleton : number
+>singleton : [number]
+>...singleton : number
+>singleton : [number]
+>...singleton : number
+>singleton : [number]
+
+rest2(...singleton, ...singleton, ...triple);
+>rest2(...singleton, ...singleton, ...triple) : void
+>rest2 : (n: number, m: number, ...ns: number[]) => void
+>...singleton : number
+>singleton : [number]
+>...singleton : number
+>singleton : [number]
+>...triple : number
+>triple : [number, number, number]
+
+// overloads
+declare var first: First;
+>first : First
+>First : First
+
+declare var second: Second;
+>second : Second
+>Second : Second
+
+var first = onetwo(...singleton);
+>first : First
+>onetwo(...singleton) : First
+>onetwo : { (n: number): First; (n: number, m: number): Second; }
+>...singleton : number
+>singleton : [number]
+
+var second = onetwo(...pair);
+>second : Second
+>onetwo(...pair) : Second
+>onetwo : { (n: number): First; (n: number, m: number): Second; }
+>...pair : number
+>pair : [number, number]
+
+var second = onetwo(...triple); // Expected 1-2, got 3
+>second : Second
+>onetwo(...triple) : any
+>onetwo : { (n: number): First; (n: number, m: number): Second; }
+>...triple : number
+>triple : [number, number, number]
+
+var first = optwothree(...singleton);
+>first : First
+>optwothree(...singleton) : First
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...singleton : number
+>singleton : [number]
+
+var first = optwothree(...pair);
+>first : First
+>optwothree(...pair) : First
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...pair : number
+>pair : [number, number]
+
+var first = optwothree(...pair, ...singleton);
+>first : First
+>optwothree(...pair, ...singleton) : First
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...pair : number
+>pair : [number, number]
+>...singleton : number
+>singleton : [number]
+
+var second = optwothree(...pair, 1);
+>second : Second
+>optwothree(...pair, 1) : Second
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...pair : number
+>pair : [number, number]
+>1 : 1
+
+var first = optwothree(...pair, ...pair);
+>first : First
+>optwothree(...pair, ...pair) : First
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...pair : number
+>pair : [number, number]
+>...pair : number
+>pair : [number, number]
+
+optwothree(...triple, 1); // expected 1-3, got 4
+>optwothree(...triple, 1) : any
+>optwothree : { (n: number, m?: number): First; (n: number, m: number, total?: number): Second; }
+>...triple : number
+>triple : [number, number, number]
+>1 : 1
+
+// TODO: generics
 
