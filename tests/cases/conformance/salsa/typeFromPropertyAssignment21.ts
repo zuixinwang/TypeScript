@@ -8,6 +8,11 @@ module.exports = minimatch
 // should be fine to assign too early
 minimatch.M = M
 
+minimatch.filter = filter
+function filter() {
+    return minimatch() // should be fine to reference and call too early, and after initial assignment
+}
+
 function minimatch() {
 }
 // should be fine to assign too early
