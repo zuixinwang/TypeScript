@@ -315,7 +315,7 @@ namespace ts {
         }
 
         function getDisplayName(node: Declaration): string {
-            return (node as NamedDeclaration).name ? declarationNameToString((node as NamedDeclaration).name) : unescapeLeadingUnderscores(getDeclarationName(node));
+            return isNamedDeclaration(node) ? declarationNameToString(node.name) : unescapeLeadingUnderscores(getDeclarationName(node));
         }
 
         /**
@@ -383,8 +383,8 @@ namespace ts {
                         symbolTable.set(name, symbol = createSymbol(SymbolFlags.None, name));
                     }
                     else {
-                        if ((node as NamedDeclaration).name) {
-                            (node as NamedDeclaration).name.parent = node;
+                        if (isNamedDeclaration(node)) {
+                            node.name.parent = node;
                         }
 
                         // Report errors every position with duplicate declaration
@@ -427,7 +427,12 @@ namespace ts {
             }
 
             addDeclarationToSymbol(symbol, node, includes);
-            symbol.parent = parent;
+            if (symbol.parent) {
+                Debug.assert(symbol.parent === parent, "Existing symbol parent should match new one");
+            }
+            else {
+                symbol.parent = parent;
+            }
 
             return symbol;
         }
@@ -1597,7 +1602,7 @@ namespace ts {
                 if (hasModifier(node, ModifierFlags.Export)) {
                     errorOnFirstToken(node, Diagnostics.export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always_visible);
                 }
-                if (isExternalModuleAugmentation(node)) {
+                if (isModuleAugmentationExternal(node)) {
                     declareModuleSymbol(node);
                 }
                 else {
@@ -1613,10 +1618,7 @@ namespace ts {
                     }
 
                     const symbol = declareSymbolAndAddToSymbolTable(node, SymbolFlags.ValueModule, SymbolFlags.ValueModuleExcludes);
-
-                    if (pattern) {
-                        (file.patternAmbientModules || (file.patternAmbientModules = [])).push({ pattern, symbol });
-                    }
+                    file.patternAmbientModules = append(file.patternAmbientModules, pattern && { pattern, symbol });
                 }
             }
             else {
@@ -1994,7 +1996,7 @@ namespace ts {
 
         /// Should be called only on prologue directives (isPrologueDirective(node) should be true)
         function isUseStrictPrologueDirective(node: ExpressionStatement): boolean {
-            const nodeText = getTextOfNodeFromSourceText(file.text, node.expression);
+            const nodeText = getSourceTextOfNodeFromSourceFile(file, node.expression);
 
             // Note: the node text must be exactly "use strict" or 'use strict'.  It is not ok for the
             // string to contain unicode escapes (as per ES5).
@@ -2074,7 +2076,7 @@ namespace ts {
                     seenThisKeyword = true;
                     return;
                 case SyntaxKind.TypePredicate:
-                    return checkTypePredicate(node as TypePredicateNode);
+                    break; // Binding the children will handle everything
                 case SyntaxKind.TypeParameter:
                     return bindTypeParameter(node as TypeParameterDeclaration);
                 case SyntaxKind.Parameter:
@@ -2207,17 +2209,6 @@ namespace ts {
             return bindAnonymousDeclaration(<Declaration>node, SymbolFlags.TypeLiteral, InternalSymbolName.Type);
         }
 
-        function checkTypePredicate(node: TypePredicateNode) {
-            const { parameterName, type } = node;
-            if (parameterName && parameterName.kind === SyntaxKind.Identifier) {
-                checkStrictModeIdentifier(parameterName);
-            }
-            if (parameterName && parameterName.kind === SyntaxKind.ThisType) {
-                seenThisKeyword = true;
-            }
-            bind(type);
-        }
-
         function bindSourceFileIfExternalModule() {
             setExportContextFlag(file);
             if (isExternalModule(file)) {
@@ -2304,10 +2295,7 @@ namespace ts {
             // expression is the declaration
             setCommonJsModuleIndicator(node);
             const lhs = node.left as PropertyAccessEntityNameExpression;
-            const symbol = forEachIdentifierInEntityName(lhs.expression, (id, original, e) => {
-                if (isExportsOrModuleExportsOrAlias(file, e) || (isIdentifier(e) && e.escapedText === "module" && original === undefined)) {
-                    return file.symbol;
-                }
+            const symbol = forEachIdentifierInEntityName(lhs.expression, (id, original) => {
                 if (!original) {
                     return undefined;
                 }
@@ -2431,9 +2419,15 @@ namespace ts {
 
         function bindPropertyAssignment(name: EntityNameExpression, propertyAccess: PropertyAccessEntityNameExpression, isPrototypeProperty: boolean) {
             let symbol = getJSInitializerSymbol(lookupSymbolForPropertyAccess(name));
-            const isToplevelNamespaceableInitializer = isBinaryExpression(propertyAccess.parent) ?
-                propertyAccess.parent.parent.parent.kind === SyntaxKind.SourceFile && getJavascriptInitializer(propertyAccess.parent.right) :
-                propertyAccess.parent.parent.kind === SyntaxKind.SourceFile;
+            let isToplevelNamespaceableInitializer: boolean;
+            if (isBinaryExpression(propertyAccess.parent)) {
+                const isPrototypeAssignment = isPropertyAccessExpression(propertyAccess.parent.left) && propertyAccess.parent.left.name.escapedText === "prototype";
+                isToplevelNamespaceableInitializer = propertyAccess.parent.parent.parent.kind === SyntaxKind.SourceFile &&
+                    !!getJavascriptInitializer(propertyAccess.parent.right, isPrototypeAssignment);
+            }
+            else {
+                isToplevelNamespaceableInitializer = propertyAccess.parent.parent.kind === SyntaxKind.SourceFile;
+            }
             if (!isPrototypeProperty && (!symbol || !(symbol.flags & SymbolFlags.Namespace)) && isToplevelNamespaceableInitializer) {
                 // make symbols or add declarations for intermediate containers
                 const flags = SymbolFlags.Module | SymbolFlags.JSContainer;
@@ -2474,14 +2468,17 @@ namespace ts {
             }
         }
 
-        function forEachIdentifierInEntityName(e: EntityNameExpression, action: (e: Identifier, symbol: Symbol, k: EntityNameExpression) => Symbol): Symbol {
-            if (isIdentifier(e)) {
-                return action(e, lookupSymbolForPropertyAccess(e), e);
+        function forEachIdentifierInEntityName(e: EntityNameExpression, action: (e: Identifier, symbol: Symbol) => Symbol): Symbol {
+            if (isExportsOrModuleExportsOrAlias(file, e)) {
+                return file.symbol;
+            }
+            else if (isIdentifier(e)) {
+                return action(e, lookupSymbolForPropertyAccess(e));
             }
             else {
                 const s = getJSInitializerSymbol(forEachIdentifierInEntityName(e.expression, action));
                 Debug.assert(!!s && !!s.exports);
-                return action(e.name, s.exports.get(e.name.escapedText), e);
+                return action(e.name, s.exports.get(e.name.escapedText));
             }
         }
 
@@ -2713,7 +2710,7 @@ namespace ts {
 
     function isExportsOrModuleExportsOrAliasOrAssignment(sourceFile: SourceFile, node: Expression): boolean {
         return isExportsOrModuleExportsOrAlias(sourceFile, node) ||
-            (isAssignmentExpression(node, /*excludeCompoundAssignements*/ true) && (
+            (isAssignmentExpression(node, /*excludeCompoundAssignment*/ true) && (
                 isExportsOrModuleExportsOrAliasOrAssignment(sourceFile, node.left) || isExportsOrModuleExportsOrAliasOrAssignment(sourceFile, node.right)));
     }
 
