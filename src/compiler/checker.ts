@@ -405,6 +405,8 @@ namespace ts {
         const enumNumberIndexInfo = createIndexInfo(stringType, /*isReadonly*/ true);
         const jsObjectLiteralIndexInfo = createIndexInfo(anyType, /*isReadonly*/ false);
 
+        let haveEmittedReport = false;
+
         const globals = createSymbolTable();
         const reverseMappedCache = createMap<Type | undefined>();
         let ambientModulesCache: Symbol[] | undefined;
@@ -890,6 +892,9 @@ namespace ts {
         }
 
         function mergeSymbol(target: Symbol, source: Symbol) {
+            if (target === source) {
+                reportBadSymbolTable(target, source);
+            }
             if (!(target.flags & getExcludedSymbolFlags(source.flags)) ||
                 (source.flags | target.flags) & SymbolFlags.JSContainer) {
                 // Javascript static-property-assignment declarations always merge, even though they are also values
@@ -916,7 +921,10 @@ namespace ts {
                 if ((source.flags | target.flags) & SymbolFlags.JSContainer) {
                     const sourceInitializer = getJSInitializerSymbol(source);
                     const targetInitializer = getJSInitializerSymbol(target);
-                    if (sourceInitializer !== source || targetInitializer !== target) {
+                    if ((sourceInitializer === targetInitializer) && sourceInitializer) {
+                        reportBadSymbolTable(source, target);
+                    }
+                    else if (sourceInitializer !== source || targetInitializer !== target) {
                         mergeSymbol(targetInitializer, sourceInitializer);
                     }
                 }
@@ -940,6 +948,38 @@ namespace ts {
                     error(errorNode, message, symbolToString(source));
                 });
             }
+        }
+
+        function reportBadSymbolTable(source: Symbol, target: Symbol) {
+            if (haveEmittedReport) return;
+            const errMsgLines = ["Symbol corruption report"];
+
+            report(source, "source");
+            report(target, "target");
+
+            function report(sym: Symbol, name: string) {
+                errMsgLines.push("");
+                if (sym === undefined) {
+                    errMsgLines.push(`Symbol ${name} is undefined`);
+                    return;
+                }
+                errMsgLines.push(`Symbol ${name} - escaped name is "${sym.escapedName}"`);
+
+                for (const decl of sym.declarations) {
+                    const sf = getSourceFileOfNode(decl);
+                    const pos = getLineAndCharacterOfPosition(sf, decl.pos);
+                    errMsgLines.push(`- Declared in ${sf.fileName} at ${pos.line + 1}, ${pos.character + 1}`);
+                    let statement: Node = decl;
+                    while(statement.parent.kind !== SyntaxKind.ExpressionStatement && statement.parent.kind !== SyntaxKind.SourceFile) {
+                        statement = statement.parent;
+                    }
+                    errMsgLines.push(` SOURCE -> "${getTextOfNode(statement)}" <- END SOURCE`);
+                }
+                report(sym.parent, name + ".parent");
+            }
+
+            sys.writeFile(sys.getEnvironmentVariable("TEMP") + "/symbolCrash.txt", errMsgLines.join("\r\n"));
+            haveEmittedReport = true;
         }
 
         function combineSymbolTables(first: SymbolTable | undefined, second: SymbolTable | undefined): SymbolTable | undefined {

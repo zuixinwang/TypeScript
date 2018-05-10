@@ -75,7 +75,13 @@ namespace ts {
             return sys.useCaseSensitiveFileNames ? fileName : fileName.toLowerCase();
         }
 
+        const sourceFileCache: Map<SourceFile> = createMap();
+
         function getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile {
+            if (sourceFileCache.has(fileName)) {
+                return sourceFileCache.get(fileName);
+            }
+
             let text: string;
             try {
                 performance.mark("beforeIORead");
@@ -90,7 +96,9 @@ namespace ts {
                 text = "";
             }
 
-            return text !== undefined ? createSourceFile(fileName, text, languageVersion, setParentNodes) : undefined;
+            const file = text !== undefined ? createSourceFile(fileName, text, languageVersion, setParentNodes) : undefined;
+            sourceFileCache.set(fileName, file);
+            return file;
         }
 
         function directoryExists(directoryPath: string): boolean {
