@@ -4838,6 +4838,56 @@ namespace ts {
             }
         }
 
+        function getTypeOfJSContainer(symbol: Symbol): Type {
+            const links = getSymbolLinks(symbol);
+            if (!links.type) {
+                // Handle variable, parameter or property
+                if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
+                    return unknownType;
+                }
+                let type: Type;
+
+                // TODO: This case should probably also change given this new approach
+                if (find(symbol.declarations, d => isBinaryExpression(d) || isPropertyAccessExpression(d) && isBinaryExpression(d.parent))) {
+                    type = getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
+                }
+                else {
+                    const types: Type[] = [];
+                    for (const d of symbol.declarations) {
+                        switch (d.kind) {
+                            case SyntaxKind.VariableDeclaration:
+                            case SyntaxKind.BindingElement:
+                            case SyntaxKind.Parameter:
+                                types.push(senter(symbol, d));
+                        default:
+                            Debug.fail("Unhandled declaration kind: " + Debug.showSyntaxKind(d));
+
+                            // cases still to handle
+            // if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+            //     return getTypeOfFuncClassEnumModule(symbol);
+            // }
+            // if (symbol.flags & SymbolFlags.EnumMember) {
+            //     return getTypeOfEnumMember(symbol);
+            // }
+            // if (symbol.flags & SymbolFlags.Accessor) {
+            //     return getTypeOfAccessors(symbol);
+            // }
+            // if (symbol.flags & SymbolFlags.Alias) {
+            //     return getTypeOfAlias(symbol);
+            // }
+                        }
+                    }
+                    type = getUnionType(types);
+                }
+
+                if (!popTypeResolution()) {
+                    type = reportCircularityError(symbol);
+                }
+                links.type = type;
+            }
+            return links.type;
+        }
+
         function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type {
             const links = getSymbolLinks(symbol);
             if (!links.type) {
@@ -4869,58 +4919,62 @@ namespace ts {
                 if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
                     return unknownType;
                 }
-
-                let type: Type;
-                // Handle certain special assignment kinds, which happen to union across multiple declarations:
-                // * module.exports = expr
-                // * exports.p = expr
-                // * this.p = expr
-                // * className.prototype.method = expr
-                if (declaration.kind === SyntaxKind.BinaryExpression ||
-                    declaration.kind === SyntaxKind.PropertyAccessExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
-                    type = getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
-                }
-                else if (isJSDocPropertyLikeTag(declaration)
-                    || isPropertyAccessExpression(declaration)
-                    || isIdentifier(declaration)
-                    || (isMethodDeclaration(declaration) && !isObjectLiteralMethod(declaration))
-                    || isMethodSignature(declaration)) {
-
-                    // Symbol is property of some kind that is merged with something - should use `getTypeOfFuncClassEnumModule` and not `getTypeOfVariableOrParameterOrProperty`
-                    if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                        return getTypeOfFuncClassEnumModule(symbol);
-                    }
-                    type = tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
-                }
-                else if (isPropertyAssignment(declaration)) {
-                    type = tryGetTypeFromEffectiveTypeNode(declaration) || checkPropertyAssignment(declaration);
-                }
-                else if (isJsxAttribute(declaration)) {
-                    type = tryGetTypeFromEffectiveTypeNode(declaration) || checkJsxAttribute(declaration);
-                }
-                else if (isShorthandPropertyAssignment(declaration)) {
-                    type = tryGetTypeFromEffectiveTypeNode(declaration) || checkExpressionForMutableLocation(declaration.name, CheckMode.Normal);
-                }
-                else if (isObjectLiteralMethod(declaration)) {
-                    type = tryGetTypeFromEffectiveTypeNode(declaration) || checkObjectLiteralMethod(declaration, CheckMode.Normal);
-                }
-                else if (isParameter(declaration)
-                    || isPropertyDeclaration(declaration)
-                    || isPropertySignature(declaration)
-                    || isVariableDeclaration(declaration)
-                    || isBindingElement(declaration)) {
-                    type = getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
-                }
-                else {
-                    return Debug.fail("Unhandled declaration kind! " + Debug.showSyntaxKind(declaration) + " for " + Debug.showSymbol(symbol));
-                }
-
+                let type = senter(symbol, declaration);
                 if (!popTypeResolution()) {
                     type = reportCircularityError(symbol);
                 }
                 links.type = type;
             }
             return links.type;
+        }
+
+        function senter(symbol: Symbol, declaration: Declaration): Type {
+            // Handle certain special assignment kinds, which happen to union across multiple declarations:
+            // * module.exports = expr
+            // * exports.p = expr
+            // * this.p = expr
+            // * className.prototype.method = expr
+
+            // TODO: This case can probably go away now
+            if (find(symbol.declarations, d => isBinaryExpression(d) || isPropertyAccessExpression(d) && isBinaryExpression(d.parent)) ||
+                symbol.flags & SymbolFlags.JSContainer) {
+                return getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
+            }
+            else if (isJSDocPropertyTag(declaration)
+                     || isPropertyAccessExpression(declaration)
+                     || isIdentifier(declaration)
+                     || (isMethodDeclaration(declaration) && !isObjectLiteralMethod(declaration))
+                     || isMethodSignature(declaration)) {
+
+                // Symbol is property of some kind that is merged with something - should use `getTypeOfFuncClassEnumModule` and not `getTypeOfVariableOrParameterOrProperty`
+                // TODO: This can probably go away now
+                if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                    return getTypeOfFuncClassEnumModule(symbol);
+                }
+                return tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
+            }
+            else if (isPropertyAssignment(declaration)) {
+                return tryGetTypeFromEffectiveTypeNode(declaration) || checkPropertyAssignment(declaration);
+            }
+            else if (isJsxAttribute(declaration)) {
+                return tryGetTypeFromEffectiveTypeNode(declaration) || checkJsxAttribute(declaration);
+            }
+            else if (isShorthandPropertyAssignment(declaration)) {
+                return tryGetTypeFromEffectiveTypeNode(declaration) || checkExpressionForMutableLocation(declaration.name, CheckMode.Normal);
+            }
+            else if (isObjectLiteralMethod(declaration)) {
+                return tryGetTypeFromEffectiveTypeNode(declaration) || checkObjectLiteralMethod(declaration, CheckMode.Normal);
+            }
+            else if (isParameter(declaration)
+                     || isPropertyDeclaration(declaration)
+                     || isPropertySignature(declaration)
+                     || isVariableDeclaration(declaration)
+                     || isBindingElement(declaration)) {
+                return getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
+            }
+            else {
+                return Debug.fail("Unhandled declaration kind! " + Debug.showSyntaxKind(declaration));
+            }
         }
 
         function getAnnotatedAccessorType(accessor: AccessorDeclaration | undefined): Type | undefined {
@@ -5123,6 +5177,9 @@ namespace ts {
             }
             if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
                 return getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
+            }
+            if (symbol.flags & SymbolFlags.JSContainer) {
+                return getTypeOfJSContainer(symbol);
             }
             if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
                 return getTypeOfVariableOrParameterOrProperty(symbol);
