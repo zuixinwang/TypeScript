@@ -406,6 +406,9 @@ namespace ts {
         const jsObjectLiteralIndexInfo = createIndexInfo(anyType, /*isReadonly*/ false);
 
         let haveEmittedReport = false;
+        let mergeDepth = 0;
+        let reportCount = 0;
+        let errMsgLines: string[] = [];
 
         const globals = createSymbolTable();
         const reverseMappedCache = createMap<Type | undefined>();
@@ -893,7 +896,7 @@ namespace ts {
 
         function mergeSymbol(target: Symbol, source: Symbol) {
             if (target === source) {
-                reportBadSymbolTable(target, source);
+                reportBadSymbolTable(target, source, undefined, undefined, undefined, "self-merge");
             }
             if (!(target.flags & getExcludedSymbolFlags(source.flags)) ||
                 (source.flags | target.flags) & SymbolFlags.JSContainer) {
@@ -922,15 +925,17 @@ namespace ts {
                 if ((source.flags | target.flags) & SymbolFlags.JSContainer) {
                     const sourceInitializer = getJSInitializerSymbol(source);
                     let targetInitializer = getJSInitializerSymbol(target);
-                    if ((sourceInitializer === targetInitializer) && sourceInitializer) {
-                        reportBadSymbolTable(source, target);
-                    }
                     if (sourceInitializer !== source || targetInitializer !== target) {
+                        mergeDepth++;
                         if (!(targetInitializer.flags & SymbolFlags.Transient)) {
                             const mergedInitializer = getMergedSymbol(targetInitializer);
                             targetInitializer = mergedInitializer === targetInitializer ? cloneSymbol(targetInitializer) : mergedInitializer;
+                            if (mergeDepth > 20) {
+                                reportBadSymbolTable(source, target, sourceInitializer, targetInitializer, mergedInitializer, "merge recursion");
+                            }
                         }
                         mergeSymbol(targetInitializer, sourceInitializer);
+                        mergeDepth--;
                     }
                 }
                 recordMergedSymbol(target, source);
@@ -955,36 +960,69 @@ namespace ts {
             }
         }
 
-        function reportBadSymbolTable(source: Symbol, target: Symbol) {
+        function reportBadSymbolTable(source: Symbol, target: Symbol, sourceInitializer: Symbol, targetInitializer: Symbol, mergedInitializer: Symbol, reason: string) {
             if (haveEmittedReport) return;
-            const errMsgLines = ["Symbol corruption report"];
+            reportCount++;
+            const lines = [`Symbol corruption report: ${reason} (${reportCount})`];
+            lines.push("##########################################");
 
+            lines.push("#### Source ####");
             report(source, "source");
+            lines.push("#### Source Initializer ####");
+            report(sourceInitializer, "sourceInitializer");
+            lines.push("#### Target ####");
             report(target, "target");
+            lines.push("#### Target Initializer ####");
+            report(targetInitializer, "targetInitializer");
+            lines.push("#### Merged Initializer ####");
+            report(mergedInitializer, "mergedInitializer");
+            lines.push("###################");
+            lines.push("");
+            lines.push("");
+            lines.push("");
 
             function report(sym: Symbol, name: string) {
-                errMsgLines.push("");
+                lines.push("");
                 if (sym === undefined) {
-                    errMsgLines.push(`Symbol ${name} is undefined`);
+                    lines.push(`${name} is undefined`);
                     return;
                 }
-                errMsgLines.push(`Symbol ${name} - escaped name is "${sym.escapedName}"`);
-
+                lines.push(`${name} - escaped name is "${sym.escapedName}"`);
+                lines.push(`Number of declarations: ${sym.declarations.length}`);
+                lines.push("Value declaration:");
+                if (sym.valueDeclaration) {
+                    reportBadDeclaration(sym.valueDeclaration, lines);
+                }
+                else {
+                    lines.push("  None");
+                }
+                lines.push("###");
+                lines.push("All declarations:");
+                lines.push("###");
                 for (const decl of sym.declarations) {
-                    const sf = getSourceFileOfNode(decl);
-                    const pos = getLineAndCharacterOfPosition(sf, decl.pos);
-                    errMsgLines.push(`- Declared in ${sf.fileName} at ${pos.line + 1}, ${pos.character + 1}`);
-                    let statement: Node = decl;
-                    while(statement.parent.kind !== SyntaxKind.ExpressionStatement && statement.parent.kind !== SyntaxKind.SourceFile) {
-                        statement = statement.parent;
-                    }
-                    errMsgLines.push(` SOURCE -> "${getTextOfNode(statement)}" <- END SOURCE`);
+                    reportBadDeclaration(decl, lines);
                 }
                 report(sym.parent, name + ".parent");
             }
 
-            sys.writeFile(sys.getEnvironmentVariable("TEMP") + "/symbolCrash.txt", errMsgLines.join("\r\n"));
-            haveEmittedReport = true;
+            if (reportCount > 5) {
+                sys.writeFile(sys.getEnvironmentVariable("TEMP") + "/symbolCrash.txt", errMsgLines.join("\r\n"));
+                haveEmittedReport = true;
+            }
+            else {
+                errMsgLines.push(...lines);
+            }
+        }
+
+        function reportBadDeclaration(decl: Declaration, lines: string[]) {
+            const sf = getSourceFileOfNode(decl);
+            const pos = getLineAndCharacterOfPosition(sf, decl.pos);
+            lines.push(`- ${sf.fileName} at ${pos.line + 1}, ${pos.character + 1}`);
+            let statement: Node = decl;
+            while(statement.parent.kind !== SyntaxKind.ExpressionStatement && statement.parent.kind !== SyntaxKind.SourceFile) {
+                statement = statement.parent;
+            }
+            lines.push(` SOURCE -> "${getTextOfNode(statement)}" <- END SOURCE`);
         }
 
         function combineSymbolTables(first: SymbolTable | undefined, second: SymbolTable | undefined): SymbolTable | undefined {
