@@ -13,10 +13,10 @@ C.prototype = {};
 >prototype : { [x: string]: any; }
 >{} : { [x: string]: any; }
 
-C.bar = C;
->C.bar = C : typeof C
+C.bar = 2;
+>C.bar = 2 : 2
 >C.bar : any
 >C : typeof C
 >bar : any
->C : typeof C
+>2 : 2
 
