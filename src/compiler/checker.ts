@@ -4838,44 +4838,40 @@ namespace ts {
             }
         }
 
-        function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                // Handle prototype property
-                if (symbol.flags & SymbolFlags.Prototype) {
-                    return links.type = getTypeOfPrototypeProperty(symbol);
-                }
-                // CommonsJS require and module both have type any.
-                if (symbol === requireSymbol || symbol === moduleSymbol) {
-                    return links.type = anyType;
-                }
-                // Handle catch clause variables
-                const declaration = symbol.valueDeclaration;
-                if (isCatchClauseVariableDeclarationOrBindingElement(declaration)) {
-                    return links.type = anyType;
-                }
-                // Handle export default expressions
-                if (isSourceFile(declaration)) {
-                    const jsonSourceFile = cast(declaration, isJsonSourceFile);
-                    return links.type = jsonSourceFile.statements.length ? checkExpression(jsonSourceFile.statements[0].expression) : emptyObjectType;
-                }
-                if (declaration.kind === SyntaxKind.ExportAssignment) {
-                    return links.type = checkExpression((<ExportAssignment>declaration).expression);
-                }
-                if (isInJavaScriptFile(declaration) && isJSDocPropertyLikeTag(declaration) && declaration.typeExpression) {
-                    return links.type = getTypeFromTypeNode(declaration.typeExpression.type);
-                }
-                // Handle variable, parameter or property
-                if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
-                    return unknownType;
-                }
-                let type = senter(symbol, declaration);
-                if (!popTypeResolution()) {
-                    type = reportCircularityError(symbol);
-                }
-                links.type = type;
+        function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type | undefined {
+            // Handle prototype property
+            if (symbol.flags & SymbolFlags.Prototype) {
+                return getTypeOfPrototypeProperty(symbol);
             }
-            return links.type;
+            // CommonsJS require and module both have type any.
+            if (symbol === requireSymbol || symbol === moduleSymbol) {
+                return anyType;
+            }
+            // Handle catch clause variables
+            const declaration = symbol.valueDeclaration;
+            if (isCatchClauseVariableDeclarationOrBindingElement(declaration)) {
+                return anyType;
+            }
+            // Handle export default expressions
+            if (isSourceFile(declaration)) {
+                const jsonSourceFile = cast(declaration, isJsonSourceFile);
+                return jsonSourceFile.statements.length ? checkExpression(jsonSourceFile.statements[0].expression) : emptyObjectType;
+            }
+            if (declaration.kind === SyntaxKind.ExportAssignment) {
+                return checkExpression((<ExportAssignment>declaration).expression);
+            }
+            if (isInJavaScriptFile(declaration) && isJSDocPropertyLikeTag(declaration) && declaration.typeExpression) {
+                return getTypeFromTypeNode(declaration.typeExpression.type);
+            }
+            // Handle variable, parameter or property
+            if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
+                return;
+            }
+            let type = senter(symbol, declaration);
+            if (!popTypeResolution()) {
+                type = reportCircularityError(symbol);
+            }
+            return type;
         }
 
         function senter(symbol: Symbol, declaration: Declaration): Type {
@@ -4955,34 +4951,30 @@ namespace ts {
             return getThisTypeOfSignature(getSignatureFromDeclaration(declaration));
         }
 
-        function getTypeOfAccessors(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
-                const setter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor);
+        function getTypeOfAccessors(symbol: Symbol): Type | undefined {
+            const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
+            const setter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor);
 
-                if (getter && isInJavaScriptFile(getter)) {
-                    const jsDocType = getTypeForDeclarationFromJSDocComment(getter);
-                    if (jsDocType) {
-                        return links.type = jsDocType;
-                    }
+            if (getter && isInJavaScriptFile(getter)) {
+                const jsDocType = getTypeForDeclarationFromJSDocComment(getter);
+                if (jsDocType) {
+                    return jsDocType;
                 }
-
-                if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
-                    return unknownType;
-                }
-
-                let type: Type = accessorSenter(getter, setter, symbol);
-                if (!popTypeResolution()) {
-                    type = anyType;
-                    if (noImplicitAny) {
-                        const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
-                        error(getter, Diagnostics._0_implicitly_has_return_type_any_because_it_does_not_have_a_return_type_annotation_and_is_referenced_directly_or_indirectly_in_one_of_its_return_expressions, symbolToString(symbol));
-                    }
-                }
-                links.type = type;
             }
-            return links.type;
+
+            if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
+                return;
+            }
+
+            let type: Type = accessorSenter(getter, setter, symbol);
+            if (!popTypeResolution()) {
+                type = anyType;
+                if (noImplicitAny) {
+                    const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
+                    error(getter, Diagnostics._0_implicitly_has_return_type_any_because_it_does_not_have_a_return_type_annotation_and_is_referenced_directly_or_indirectly_in_one_of_its_return_expressions, symbolToString(symbol));
+                }
+            }
+            return type;
         }
 
         function accessorSenter(getter: AccessorDeclaration | undefined, setter: AccessorDeclaration | undefined, errorSymbol: Symbol) {
@@ -5074,27 +5066,23 @@ namespace ts {
                 : unknownType;
         }
 
-        function getTypeOfInstantiatedSymbol(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                if (symbolInstantiationDepth === 100) {
-                    error(symbol.valueDeclaration, Diagnostics.Generic_type_instantiation_is_excessively_deep_and_possibly_infinite);
-                    links.type = unknownType;
-                }
-                else {
-                    if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
-                        return unknownType;
-                    }
-                    symbolInstantiationDepth++;
-                    let type = instantiateType(getTypeOfSymbol(links.target!), links.mapper!);
-                    symbolInstantiationDepth--;
-                    if (!popTypeResolution()) {
-                        type = reportCircularityError(symbol);
-                    }
-                    links.type = type;
-                }
+        function getTypeOfInstantiatedSymbol(symbol: Symbol, target: Symbol, mapper: TypeMapper): Type | undefined {
+            if (symbolInstantiationDepth === 100) {
+                error(symbol.valueDeclaration, Diagnostics.Generic_type_instantiation_is_excessively_deep_and_possibly_infinite);
+                return unknownType;
             }
-            return links.type;
+            else {
+                if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
+                    return;
+                }
+                symbolInstantiationDepth++;
+                let type = instantiateType(getTypeOfSymbol(target), mapper);
+                symbolInstantiationDepth--;
+                if (!popTypeResolution()) {
+                    type = reportCircularityError(symbol);
+                }
+                return type;
+            }
         }
 
         function reportCircularityError(symbol: Symbol) {
@@ -5114,18 +5102,34 @@ namespace ts {
 
         function getTypeOfSymbol(symbol: Symbol): Type {
             if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
+                // TODO: Should probably be part of the same caching as the others
                 return getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
             }
             const links = getSymbolLinks(symbol);
             if (!links.type) {
                 if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
-                    return getTypeOfInstantiatedSymbol(symbol);
+                    const type = getTypeOfInstantiatedSymbol(symbol, links.target!, links.mapper!);
+                    if (!type) {
+                        return unknownType;
+                    }
+                    return links.type = type;
+
+                }
+                if (symbol.flags & SymbolFlags.Accessor) {
+                    const type = getTypeOfAccessors(symbol);
+                    if (!type) {
+                        return unknownType;
+                    }
+                    return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                    return getTypeOfVariableOrParameterOrProperty(symbol);
+                    const type = getTypeOfVariableOrParameterOrProperty(symbol);
+                    if (!type) {
+                        return unknownType;
+                    }
+                    return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-
                     const mergedSymbol = funcJSMerge(symbol);
                     if (mergedSymbol) {
                         return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
@@ -5136,9 +5140,6 @@ namespace ts {
                 }
                 if (symbol.flags & SymbolFlags.EnumMember) {
                     return links.type = getDeclaredTypeOfEnumMember(symbol);
-                }
-                if (symbol.flags & SymbolFlags.Accessor) {
-                    return getTypeOfAccessors(symbol);
                 }
                 if (symbol.flags & SymbolFlags.Alias) {
                     return links.type = getTypeOfAlias(symbol);
@@ -21451,7 +21452,7 @@ namespace ts {
                         checkAccessorDeclarationTypesIdentical(node, otherAccessor, getThisTypeOfDeclaration, Diagnostics.get_and_set_accessor_must_have_the_same_this_type);
                     }
                 }
-                const returnType = getTypeOfAccessors(getSymbolOfNode(node));
+                const returnType = getTypeOfSymbol(getSymbolOfNode(node));
                 if (node.kind === SyntaxKind.GetAccessor) {
                     checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
                 }
