@@ -4838,74 +4838,6 @@ namespace ts {
             }
         }
 
-        function getTypeOfJSContainer(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                // Handle variable, parameter or property
-                if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
-                    return unknownType;
-                }
-                let type: Type;
-
-                // TODO: This case should probably also change given this new approach
-                if (find(symbol.declarations, d => isBinaryExpression(d) || isPropertyAccessExpression(d) && isBinaryExpression(d.parent))) {
-                    type = getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
-                }
-                else {
-                    type = getUnionType(symbol.declarations.map(d => {
-                        // TODO: Probably would be better to mostly use existing predicates
-                        switch (d.kind) {
-                            case SyntaxKind.VariableDeclaration:
-                            case SyntaxKind.BindingElement:
-                            case SyntaxKind.Parameter:
-                                return senter(symbol, d);
-                            case SyntaxKind.EnumMember:
-                                // TODO: this seems like it might fail since it caches information on the symbol's parent (which might also be weird and merged)
-                                // Counterpoint: This probably fails today when there is a weird JS merge!
-                                // Either way, we should have some kind of test around it
-                                return getDeclaredTypeOfEnum(getParentOfSymbol(symbol));
-                            case SyntaxKind.GetAccessor:
-                                const getter = d as AccessorDeclaration;
-                                if (isInJavaScriptFile(getter)) {
-                                    const jsDocType = getTypeForDeclarationFromJSDocComment(getter);
-                                    if (jsDocType) {
-                                        return jsDocType;
-                                    }
-                                }
-                                return accessorSenter(getter, /*setter*/ undefined, symbol);
-                            case SyntaxKind.SetAccessor:
-                                return accessorSenter(/*getter*/ undefined, d as AccessorDeclaration, symbol);
-                            case SyntaxKind.FunctionDeclaration:
-                            case SyntaxKind.FunctionExpression:
-                            case SyntaxKind.MethodDeclaration:
-                            case SyntaxKind.MethodSignature:
-                            case SyntaxKind.ClassDeclaration:
-                            case SyntaxKind.ClassExpression:
-                            case SyntaxKind.EnumDeclaration:
-                            case SyntaxKind.ModuleDeclaration:
-                                // TODO: Probably missing some declaration kinds here still
-                                // (should just use isFunctionLIke or something)
-                                return funcSenter(symbol);
-                            case SyntaxKind.Identifier:
-                                // Identifiers NEVER have a type. Or wait. Maybe they are special js declarations and I am MISSING OUT.
-                                return neverType;
-                            default:
-                                if (isAliasSymbolDeclaration(d)) {
-                                    return aliasSenter(symbol);
-                                }
-                                return Debug.fail(`Unhandled declaration kind: ${Debug.showSyntaxKind(d)}; for: ${symbol.escapedName} ${Debug.showSymbol(symbol)}`);
-                        }
-                    }));
-                }
-
-                if (!popTypeResolution()) {
-                    type = reportCircularityError(symbol);
-                }
-                links.type = type;
-            }
-            return links.type;
-        }
-
         function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type {
             const links = getSymbolLinks(symbol);
             if (!links.type) {
@@ -4954,20 +4886,25 @@ namespace ts {
             // * className.prototype.method = expr
 
             // TODO: This case can probably go away now
-            if (find(symbol.declarations, d => isBinaryExpression(d) || isPropertyAccessExpression(d) && isBinaryExpression(d.parent)) ||
-                symbol.flags & SymbolFlags.JSContainer) {
+            if (isBinaryExpression(declaration) || isPropertyAccessExpression(declaration) && isBinaryExpression(declaration.parent)) {
                 return getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
             }
-            else if (isJSDocPropertyTag(declaration)
+            else if (isJSDocPropertyLikeTag(declaration)
                      || isPropertyAccessExpression(declaration)
                      || isIdentifier(declaration)
                      || (isMethodDeclaration(declaration) && !isObjectLiteralMethod(declaration))
                      || isMethodSignature(declaration)) {
 
                 // Symbol is property of some kind that is merged with something - should use `getTypeOfFuncClassEnumModule` and not `getTypeOfVariableOrParameterOrProperty`
-                // TODO: This can probably go away now
+                // TODO: This should be handled by getTypeOfSymbol itself
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                    return getTypeOfFuncClassEnumModule(symbol);
+                    const mergedSymbol = funcJSMerge(symbol);
+                    if (mergedSymbol) {
+                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
+                    }
+                    else {
+                        return getTypeOfFuncClassEnumModule(symbol);
+                    }
                 }
                 return tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
             }
@@ -5087,22 +5024,12 @@ namespace ts {
             return baseConstructorType.flags & TypeFlags.TypeVariable ? baseConstructorType : undefined;
         }
 
-        function getTypeOfFuncClassEnumModule(symbol: Symbol): Type {
-            let links = getSymbolLinks(symbol);
-            if (!links.type) {
-                links.type = funcSenter(symbol);
-            }
-            return links.type;
-        }
-
-        function funcSenter(symbol: Symbol) {
+        function funcJSMerge(symbol: Symbol): TransientSymbol | undefined {
             const jsDeclaration = getDeclarationOfJSInitializer(symbol.valueDeclaration);
             if (jsDeclaration) {
                 const jsSymbol = getMergedSymbol(jsDeclaration.symbol);
                 if (jsSymbol && (jsSymbol.exports && jsSymbol.exports.size || jsSymbol.members && jsSymbol.members.size)) {
                     symbol = cloneSymbol(symbol);
-                    // note:we overwrite links because we just cloned the symbol
-                    links = symbol as TransientSymbol;
                     if (jsSymbol.exports && jsSymbol.exports.size) {
                         symbol.exports = symbol.exports || createSymbolTable();
                         mergeSymbolTable(symbol.exports, jsSymbol.exports);
@@ -5111,8 +5038,12 @@ namespace ts {
                         symbol.members = symbol.members || createSymbolTable();
                         mergeSymbolTable(symbol.members, jsSymbol.members);
                     }
+                    return symbol as TransientSymbol;
                 }
             }
+        }
+
+        function getTypeOfFuncClassEnumModule(symbol: Symbol) {
             if (symbol.flags & SymbolFlags.Module && symbol.declarations.some(isShorthandAmbientModule)) {
                 return anyType;
             }
@@ -5130,33 +5061,17 @@ namespace ts {
         }
 
 
-        function getTypeOfEnumMember(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                links.type = getDeclaredTypeOfEnumMember(symbol);
-            }
-            return links.type;
-        }
+        function getTypeOfAlias(symbol: Symbol) {
+            const targetSymbol = resolveAlias(symbol);
 
-        function getTypeOfAlias(symbol: Symbol): Type {
-            const links = getSymbolLinks(symbol);
-            if (!links.type) {
-                links.type = aliasSenter(symbol);
-            }
-            return links.type;
-        }
-
-        function aliasSenter(symbol: Symbol) {
-                const targetSymbol = resolveAlias(symbol);
-
-                // It only makes sense to get the type of a value symbol. If the result of resolving
-                // the alias is not a value, then it has no type. To get the type associated with a
-                // type symbol, call getDeclaredTypeOfSymbol.
-                // This check is important because without it, a call to getTypeOfSymbol could end
-                // up recursively calling getTypeOfAlias, causing a stack overflow.
-                return targetSymbol.flags & SymbolFlags.Value
-                    ? getTypeOfSymbol(targetSymbol)
-                    : unknownType;
+            // It only makes sense to get the type of a value symbol. If the result of resolving
+            // the alias is not a value, then it has no type. To get the type associated with a
+            // type symbol, call getDeclaredTypeOfSymbol.
+            // This check is important because without it, a call to getTypeOfSymbol could end
+            // up recursively calling getTypeOfAlias, causing a stack overflow.
+            return targetSymbol.flags & SymbolFlags.Value
+                ? getTypeOfSymbol(targetSymbol)
+                : unknownType;
         }
 
         function getTypeOfInstantiatedSymbol(symbol: Symbol): Type {
@@ -5198,31 +5113,39 @@ namespace ts {
         }
 
         function getTypeOfSymbol(symbol: Symbol): Type {
-            if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
-                return getTypeOfInstantiatedSymbol(symbol);
-            }
             if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
                 return getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
             }
-            if (symbol.flags & SymbolFlags.JSContainer) {
-                return getTypeOfJSContainer(symbol);
+            const links = getSymbolLinks(symbol);
+            if (!links.type) {
+                if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
+                    return getTypeOfInstantiatedSymbol(symbol);
+                }
+                if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
+                    return getTypeOfVariableOrParameterOrProperty(symbol);
+                }
+                if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+
+                    const mergedSymbol = funcJSMerge(symbol);
+                    if (mergedSymbol) {
+                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
+                    }
+                    else {
+                        return links.type = getTypeOfFuncClassEnumModule(symbol);
+                    }
+                }
+                if (symbol.flags & SymbolFlags.EnumMember) {
+                    return links.type = getDeclaredTypeOfEnumMember(symbol);
+                }
+                if (symbol.flags & SymbolFlags.Accessor) {
+                    return getTypeOfAccessors(symbol);
+                }
+                if (symbol.flags & SymbolFlags.Alias) {
+                    return links.type = getTypeOfAlias(symbol);
+                }
+                return unknownType;
             }
-            if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                return getTypeOfVariableOrParameterOrProperty(symbol);
-            }
-            if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                return getTypeOfFuncClassEnumModule(symbol);
-            }
-            if (symbol.flags & SymbolFlags.EnumMember) {
-                return getTypeOfEnumMember(symbol);
-            }
-            if (symbol.flags & SymbolFlags.Accessor) {
-                return getTypeOfAccessors(symbol);
-            }
-            if (symbol.flags & SymbolFlags.Alias) {
-                return getTypeOfAlias(symbol);
-            }
-            return unknownType;
+            return links.type;
         }
 
         function isReferenceToType(type: Type, target: Type) {
@@ -17488,7 +17411,7 @@ namespace ts {
                 && (!(property.flags & SymbolFlags.Method) || isValidMethodAccess(property, type));
         }
         function isValidMethodAccess(method: Symbol, actualThisType: Type): boolean {
-            const propType = getTypeOfFuncClassEnumModule(method);
+            const propType = getTypeOfSymbol(method);
             const signatures = getSignaturesOfType(getNonNullableType(propType), SignatureKind.Call);
             Debug.assert(signatures.length !== 0);
             return signatures.some(sig => {

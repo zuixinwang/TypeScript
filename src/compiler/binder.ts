@@ -223,6 +223,7 @@ namespace ts {
             symbol.flags |= symbolFlags;
 
             node.symbol = symbol;
+            node.symbolFlags = symbolFlags;
             symbol.declarations = append(symbol.declarations, node);
 
             if (symbolFlags & SymbolFlags.HasExports && !symbol.exports) {
