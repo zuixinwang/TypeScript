@@ -4867,14 +4867,7 @@ namespace ts {
             if (!pushTypeResolution(symbol, TypeSystemPropertyName.Type)) {
                 return;
             }
-            let type = senter(symbol, declaration);
-            if (!popTypeResolution()) {
-                type = reportCircularityError(symbol);
-            }
-            return type;
-        }
-
-        function senter(symbol: Symbol, declaration: Declaration): Type {
+            let type;
             // Handle certain special assignment kinds, which happen to union across multiple declarations:
             // * module.exports = expr
             // * exports.p = expr
@@ -4883,7 +4876,7 @@ namespace ts {
 
             // TODO: This case can probably go away now
             if (isBinaryExpression(declaration) || isPropertyAccessExpression(declaration) && isBinaryExpression(declaration.parent)) {
-                return getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
+                type = getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
             }
             else if (isJSDocPropertyLikeTag(declaration)
                      || isPropertyAccessExpression(declaration)
@@ -4894,7 +4887,7 @@ namespace ts {
                 // Symbol is property of some kind that is merged with something - should use `getTypeOfFuncClassEnumModule` and not `getTypeOfVariableOrParameterOrProperty`
                 // TODO: This should be handled by getTypeOfSymbol itself
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                    const mergedSymbol = funcJSMerge(symbol);
+                    const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
                     if (mergedSymbol) {
                         return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
                     }
@@ -4902,30 +4895,34 @@ namespace ts {
                         return getTypeOfFuncClassEnumModule(symbol);
                     }
                 }
-                return tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
+                type = tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
             }
             else if (isPropertyAssignment(declaration)) {
-                return tryGetTypeFromEffectiveTypeNode(declaration) || checkPropertyAssignment(declaration);
+                type = tryGetTypeFromEffectiveTypeNode(declaration) || checkPropertyAssignment(declaration);
             }
             else if (isJsxAttribute(declaration)) {
-                return tryGetTypeFromEffectiveTypeNode(declaration) || checkJsxAttribute(declaration);
+                type = tryGetTypeFromEffectiveTypeNode(declaration) || checkJsxAttribute(declaration);
             }
             else if (isShorthandPropertyAssignment(declaration)) {
-                return tryGetTypeFromEffectiveTypeNode(declaration) || checkExpressionForMutableLocation(declaration.name, CheckMode.Normal);
+                type = tryGetTypeFromEffectiveTypeNode(declaration) || checkExpressionForMutableLocation(declaration.name, CheckMode.Normal);
             }
             else if (isObjectLiteralMethod(declaration)) {
-                return tryGetTypeFromEffectiveTypeNode(declaration) || checkObjectLiteralMethod(declaration, CheckMode.Normal);
+                type = tryGetTypeFromEffectiveTypeNode(declaration) || checkObjectLiteralMethod(declaration, CheckMode.Normal);
             }
             else if (isParameter(declaration)
                      || isPropertyDeclaration(declaration)
                      || isPropertySignature(declaration)
                      || isVariableDeclaration(declaration)
                      || isBindingElement(declaration)) {
-                return getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
+                type = getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
             }
             else {
                 return Debug.fail("Unhandled declaration kind! " + Debug.showSyntaxKind(declaration));
             }
+            if (!popTypeResolution()) {
+                type = reportCircularityError(symbol);
+            }
+            return type;
         }
 
         function getAnnotatedAccessorType(accessor: AccessorDeclaration | undefined): Type | undefined {
@@ -4966,49 +4963,46 @@ namespace ts {
                 return;
             }
 
-            let type: Type = accessorSenter(getter, setter, symbol);
-            if (!popTypeResolution()) {
-                type = anyType;
-                if (noImplicitAny) {
-                    const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
-                    error(getter, Diagnostics._0_implicitly_has_return_type_any_because_it_does_not_have_a_return_type_annotation_and_is_referenced_directly_or_indirectly_in_one_of_its_return_expressions, symbolToString(symbol));
-                }
-            }
-            return type;
-        }
+            let type: Type;
 
-        function accessorSenter(getter: AccessorDeclaration | undefined, setter: AccessorDeclaration | undefined, errorSymbol: Symbol) {
             // First try to see if the user specified a return type on the get-accessor.
             const getterReturnType = getAnnotatedAccessorType(getter);
             if (getterReturnType) {
-                return getterReturnType;
+                type = getterReturnType;
             }
             else {
                 // If the user didn't specify a return type, try to use the set-accessor's parameter type.
                 const setterParameterType = getAnnotatedAccessorType(setter);
                 if (setterParameterType) {
-                    return setterParameterType;
+                    type = setterParameterType;
                 }
                 else {
                     // If there are no specified types, try to infer it from the body of the get accessor if it exists.
                     if (getter && getter.body) {
-                        return getReturnTypeFromBody(getter);
+                        type = getReturnTypeFromBody(getter);
                     }
                     // Otherwise, fall back to 'any'.
                     else {
                         if (noImplicitAny) {
                             if (setter) {
-                                error(setter, Diagnostics.Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation, symbolToString(errorSymbol));
+                                error(setter, Diagnostics.Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation, symbolToString(symbol));
                             }
                             else {
                                 Debug.assert(!!getter, "there must existed getter as we are current checking either setter or getter in this function");
-                                error(getter, Diagnostics.Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation, symbolToString(errorSymbol));
+                                error(getter, Diagnostics.Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation, symbolToString(symbol));
                             }
                         }
                         return anyType;
                     }
                 }
             }
+            if (!popTypeResolution()) {
+                type = anyType;
+                if (noImplicitAny) {
+                    error(getter, Diagnostics._0_implicitly_has_return_type_any_because_it_does_not_have_a_return_type_annotation_and_is_referenced_directly_or_indirectly_in_one_of_its_return_expressions, symbolToString(symbol));
+                }
+            }
+            return type;
         }
 
         function getBaseTypeVariableOfClass(symbol: Symbol) {
@@ -5016,8 +5010,8 @@ namespace ts {
             return baseConstructorType.flags & TypeFlags.TypeVariable ? baseConstructorType : undefined;
         }
 
-        function funcJSMerge(symbol: Symbol): TransientSymbol | undefined {
-            const jsDeclaration = getDeclarationOfJSInitializer(symbol.valueDeclaration);
+        function funcJSMerge(declaration: Declaration, symbol: Symbol): TransientSymbol | undefined {
+            const jsDeclaration = getDeclarationOfJSInitializer(declaration);
             if (jsDeclaration) {
                 const jsSymbol = getMergedSymbol(jsDeclaration.symbol);
                 if (jsSymbol && (jsSymbol.exports && jsSymbol.exports.size || jsSymbol.members && jsSymbol.members.size)) {
@@ -5066,7 +5060,7 @@ namespace ts {
                 : unknownType;
         }
 
-        function getTypeOfInstantiatedSymbol(symbol: Symbol, target: Symbol, mapper: TypeMapper): Type | undefined {
+        function getTypeOfInstantiatedSymbol(target: Symbol, mapper: TypeMapper, symbol: Symbol): Type | undefined {
             if (symbolInstantiationDepth === 100) {
                 error(symbol.valueDeclaration, Diagnostics.Generic_type_instantiation_is_excessively_deep_and_possibly_infinite);
                 return unknownType;
@@ -5108,7 +5102,7 @@ namespace ts {
             const links = getSymbolLinks(symbol);
             if (!links.type) {
                 if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
-                    const type = getTypeOfInstantiatedSymbol(symbol, links.target!, links.mapper!);
+                    const type = getTypeOfInstantiatedSymbol(links.target!, links.mapper!, symbol);
                     if (!type) {
                         return unknownType;
                     }
@@ -5116,6 +5110,8 @@ namespace ts {
 
                 }
                 if (symbol.flags & SymbolFlags.Accessor) {
+                    // TODO: Looks like at least some accessors are also marked with Variable | Property.
+                    // Only one match, in this order, will have to be allowed per-declaration
                     const type = getTypeOfAccessors(symbol);
                     if (!type) {
                         return unknownType;
@@ -5123,6 +5119,7 @@ namespace ts {
                     return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
+                    // TODO: This one is tough so I'm going to try it last
                     const type = getTypeOfVariableOrParameterOrProperty(symbol);
                     if (!type) {
                         return unknownType;
@@ -5130,8 +5127,9 @@ namespace ts {
                     return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                    const mergedSymbol = funcJSMerge(symbol);
+                    const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
                     if (mergedSymbol) {
+                        // TODO: Deep inside, getBaseClassOfType or something uses symbol.valueDeclaration
                         return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
                     }
                     else {
