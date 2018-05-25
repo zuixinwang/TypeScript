@@ -1985,13 +1985,15 @@ namespace ts {
             return !dontResolveAlias && isNonLocalAlias(symbol) ? resolveAlias(symbol) : symbol;
         }
 
-        function resolveAlias(symbol: Symbol): Symbol {
+        function resolveAlias(symbol: Symbol, node?: Declaration): Symbol {
             Debug.assert((symbol.flags & SymbolFlags.Alias) !== 0, "Should only get Alias here.");
             const links = getSymbolLinks(symbol);
             if (!links.target) {
                 links.target = resolvingSymbol;
-                const node = getDeclarationOfAliasSymbol(symbol);
-                if (!node) return Debug.fail();
+                if (!node) {
+                    node = getDeclarationOfAliasSymbol(symbol);
+                    if (!node) return Debug.fail();
+                }
                 const target = getTargetOfAliasDeclaration(node);
                 if (links.target === resolvingSymbol) {
                     links.target = target || unknownSymbol;
@@ -4838,17 +4840,12 @@ namespace ts {
             }
         }
 
-        function getTypeOfVariableOrParameterOrProperty(symbol: Symbol): Type | undefined {
-            // Handle prototype property
-            if (symbol.flags & SymbolFlags.Prototype) {
-                return getTypeOfPrototypeProperty(symbol);
-            }
+        function getTypeOfVariableOrParameterOrProperty(declaration: Declaration, symbol: Symbol): Type | undefined {
             // CommonsJS require and module both have type any.
             if (symbol === requireSymbol || symbol === moduleSymbol) {
                 return anyType;
             }
             // Handle catch clause variables
-            const declaration = symbol.valueDeclaration;
             if (isCatchClauseVariableDeclarationOrBindingElement(declaration)) {
                 return anyType;
             }
@@ -4887,7 +4884,7 @@ namespace ts {
                 // Symbol is property of some kind that is merged with something - should use `getTypeOfFuncClassEnumModule` and not `getTypeOfVariableOrParameterOrProperty`
                 // TODO: This should be handled by getTypeOfSymbol itself
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                    const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
+                    const mergedSymbol = funcJSMerge(declaration, symbol);
                     if (mergedSymbol) {
                         return mergedSymbol.type = getTypeOfFuncClassEnumModule(declaration, mergedSymbol);
                     }
@@ -4948,10 +4945,7 @@ namespace ts {
             return getThisTypeOfSignature(getSignatureFromDeclaration(declaration));
         }
 
-        function getTypeOfAccessors(symbol: Symbol): Type | undefined {
-            const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
-            const setter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor);
-
+        function getTypeOfAccessors(getter: AccessorDeclaration | undefined, setter: AccessorDeclaration | undefined, symbol: Symbol): Type | undefined {
             if (getter && isInJavaScriptFile(getter)) {
                 const jsDocType = getTypeForDeclarationFromJSDocComment(getter);
                 if (jsDocType) {
@@ -5040,7 +5034,6 @@ namespace ts {
             }
             const type = createObjectType(ObjectFlags.Anonymous, symbol);
             if (declaration.symbolFlags & SymbolFlags.Class) {
-                // TODO: For now, just fork all getBaseTypeVariables and its callees with declaration-version ones
                 const baseTypeVariable = getBaseTypeVariableOfClass(declaration, symbol);
                 return baseTypeVariable ? getIntersectionType([type, baseTypeVariable]) : type;
             }
@@ -5048,8 +5041,8 @@ namespace ts {
         }
 
 
-        function getTypeOfAlias(symbol: Symbol) {
-            const targetSymbol = resolveAlias(symbol);
+        function getTypeOfAlias(declaration: Declaration, symbol: Symbol) {
+            const targetSymbol = resolveAlias(symbol, declaration);
 
             // It only makes sense to get the type of a value symbol. If the result of resolving
             // the alias is not a value, then it has no type. To get the type associated with a
@@ -5096,12 +5089,13 @@ namespace ts {
         }
 
         function getTypeOfSymbol(symbol: Symbol): Type {
-            if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
-                // TODO: Should probably be part of the same caching as the others
-                return getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
-            }
             const links = getSymbolLinks(symbol);
             if (!links.type) {
+                // TODO: I don't think the CheckFlags cases should be part of the multi-declaration loop
+                if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
+                    // TODO: Should probably be part of the same caching as the others
+                    return links.type = getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
+                }
                 if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
                     const type = getTypeOfInstantiatedSymbol(links.target!, links.mapper!, symbol);
                     if (!type) {
@@ -5110,39 +5104,51 @@ namespace ts {
                     return links.type = type;
 
                 }
+                // Handle prototype property
+                if (symbol.flags & SymbolFlags.Prototype) {
+                    // TODO: This also is marked with Variable | Property
+                    // TODO: Like EnumMember, this also works on symbol.parent (and should therefore be out of the loop I think)
+                    // (it will still contribute to the union type, but won't be inside the loop)
+                    return getTypeOfPrototypeProperty(symbol);
+                }
+                if (symbol.flags & SymbolFlags.EnumMember) {
+                    // this works on symbol.parent, so may be OK
+                    return links.type = getDeclaredTypeOfEnumMember(symbol);
+                }
                 if (symbol.flags & SymbolFlags.Accessor) {
                     // TODO: Looks like at least some accessors are also marked with Variable | Property.
                     // Only one match, in this order, will have to be allowed per-declaration
-                    const type = getTypeOfAccessors(symbol);
+                    // TODO: This code will have to change for the loop.
+                    // I will have to search for the setter on the getter case and vice versa. If there is no getter for the setter, I won't skip the setter case -- the getter case always runs.
+                    const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
+                    const setter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor);
+                    const type = getTypeOfAccessors(getter, setter, symbol);
                     if (!type) {
                         return unknownType;
                     }
                     return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                    // TODO: This one is tough so I'm going to try it last
-                    const type = getTypeOfVariableOrParameterOrProperty(symbol);
+                    const type = getTypeOfVariableOrParameterOrProperty(symbol.valueDeclaration, symbol);
                     if (!type) {
                         return unknownType;
                     }
                     return links.type = type;
                 }
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                    // done for now
                     const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
                     if (mergedSymbol) {
-                        // TODO: Deep inside, getBaseClassOfType or something uses symbol.valueDeclaration
                         return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol.valueDeclaration, mergedSymbol);
                     }
                     else {
                         return links.type = getTypeOfFuncClassEnumModule(symbol.valueDeclaration, symbol);
                     }
                 }
-                if (symbol.flags & SymbolFlags.EnumMember) {
-                    return links.type = getDeclaredTypeOfEnumMember(symbol);
-                }
                 if (symbol.flags & SymbolFlags.Alias) {
-                    // TODO: I don't THINK this should have merged with anything else but who knows?! ?
-                    return links.type = getTypeOfAlias(symbol);
+                    // TODO: valueDeclaration isn't actually right; you have to find the one that is (1) match the predicate or (2) has declaration.symbolFlags & SymbolFlags.Alias
+                    // this should work for now, though, since we don't expect to see crazy merges that would break our assumption.
+                    return links.type = getTypeOfAlias(symbol.valueDeclaration, symbol);
                 }
                 return unknownType;
             }
