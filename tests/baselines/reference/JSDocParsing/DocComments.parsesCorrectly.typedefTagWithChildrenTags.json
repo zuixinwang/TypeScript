@@ -2,30 +2,36 @@
     "kind": "JSDocComment",
     "pos": 0,
     "end": 102,
+    "symbolFlags": 0,
     "tags": {
         "0": {
             "kind": "JSDocTypedefTag",
             "pos": 8,
             "end": 100,
+            "symbolFlags": 0,
             "atToken": {
                 "kind": "AtToken",
+                "symbolFlags": 0,
                 "pos": 8,
                 "end": 9
             },
             "tagName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 9,
                 "end": 16,
                 "escapedText": "typedef"
             },
             "fullName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 17,
                 "end": 23,
                 "escapedText": "People"
             },
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 17,
                 "end": 23,
                 "escapedText": "People"
@@ -34,18 +40,22 @@
                 "kind": "JSDocTypeLiteral",
                 "pos": 28,
                 "end": 100,
+                "symbolFlags": 0,
                 "jsDocPropertyTags": [
                     {
                         "kind": "JSDocPropertyTag",
                         "pos": 47,
                         "end": 72,
+                        "symbolFlags": 0,
                         "atToken": {
                             "kind": "AtToken",
+                            "symbolFlags": 0,
                             "pos": 47,
                             "end": 48
                         },
                         "tagName": {
                             "kind": "Identifier",
+                            "symbolFlags": 0,
                             "pos": 48,
                             "end": 56,
                             "escapedText": "property"
@@ -54,14 +64,17 @@
                             "kind": "JSDocTypeExpression",
                             "pos": 57,
                             "end": 65,
+                            "symbolFlags": 0,
                             "type": {
                                 "kind": "NumberKeyword",
+                                "symbolFlags": 0,
                                 "pos": 58,
                                 "end": 64
                             }
                         },
                         "name": {
                             "kind": "Identifier",
+                            "symbolFlags": 0,
                             "pos": 66,
                             "end": 69,
                             "escapedText": "age"
@@ -73,13 +86,16 @@
                         "kind": "JSDocPropertyTag",
                         "pos": 74,
                         "end": 97,
+                        "symbolFlags": 0,
                         "atToken": {
                             "kind": "AtToken",
+                            "symbolFlags": 0,
                             "pos": 74,
                             "end": 75
                         },
                         "tagName": {
                             "kind": "Identifier",
+                            "symbolFlags": 0,
                             "pos": 75,
                             "end": 83,
                             "escapedText": "property"
@@ -88,14 +104,17 @@
                             "kind": "JSDocTypeExpression",
                             "pos": 84,
                             "end": 92,
+                            "symbolFlags": 0,
                             "type": {
                                 "kind": "StringKeyword",
+                                "symbolFlags": 0,
                                 "pos": 85,
                                 "end": 91
                             }
                         },
                         "name": {
                             "kind": "Identifier",
+                            "symbolFlags": 0,
                             "pos": 93,
                             "end": 97,
                             "escapedText": "name"

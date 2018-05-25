@@ -2,18 +2,22 @@
     "kind": "JSDocComment",
     "pos": 0,
     "end": 44,
+    "symbolFlags": 0,
     "tags": {
         "0": {
             "kind": "JSDocParameterTag",
             "pos": 8,
             "end": 42,
+            "symbolFlags": 0,
             "atToken": {
                 "kind": "AtToken",
+                "symbolFlags": 0,
                 "pos": 8,
                 "end": 9
             },
             "tagName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 9,
                 "end": 12,
                 "escapedText": "arg"
@@ -22,14 +26,17 @@
                 "kind": "JSDocTypeExpression",
                 "pos": 13,
                 "end": 21,
+                "symbolFlags": 0,
                 "type": {
                     "kind": "NumberKeyword",
+                    "symbolFlags": 0,
                     "pos": 14,
                     "end": 20
                 }
             },
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 22,
                 "end": 27,
                 "escapedText": "name1"

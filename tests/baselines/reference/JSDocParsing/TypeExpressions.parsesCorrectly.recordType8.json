@@ -3,14 +3,17 @@
     "pos": 1,
     "end": 11,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "members": {
         "0": {
             "kind": "PropertySignature",
             "pos": 2,
             "end": 10,
             "flags": "JSDoc",
+            "symbolFlags": 0,
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 2,
                 "end": 10,
                 "flags": "JSDoc",

@@ -3,20 +3,24 @@
     "pos": 1,
     "end": 16,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "type": {
         "kind": "UnionType",
         "pos": 2,
         "end": 15,
         "flags": "JSDoc",
+        "symbolFlags": 0,
         "types": {
             "0": {
                 "kind": "NumberKeyword",
+                "symbolFlags": 0,
                 "pos": 2,
                 "end": 8,
                 "flags": "JSDoc"
             },
             "1": {
                 "kind": "StringKeyword",
+                "symbolFlags": 0,
                 "pos": 9,
                 "end": 15,
                 "flags": "JSDoc"

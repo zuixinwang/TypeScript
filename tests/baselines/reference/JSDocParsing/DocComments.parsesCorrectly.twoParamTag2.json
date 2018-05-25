@@ -2,18 +2,22 @@
     "kind": "JSDocComment",
     "pos": 0,
     "end": 60,
+    "symbolFlags": 0,
     "tags": {
         "0": {
             "kind": "JSDocParameterTag",
             "pos": 8,
             "end": 34,
+            "symbolFlags": 0,
             "atToken": {
                 "kind": "AtToken",
+                "symbolFlags": 0,
                 "pos": 8,
                 "end": 9
             },
             "tagName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 9,
                 "end": 14,
                 "escapedText": "param"
@@ -22,14 +26,17 @@
                 "kind": "JSDocTypeExpression",
                 "pos": 15,
                 "end": 23,
+                "symbolFlags": 0,
                 "type": {
                     "kind": "NumberKeyword",
+                    "symbolFlags": 0,
                     "pos": 16,
                     "end": 22
                 }
             },
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 24,
                 "end": 29,
                 "escapedText": "name1"
@@ -41,13 +48,16 @@
             "kind": "JSDocParameterTag",
             "pos": 34,
             "end": 58,
+            "symbolFlags": 0,
             "atToken": {
                 "kind": "AtToken",
+                "symbolFlags": 0,
                 "pos": 34,
                 "end": 35
             },
             "tagName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 35,
                 "end": 40,
                 "escapedText": "param"
@@ -56,14 +66,17 @@
                 "kind": "JSDocTypeExpression",
                 "pos": 41,
                 "end": 49,
+                "symbolFlags": 0,
                 "type": {
                     "kind": "NumberKeyword",
+                    "symbolFlags": 0,
                     "pos": 42,
                     "end": 48
                 }
             },
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 50,
                 "end": 55,
                 "escapedText": "name2"

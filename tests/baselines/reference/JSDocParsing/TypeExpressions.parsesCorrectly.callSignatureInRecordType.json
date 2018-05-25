@@ -3,12 +3,14 @@
     "pos": 1,
     "end": 13,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "members": {
         "0": {
             "kind": "CallSignature",
             "pos": 2,
             "end": 12,
             "flags": "JSDoc",
+            "symbolFlags": 0,
             "parameters": {
                 "length": 0,
                 "pos": 3,
@@ -16,6 +18,7 @@
             },
             "type": {
                 "kind": "NumberKeyword",
+                "symbolFlags": 0,
                 "pos": 5,
                 "end": 12,
                 "flags": "JSDoc"

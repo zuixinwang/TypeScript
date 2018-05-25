@@ -3,19 +3,23 @@
     "pos": 1,
     "end": 13,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "parameters": {
         "0": {
             "kind": "Parameter",
             "pos": 10,
             "end": 11,
             "flags": "JSDoc",
+            "symbolFlags": 0,
             "type": {
                 "kind": "TypeReference",
                 "pos": 10,
                 "end": 11,
                 "flags": "JSDoc",
+                "symbolFlags": 0,
                 "typeName": {
                     "kind": "Identifier",
+                    "symbolFlags": 0,
                     "pos": 10,
                     "end": 11,
                     "flags": "JSDoc",

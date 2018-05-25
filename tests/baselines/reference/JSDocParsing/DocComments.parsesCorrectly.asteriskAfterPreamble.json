@@ -2,5 +2,6 @@
     "kind": "JSDocComment",
     "pos": 0,
     "end": 23,
+    "symbolFlags": 0,
     "comment": "* @type {number} "
 }

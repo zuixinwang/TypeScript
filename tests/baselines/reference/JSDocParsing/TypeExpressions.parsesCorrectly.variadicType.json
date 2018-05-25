@@ -3,8 +3,10 @@
     "pos": 1,
     "end": 10,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "type": {
         "kind": "NumberKeyword",
+        "symbolFlags": 0,
         "pos": 4,
         "end": 10,
         "flags": "JSDoc"

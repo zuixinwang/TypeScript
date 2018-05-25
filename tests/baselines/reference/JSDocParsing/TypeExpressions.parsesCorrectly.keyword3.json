@@ -1,5 +1,6 @@
 {
     "kind": "UndefinedKeyword",
+    "symbolFlags": 0,
     "pos": 1,
     "end": 10,
     "flags": "JSDoc"

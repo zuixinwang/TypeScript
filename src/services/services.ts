@@ -18,6 +18,7 @@ namespace ts {
         public flags: NodeFlags;
         public parent: Node;
         public symbol: Symbol;
+        public symbolFlags: SymbolFlags;
         public jsDoc: JSDoc[];
         public original: Node;
         public transformFlags: TransformFlags;
@@ -29,6 +30,7 @@ namespace ts {
             this.flags = NodeFlags.None;
             this.transformFlags = undefined!; // TODO: GH#18217
             this.parent = undefined!;
+            this.symbolFlags = SymbolFlags.None;
             this.kind = kind;
         }
 
@@ -202,6 +204,7 @@ namespace ts {
         public flags: NodeFlags;
         public parent: Node;
         public symbol: Symbol;
+        public symbolFlags = SymbolFlags.None;
         public jsDocComments: JSDoc[];
         public transformFlags: TransformFlags;
 
@@ -347,6 +350,7 @@ namespace ts {
         public kind: SyntaxKind.Identifier;
         public escapedText: __String;
         public symbol: Symbol;
+        public symbolFlags = SymbolFlags.None;
         public autoGenerateFlags: GeneratedIdentifierFlags;
         _primaryExpressionBrand: any;
         _memberExpressionBrand: any;

@@ -3,21 +3,25 @@
     "pos": 1,
     "end": 24,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "elementTypes": {
         "0": {
             "kind": "NumberKeyword",
+            "symbolFlags": 0,
             "pos": 2,
             "end": 8,
             "flags": "JSDoc"
         },
         "1": {
             "kind": "StringKeyword",
+            "symbolFlags": 0,
             "pos": 9,
             "end": 15,
             "flags": "JSDoc"
         },
         "2": {
             "kind": "BooleanKeyword",
+            "symbolFlags": 0,
             "pos": 16,
             "end": 23,
             "flags": "JSDoc"

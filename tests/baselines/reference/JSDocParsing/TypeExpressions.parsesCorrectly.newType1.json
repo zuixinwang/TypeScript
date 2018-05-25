@@ -3,14 +3,17 @@
     "pos": 1,
     "end": 18,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "parameters": {
         "0": {
             "kind": "Parameter",
             "pos": 10,
             "end": 17,
             "flags": "JSDoc",
+            "symbolFlags": 0,
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 10,
                 "end": 13,
                 "flags": "JSDoc",
@@ -22,13 +25,16 @@
                 "pos": 14,
                 "end": 17,
                 "flags": "JSDoc",
+                "symbolFlags": 0,
                 "typeName": {
                     "kind": "FirstNode",
                     "pos": 14,
                     "end": 17,
                     "flags": "JSDoc",
+                    "symbolFlags": 0,
                     "left": {
                         "kind": "Identifier",
+                        "symbolFlags": 0,
                         "pos": 14,
                         "end": 15,
                         "flags": "JSDoc",
@@ -36,6 +42,7 @@
                     },
                     "right": {
                         "kind": "Identifier",
+                        "symbolFlags": 0,
                         "pos": 16,
                         "end": 17,
                         "flags": "JSDoc",

@@ -581,7 +581,7 @@ namespace ts {
         parent: Node;                                         // Parent node (initialized by binding)
         /* @internal */ original?: Node;                      // The original node if this is an updated node.
         /* @internal */ symbol: Symbol;                       // Symbol declared by node (initialized by binding)
-        /* @internal */ symbolFlags?: SymbolFlags;             // Symbol flags *for this node* (initialized by binding)
+        /* @internal */ symbolFlags: SymbolFlags;             // Symbol flags *for this node* (initialized by binding)
         /* @internal */ locals?: SymbolTable;                 // Locals associated with node (initialized by binding)
         /* @internal */ nextContainer?: Node;                 // Next container in declaration order (initialized by binding)
         /* @internal */ localSymbol?: Symbol;                 // Local symbol declared by node (initialized by binding only for exported nodes)

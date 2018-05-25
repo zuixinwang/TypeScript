@@ -3239,7 +3239,7 @@ namespace ts {
                             return symbolToTypeNode(symbol, context, isInstanceType);
                         }
                         // Always use 'typeof T' for type of class, enum, and module objects
-                        else if (symbol.flags & SymbolFlags.Class && !getBaseTypeVariableOfClass(symbol) && !(symbol.valueDeclaration.kind === SyntaxKind.ClassExpression && context.flags & NodeBuilderFlags.WriteClassExpressionAsTypeLiteral) ||
+                        else if (symbol.flags & SymbolFlags.Class && !getBaseTypeVariableOfClass(symbol.valueDeclaration, symbol) && !(symbol.valueDeclaration.kind === SyntaxKind.ClassExpression && context.flags & NodeBuilderFlags.WriteClassExpressionAsTypeLiteral) ||
                             symbol.flags & (SymbolFlags.Enum | SymbolFlags.ValueModule) ||
                             shouldWriteTypeOfFunctionSymbol()) {
                             return symbolToTypeNode(symbol, context, SymbolFlags.Value);
@@ -4889,10 +4889,10 @@ namespace ts {
                 if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
                     const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
                     if (mergedSymbol) {
-                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
+                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(declaration, mergedSymbol);
                     }
                     else {
-                        return getTypeOfFuncClassEnumModule(symbol);
+                        return getTypeOfFuncClassEnumModule(declaration, symbol);
                     }
                 }
                 type = tryGetTypeFromEffectiveTypeNode(declaration) || anyType;
@@ -5005,8 +5005,8 @@ namespace ts {
             return type;
         }
 
-        function getBaseTypeVariableOfClass(symbol: Symbol) {
-            const baseConstructorType = getBaseConstructorTypeOfClass(getDeclaredTypeOfClassOrInterface(symbol));
+        function getBaseTypeVariableOfClass(declaration: Declaration, symbol: Symbol) {
+            const baseConstructorType = getBaseConstructorTypeOfClass(getDeclaredTypeOfClassOrInterfaceX(declaration, symbol));
             return baseConstructorType.flags & TypeFlags.TypeVariable ? baseConstructorType : undefined;
         }
 
@@ -5029,21 +5029,22 @@ namespace ts {
             }
         }
 
-        function getTypeOfFuncClassEnumModule(symbol: Symbol) {
-            if (symbol.flags & SymbolFlags.Module && symbol.declarations.some(isShorthandAmbientModule)) {
+        function getTypeOfFuncClassEnumModule(declaration: Declaration, symbol: Symbol) {
+            if (declaration.symbolFlags & SymbolFlags.Module && isShorthandAmbientModule(declaration)) {
                 return anyType;
             }
-            else if (symbol.valueDeclaration.kind === SyntaxKind.BinaryExpression ||
-                     symbol.valueDeclaration.kind === SyntaxKind.PropertyAccessExpression && symbol.valueDeclaration.parent.kind === SyntaxKind.BinaryExpression) {
+            else if (declaration.kind === SyntaxKind.BinaryExpression ||
+                     declaration.kind === SyntaxKind.PropertyAccessExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
                 // TODO: Shouldn't be needed any more?
                 return getWidenedTypeFromJSSpecialPropertyDeclarations(symbol);
             }
             const type = createObjectType(ObjectFlags.Anonymous, symbol);
-            if (symbol.flags & SymbolFlags.Class) {
-                const baseTypeVariable = getBaseTypeVariableOfClass(symbol);
+            if (declaration.symbolFlags & SymbolFlags.Class) {
+                // TODO: For now, just fork all getBaseTypeVariables and its callees with declaration-version ones
+                const baseTypeVariable = getBaseTypeVariableOfClass(declaration, symbol);
                 return baseTypeVariable ? getIntersectionType([type, baseTypeVariable]) : type;
             }
-            return strictNullChecks && symbol.flags & SymbolFlags.Optional ? getOptionalType(type) : type;
+            return strictNullChecks && declaration.symbolFlags & SymbolFlags.Optional ? getOptionalType(type) : type;
         }
 
 
@@ -5130,16 +5131,17 @@ namespace ts {
                     const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
                     if (mergedSymbol) {
                         // TODO: Deep inside, getBaseClassOfType or something uses symbol.valueDeclaration
-                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol);
+                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol.valueDeclaration, mergedSymbol);
                     }
                     else {
-                        return links.type = getTypeOfFuncClassEnumModule(symbol);
+                        return links.type = getTypeOfFuncClassEnumModule(symbol.valueDeclaration, symbol);
                     }
                 }
                 if (symbol.flags & SymbolFlags.EnumMember) {
                     return links.type = getDeclaredTypeOfEnumMember(symbol);
                 }
                 if (symbol.flags & SymbolFlags.Alias) {
+                    // TODO: I don't THINK this should have merged with anything else but who knows?! ?
                     return links.type = getTypeOfAlias(symbol);
                 }
                 return unknownType;
@@ -5235,19 +5237,21 @@ namespace ts {
         // The local type parameters are the combined set of type parameters from all declarations of the class,
         // interface, or type alias.
         function getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol: Symbol): TypeParameter[] | undefined {
-            let result: TypeParameter[] | undefined;
-            for (const node of symbol.declarations) {
-                if (node.kind === SyntaxKind.InterfaceDeclaration ||
-                    node.kind === SyntaxKind.ClassDeclaration ||
-                    node.kind === SyntaxKind.ClassExpression ||
-                    isTypeAlias(node)) {
-                    const declaration = <InterfaceDeclaration | TypeAliasDeclaration | JSDocTypedefTag | JSDocCallbackTag>node;
-                    result = appendTypeParameters(result, getEffectiveTypeParameterDeclarations(declaration));
-                }
-            }
-            return result;
+            return symbol.declarations.reduce(getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX, undefined);
         }
 
+        // The local type parameters are the combined set of type parameters from all declarations of the class,
+        // interface, or type alias.
+        function getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX(previousParameters: TypeParameter[] | undefined, node: Declaration): TypeParameter[] | undefined {
+            if (node.kind === SyntaxKind.InterfaceDeclaration ||
+                node.kind === SyntaxKind.ClassDeclaration ||
+                node.kind === SyntaxKind.ClassExpression ||
+                isTypeAlias(node)) {
+                const declaration = <InterfaceDeclaration | TypeAliasDeclaration | JSDocTypedefTag | JSDocCallbackTag>node;
+                return appendTypeParameters(previousParameters, getEffectiveTypeParameterDeclarations(declaration));
+            }
+            return previousParameters;
+        }
         // The full set of type parameters for a generic class or interface type consists of its outer type parameters plus
         // its locally declared type parameters.
         function getTypeParametersOfClassOrInterface(symbol: Symbol): TypeParameter[] | undefined {
@@ -5474,19 +5478,21 @@ namespace ts {
          * and if none of the base interfaces have a "this" type.
          */
         function isThislessInterface(symbol: Symbol): boolean {
-            for (const declaration of symbol.declarations) {
-                if (declaration.kind === SyntaxKind.InterfaceDeclaration) {
-                    if (declaration.flags & NodeFlags.ContainsThis) {
-                        return false;
-                    }
-                    const baseTypeNodes = getInterfaceBaseTypeNodes(<InterfaceDeclaration>declaration);
-                    if (baseTypeNodes) {
-                        for (const node of baseTypeNodes) {
-                            if (isEntityNameExpression(node.expression)) {
-                                const baseSymbol = resolveEntityName(node.expression, SymbolFlags.Type, /*ignoreErrors*/ true);
-                                if (!baseSymbol || !(baseSymbol.flags & SymbolFlags.Interface) || getDeclaredTypeOfClassOrInterface(baseSymbol).thisType) {
-                                    return false;
-                                }
+            return symbol.declarations.every(isThislessInterfaceX);
+        }
+
+        function isThislessInterfaceX(declaration: Declaration): boolean {
+            if (declaration.kind === SyntaxKind.InterfaceDeclaration) {
+                if (declaration.flags & NodeFlags.ContainsThis) {
+                    return false;
+                }
+                const baseTypeNodes = getInterfaceBaseTypeNodes(<InterfaceDeclaration>declaration);
+                if (baseTypeNodes) {
+                    for (const node of baseTypeNodes) {
+                        if (isEntityNameExpression(node.expression)) {
+                            const baseSymbol = resolveEntityName(node.expression, SymbolFlags.Type, /*ignoreErrors*/ true);
+                            if (!baseSymbol || !(baseSymbol.flags & SymbolFlags.Interface) || getDeclaredTypeOfClassOrInterface(baseSymbol).thisType) {
+                                return false;
                             }
                         }
                     }
@@ -5508,6 +5514,36 @@ namespace ts {
                 // to exhaustively analyze). We give interfaces a "this" type if we can't definitely determine that they are free of
                 // "this" references.
                 if (outerTypeParameters || localTypeParameters || kind === ObjectFlags.Class || !isThislessInterface(symbol)) {
+                    type.objectFlags |= ObjectFlags.Reference;
+                    type.typeParameters = concatenate(outerTypeParameters, localTypeParameters);
+                    type.outerTypeParameters = outerTypeParameters;
+                    type.localTypeParameters = localTypeParameters;
+                    (<GenericType>type).instantiations = createMap<TypeReference>();
+                    (<GenericType>type).instantiations.set(getTypeListId(type.typeParameters), <GenericType>type);
+                    (<GenericType>type).target = <GenericType>type;
+                    (<GenericType>type).typeArguments = type.typeParameters;
+                    type.thisType = <TypeParameter>createType(TypeFlags.TypeParameter);
+                    type.thisType.isThisType = true;
+                    type.thisType.symbol = symbol;
+                    type.thisType.constraint = type;
+                }
+            }
+            return <InterfaceType>links.declaredType;
+        }
+
+        function getDeclaredTypeOfClassOrInterfaceX(declaration: Declaration, symbol: Symbol): InterfaceType {
+            const links = getSymbolLinks(symbol);
+            if (!links.declaredType) {
+                const kind = declaration.symbolFlags & SymbolFlags.Class ? ObjectFlags.Class : ObjectFlags.Interface;
+                const type = links.declaredType = <InterfaceType>createObjectType(kind, symbol);
+                const outerTypeParameters = getOuterTypeParameters(declaration);
+                const localTypeParameters = getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX(undefined, declaration);
+                // A class or interface is generic if it has type parameters or a "this" type. We always give classes a "this" type
+                // because it is not feasible to analyze all members to determine if the "this" type escapes the class (in particular,
+                // property types inferred from initializers and method return types inferred from return statements are very hard
+                // to exhaustively analyze). We give interfaces a "this" type if we can't definitely determine that they are free of
+                // "this" references.
+                if (outerTypeParameters || localTypeParameters || kind === ObjectFlags.Class || !isThislessInterfaceX(declaration)) {
                     type.objectFlags |= ObjectFlags.Reference;
                     type.typeParameters = concatenate(outerTypeParameters, localTypeParameters);
                     type.outerTypeParameters = outerTypeParameters;

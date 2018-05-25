@@ -3,8 +3,10 @@
     "pos": 1,
     "end": 9,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "exprName": {
         "kind": "Identifier",
+        "symbolFlags": 0,
         "pos": 7,
         "end": 9,
         "flags": "JSDoc",

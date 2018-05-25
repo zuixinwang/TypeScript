@@ -3,8 +3,10 @@
     "pos": 1,
     "end": 11,
     "flags": "JSDoc",
+    "symbolFlags": 0,
     "typeName": {
         "kind": "Identifier",
+        "symbolFlags": 0,
         "pos": 1,
         "end": 2,
         "flags": "JSDoc",
@@ -14,6 +16,7 @@
     "typeArguments": {
         "0": {
             "kind": "NumberKeyword",
+            "symbolFlags": 0,
             "pos": 4,
             "end": 10,
             "flags": "JSDoc"

@@ -2,24 +2,29 @@
     "kind": "JSDocComment",
     "pos": 0,
     "end": 61,
+    "symbolFlags": 0,
     "tags": {
         "0": {
             "kind": "JSDocParameterTag",
             "pos": 7,
             "end": 59,
+            "symbolFlags": 0,
             "atToken": {
                 "kind": "AtToken",
+                "symbolFlags": 0,
                 "pos": 7,
                 "end": 8
             },
             "tagName": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 8,
                 "end": 13,
                 "escapedText": "param"
             },
             "name": {
                 "kind": "Identifier",
+                "symbolFlags": 0,
                 "pos": 14,
                 "end": 15,
                 "escapedText": "x"
