@@ -5041,7 +5041,7 @@ namespace ts {
         }
 
 
-        function getTypeOfAlias(declaration: Declaration, symbol: Symbol) {
+        function getTypeOfAlias(declaration: Declaration | undefined, symbol: Symbol) {
             const targetSymbol = resolveAlias(symbol, declaration);
 
             // It only makes sense to get the type of a value symbol. If the result of resolving
@@ -5110,7 +5110,7 @@ namespace ts {
                     // TODO: This also is marked with Variable | Property
                     type = getTypeOfPrototypeProperty(symbol);
                 }
-                else if (symbol.flags & SymbolFlags.EnumMember) {
+                if (symbol.flags & SymbolFlags.EnumMember) {
                     const t = getDeclaredTypeOfEnumMember(symbol);
                     if (type) {
                         types = [type];
@@ -5196,6 +5196,20 @@ namespace ts {
                             }
                             break;
                         }
+                    }
+                }
+                else if (symbol.flags & SymbolFlags.Alias) {
+                    // TODO: This is ugly but needed because an export= that is synthesised to import * as foo doesn't have a declaration
+                    const t = getTypeOfAlias(/*declaration*/ undefined, symbol);
+                    if (types) {
+                        types.push(t);
+                    }
+                    else if (type) {
+                        types = [type];
+                        types.push(t);
+                    }
+                    else {
+                        type = t;
                     }
                 }
                 if (types) {
