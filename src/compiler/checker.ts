@@ -5093,7 +5093,6 @@ namespace ts {
             if (!links.type) {
                 // TODO: I don't think the CheckFlags cases should be part of the multi-declaration loop
                 if (getCheckFlags(symbol) & CheckFlags.ReverseMapped) {
-                    // TODO: Should probably be part of the same caching as the others
                     return links.type = getTypeOfReverseMappedSymbol(symbol as ReverseMappedSymbol);
                 }
                 if (getCheckFlags(symbol) & CheckFlags.Instantiated) {
@@ -5104,51 +5103,107 @@ namespace ts {
                     return links.type = type;
 
                 }
+                let type: Type | undefined;
+                let types: Type[] | undefined;
                 // Handle prototype property
                 if (symbol.flags & SymbolFlags.Prototype) {
                     // TODO: This also is marked with Variable | Property
-                    // TODO: Like EnumMember, this also works on symbol.parent (and should therefore be out of the loop I think)
-                    // (it will still contribute to the union type, but won't be inside the loop)
-                    return getTypeOfPrototypeProperty(symbol);
+                    type = getTypeOfPrototypeProperty(symbol);
                 }
-                if (symbol.flags & SymbolFlags.EnumMember) {
-                    // this works on symbol.parent, so may be OK
-                    return links.type = getDeclaredTypeOfEnumMember(symbol);
-                }
-                if (symbol.flags & SymbolFlags.Accessor) {
-                    // TODO: Looks like at least some accessors are also marked with Variable | Property.
-                    // Only one match, in this order, will have to be allowed per-declaration
-                    // TODO: This code will have to change for the loop.
-                    // I will have to search for the setter on the getter case and vice versa. If there is no getter for the setter, I won't skip the setter case -- the getter case always runs.
-                    const getter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor);
-                    const setter = getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor);
-                    const type = getTypeOfAccessors(getter, setter, symbol);
-                    if (!type) {
-                        return unknownType;
-                    }
-                    return links.type = type;
-                }
-                if (symbol.flags & (SymbolFlags.Variable | SymbolFlags.Property)) {
-                    const type = getTypeOfVariableOrParameterOrProperty(symbol.valueDeclaration, symbol);
-                    if (!type) {
-                        return unknownType;
-                    }
-                    return links.type = type;
-                }
-                if (symbol.flags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
-                    // done for now
-                    const mergedSymbol = funcJSMerge(symbol.valueDeclaration, symbol);
-                    if (mergedSymbol) {
-                        return mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol.valueDeclaration, mergedSymbol);
+                else if (symbol.flags & SymbolFlags.EnumMember) {
+                    const t = getDeclaredTypeOfEnumMember(symbol);
+                    if (type) {
+                        types = [type];
+                        types.push(t);
                     }
                     else {
-                        return links.type = getTypeOfFuncClassEnumModule(symbol.valueDeclaration, symbol);
+                        type = t;
                     }
                 }
-                if (symbol.flags & SymbolFlags.Alias) {
-                    // TODO: valueDeclaration isn't actually right; you have to find the one that is (1) match the predicate or (2) has declaration.symbolFlags & SymbolFlags.Alias
-                    // this should work for now, though, since we don't expect to see crazy merges that would break our assumption.
-                    return links.type = getTypeOfAlias(symbol.valueDeclaration, symbol);
+                if (symbol.declarations) {
+                    for (const decl of symbol.declarations) {
+                        if (decl.symbolFlags & SymbolFlags.Accessor) {
+                            let t: Type | undefined;
+                            if (isGetAccessor(decl)) {
+                                t = getTypeOfAccessors(decl, getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.SetAccessor), symbol);
+                            }
+                            else if (!getDeclarationOfKind<AccessorDeclaration>(symbol, SyntaxKind.GetAccessor)) {
+                                t = getTypeOfAccessors(/*getter*/ undefined, decl as SetAccessorDeclaration, symbol);
+                            }
+                            if (t) {
+                                if (types) {
+                                    types.push(t);
+                                }
+                                else if (type) {
+                                    types = [type];
+                                    types.push(t);
+                                }
+                                else {
+                                    type = t;
+                                }
+                            }
+                            break;
+                        }
+                        else if (decl.symbolFlags & (SymbolFlags.Variable | SymbolFlags.Property) && !(decl.symbolFlags & SymbolFlags.Prototype)) {
+                            const t = getTypeOfVariableOrParameterOrProperty(decl, symbol);
+                            if (t) {
+                                if (types) {
+                                    types.push(t);
+                                }
+                                else if (type) {
+                                    types = [type];
+                                    types.push(t);
+                                }
+                                else {
+                                    type = t;
+                                }
+                            }
+                            break;
+                        }
+                        else if (decl.symbolFlags & (SymbolFlags.Function | SymbolFlags.Method | SymbolFlags.Class | SymbolFlags.Enum | SymbolFlags.ValueModule)) {
+                            const mergedSymbol = funcJSMerge(decl, symbol);
+                            let t: Type | undefined;
+                            if (mergedSymbol) {
+                                // TODO: Find out if mergedSymbol.valueDeclaration is right
+                                t = mergedSymbol.type = getTypeOfFuncClassEnumModule(mergedSymbol.valueDeclaration, mergedSymbol);
+                            }
+                            else {
+                                t = getTypeOfFuncClassEnumModule(decl, symbol);
+                            }
+                            if (types) {
+                                types.push(t);
+                            }
+                            else if (type) {
+                                types = [type];
+                                types.push(t);
+                            }
+                            else {
+                                type = t;
+                            }
+                            break;
+                        }
+                        else if (decl.symbolFlags & SymbolFlags.Alias) {
+                            const t = getTypeOfAlias(decl, symbol);
+                            if (types) {
+                                types.push(t);
+                            }
+                            else if (type) {
+                                types = [type];
+                                types.push(t);
+                            }
+                            else {
+                                type = t;
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (types) {
+                    Debug.fail(`Shouldn't get here without a loop! ${types.length} ${types.map(t => typeToString(t))}`);
+                    // return links.type = getUnionType(types);
+                }
+                else if (type) {
+                    return links.type = type;
                 }
                 return unknownType;
             }
@@ -5243,7 +5298,7 @@ namespace ts {
         // The local type parameters are the combined set of type parameters from all declarations of the class,
         // interface, or type alias.
         function getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol: Symbol): TypeParameter[] | undefined {
-            return symbol.declarations.reduce(getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX, undefined);
+            return symbol.declarations.reduce(getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX, /*initialValue*/ undefined);
         }
 
         // The local type parameters are the combined set of type parameters from all declarations of the class,
@@ -5543,7 +5598,7 @@ namespace ts {
                 const kind = declaration.symbolFlags & SymbolFlags.Class ? ObjectFlags.Class : ObjectFlags.Interface;
                 const type = links.declaredType = <InterfaceType>createObjectType(kind, symbol);
                 const outerTypeParameters = getOuterTypeParameters(declaration);
-                const localTypeParameters = getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX(undefined, declaration);
+                const localTypeParameters = getLocalTypeParametersOfClassOrInterfaceOrTypeAliasX(/*previousParameters*/ undefined, declaration);
                 // A class or interface is generic if it has type parameters or a "this" type. We always give classes a "this" type
                 // because it is not feasible to analyze all members to determine if the "this" type escapes the class (in particular,
                 // property types inferred from initializers and method return types inferred from return statements are very hard
