@@ -4951,13 +4951,424 @@ namespace ts {
             type = isParameter(declaration) && declaration.dotDotDotToken ? anyArrayType : anyType;
 
             // Report implicit any errors unless this is a private property within an ambient declaration
-            if (reportErrors && noImplicitAny) {
-                if (!declarationBelongsToPrivateAmbientMember(declaration)) {
-                    reportImplicitAnyError(declaration, type);
+            if (reportErrors && noImplicitAny && !declarationBelongsToPrivateAmbientMember(declaration)) {
+                const inferredType = tryKindOfHard(declaration);
+                if (inferredType) {
+                    return inferredType;
                 }
+                reportImplicitAnyError(declaration, type);
             }
             return type;
         }
+
+        function tryKindOfHard(declaration: any): Type | undefined {
+            // TODO:
+            // 1. variables with no informative usages should (arguably) create unconstrained type parameters instead of failing
+            if (!(isParameter(declaration) && isIdentifier(declaration.name) && isApplicableFunctionForInference(declaration.parent) && declaration.parent.body)) {
+                return;
+            }
+            const uses: Identifier[] = [];
+            const name = declaration.name.escapedText;
+            const walk = function(node: Node): void {
+                switch (node.kind) {
+                    case SyntaxKind.Identifier:
+                        // TODO: This walk needs to be replaced by a text search, one that looks for all parameters and builds a map: decl->uses
+                        if ((node as Identifier).escapedText === name && resolveName(node, name, SymbolFlags.Value, undefined, name, /*isUse*/ true)) {
+                            uses.push(node as Identifier);
+                        }
+                        return;
+                    default:
+                        return forEachChild(node, walk);
+                }
+            }
+            forEachChild(declaration.parent.body, walk);
+            return inferTypeFromReferences(uses as ReadonlyArray<Identifier>);
+        }
+
+        function isApplicableFunctionForInference(declaration: SignatureDeclaration):
+            declaration is MethodDeclaration | FunctionDeclaration | ConstructorDeclaration | FunctionExpression | ArrowFunction{
+            switch (declaration.kind) {
+                case SyntaxKind.FunctionDeclaration:
+                case SyntaxKind.MethodDeclaration:
+                case SyntaxKind.Constructor:
+                case SyntaxKind.FunctionExpression:
+                case SyntaxKind.ArrowFunction:
+                    return true;
+            }
+            return false;
+        }
+
+        interface CallContext {
+            argumentTypes: Type[];
+            returnType: UsageContext;
+        }
+
+        interface UsageContext {
+            isNumber?: boolean;
+            isString?: boolean;
+            isNumberOrString?: boolean;
+            candidateTypes?: Type[];
+            properties?: UnderscoreEscapedMap<UsageContext>;
+            callContexts?: CallContext[];
+            constructContexts?: CallContext[];
+            numberIndexContext?: UsageContext;
+            stringIndexContext?: UsageContext;
+        }
+
+        function inferTypeFromReferences(references: ReadonlyArray<Identifier>): Type | undefined {
+            const usageContext: UsageContext = {};
+            for (const reference of references) {
+                inferTypeFromContext(reference, usageContext);
+            }
+            return getTypeFromUsageContext(usageContext);
+        }
+
+        function inferTypeFromContext(node: Expression, usageContext: UsageContext): void {
+            while (isRightSideOfQualifiedNameOrPropertyAccess(node)) {
+                node = <Expression>node.parent;
+            }
+
+            switch (node.parent.kind) {
+                case SyntaxKind.PostfixUnaryExpression:
+                    usageContext.isNumber = true;
+                    break;
+                case SyntaxKind.PrefixUnaryExpression:
+                    inferTypeFromPrefixUnaryExpressionContext(<PrefixUnaryExpression>node.parent, usageContext);
+                    break;
+                case SyntaxKind.BinaryExpression:
+                    inferTypeFromBinaryExpressionContext(node, <BinaryExpression>node.parent, usageContext);
+                    break;
+                case SyntaxKind.CaseClause:
+                case SyntaxKind.DefaultClause:
+                    inferTypeFromSwitchStatementLabelContext(<CaseOrDefaultClause>node.parent, usageContext);
+                    break;
+                case SyntaxKind.CallExpression:
+                case SyntaxKind.NewExpression:
+                    if ((<CallExpression | NewExpression>node.parent).expression === node) {
+                        inferTypeFromCallExpressionContext(<CallExpression | NewExpression>node.parent, usageContext);
+                    }
+                    else {
+                        inferTypeFromContextualType(node, usageContext);
+                    }
+                    break;
+                case SyntaxKind.PropertyAccessExpression:
+                    inferTypeFromPropertyAccessExpressionContext(<PropertyAccessExpression>node.parent, usageContext);
+                    break;
+                case SyntaxKind.ElementAccessExpression:
+                    inferTypeFromPropertyElementExpressionContext(<ElementAccessExpression>node.parent, node, usageContext);
+                    break;
+                case SyntaxKind.VariableDeclaration: {
+                    const { name, initializer } = node.parent as VariableDeclaration;
+                    if (node === name) {
+                        if (initializer) { // This can happen for `let x = null;` which still has an implicit-any error.
+                            addCandidateType(usageContext, getTypeOfNode(initializer));
+                        }
+                        break;
+                    }
+                }
+                    // falls through
+                default:
+                    return inferTypeFromContextualType(node, usageContext);
+            }
+        }
+
+        function inferTypeFromContextualType(node: Expression, usageContext: UsageContext): void {
+            if (isExpressionNode(node)) {
+                addCandidateType(usageContext, getContextualType(node));
+            }
+        }
+
+        function inferTypeFromPrefixUnaryExpressionContext(node: PrefixUnaryExpression, usageContext: UsageContext): void {
+            switch (node.operator) {
+                case SyntaxKind.PlusPlusToken:
+                case SyntaxKind.MinusMinusToken:
+                case SyntaxKind.MinusToken:
+                case SyntaxKind.TildeToken:
+                    usageContext.isNumber = true;
+                    break;
+
+                case SyntaxKind.PlusToken:
+                    usageContext.isNumberOrString = true;
+                    break;
+
+                // case SyntaxKind.ExclamationToken:
+                // no inferences here;
+            }
+        }
+
+        function inferTypeFromBinaryExpressionContext(node: Expression, parent: BinaryExpression, usageContext: UsageContext): void {
+            switch (parent.operatorToken.kind) {
+                // ExponentiationOperator
+                case SyntaxKind.AsteriskAsteriskToken:
+
+                // MultiplicativeOperator
+                case SyntaxKind.AsteriskToken:
+                case SyntaxKind.SlashToken:
+                case SyntaxKind.PercentToken:
+
+                // ShiftOperator
+                case SyntaxKind.LessThanLessThanToken:
+                case SyntaxKind.GreaterThanGreaterThanToken:
+                case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+
+                // BitwiseOperator
+                case SyntaxKind.AmpersandToken:
+                case SyntaxKind.BarToken:
+                case SyntaxKind.CaretToken:
+
+                // CompoundAssignmentOperator
+                case SyntaxKind.MinusEqualsToken:
+                case SyntaxKind.AsteriskAsteriskEqualsToken:
+                case SyntaxKind.AsteriskEqualsToken:
+                case SyntaxKind.SlashEqualsToken:
+                case SyntaxKind.PercentEqualsToken:
+                case SyntaxKind.AmpersandEqualsToken:
+                case SyntaxKind.BarEqualsToken:
+                case SyntaxKind.CaretEqualsToken:
+                case SyntaxKind.LessThanLessThanEqualsToken:
+                case SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken:
+                case SyntaxKind.GreaterThanGreaterThanEqualsToken:
+
+                // AdditiveOperator
+                case SyntaxKind.MinusToken:
+
+                // RelationalOperator
+                case SyntaxKind.LessThanToken:
+                case SyntaxKind.LessThanEqualsToken:
+                case SyntaxKind.GreaterThanToken:
+                case SyntaxKind.GreaterThanEqualsToken:
+                    const operandType = getTypeOfNode(parent.left === node ? parent.right : parent.left);
+                    if (operandType.flags & TypeFlags.EnumLike) {
+                        addCandidateType(usageContext, operandType);
+                    }
+                    else {
+                        usageContext.isNumber = true;
+                    }
+                    break;
+
+                case SyntaxKind.PlusEqualsToken:
+                case SyntaxKind.PlusToken:
+                    const otherOperandType = getTypeOfNode(parent.left === node ? parent.right : parent.left);
+                    if (otherOperandType.flags & TypeFlags.EnumLike) {
+                        addCandidateType(usageContext, otherOperandType);
+                    }
+                    else if (otherOperandType.flags & TypeFlags.NumberLike) {
+                        usageContext.isNumber = true;
+                    }
+                    else if (otherOperandType.flags & TypeFlags.StringLike) {
+                        usageContext.isString = true;
+                    }
+                    else {
+                        usageContext.isNumberOrString = true;
+                    }
+                    break;
+
+                //  AssignmentOperators
+                case SyntaxKind.EqualsToken:
+                case SyntaxKind.EqualsEqualsToken:
+                case SyntaxKind.EqualsEqualsEqualsToken:
+                case SyntaxKind.ExclamationEqualsEqualsToken:
+                case SyntaxKind.ExclamationEqualsToken:
+                    addCandidateType(usageContext, getTypeOfNode(parent.left === node ? parent.right : parent.left));
+                    break;
+
+                case SyntaxKind.InKeyword:
+                    if (node === parent.left) {
+                        usageContext.isString = true;
+                    }
+                    break;
+
+                // LogicalOperator
+                case SyntaxKind.BarBarToken:
+                    if (node === parent.left &&
+                        (node.parent.parent.kind === SyntaxKind.VariableDeclaration || isAssignmentExpression(node.parent.parent, /*excludeCompoundAssignment*/ true))) {
+                        // var x = x || {};
+                        // TODO: use getFalsyflagsOfType
+                        addCandidateType(usageContext, getTypeOfNode(parent.right));
+                    }
+                    break;
+
+                case SyntaxKind.AmpersandAmpersandToken:
+                case SyntaxKind.CommaToken:
+                case SyntaxKind.InstanceOfKeyword:
+                    // nothing to infer here
+                    break;
+            }
+        }
+
+        function inferTypeFromSwitchStatementLabelContext(parent: CaseOrDefaultClause, usageContext: UsageContext): void {
+            addCandidateType(usageContext, getTypeOfNode(parent.parent.parent.expression));
+        }
+
+        function inferTypeFromCallExpressionContext(parent: CallExpression | NewExpression, usageContext: UsageContext): void {
+            const callContext: CallContext = {
+                argumentTypes: [],
+                returnType: {}
+            };
+
+            if (parent.arguments) {
+                for (const argument of parent.arguments) {
+                    callContext.argumentTypes.push(getTypeOfNode(argument));
+                }
+            }
+
+            inferTypeFromContext(parent, callContext.returnType);
+            if (parent.kind === SyntaxKind.CallExpression) {
+                (usageContext.callContexts || (usageContext.callContexts = [])).push(callContext);
+            }
+            else {
+                (usageContext.constructContexts || (usageContext.constructContexts = [])).push(callContext);
+            }
+        }
+
+        function inferTypeFromPropertyAccessExpressionContext(parent: PropertyAccessExpression, usageContext: UsageContext): void {
+            const name = parent.name.escapedText;
+            if (!usageContext.properties) {
+                usageContext.properties = createUnderscoreEscapedMap<UsageContext>();
+            }
+            const propertyUsageContext = usageContext.properties.get(name) || { };
+            inferTypeFromContext(parent, propertyUsageContext);
+            usageContext.properties.set(name, propertyUsageContext);
+        }
+
+        function inferTypeFromPropertyElementExpressionContext(parent: ElementAccessExpression, node: Expression, usageContext: UsageContext): void {
+            if (node === parent.argumentExpression) {
+                usageContext.isNumberOrString = true;
+                return;
+            }
+            else {
+                const indexType = getTypeOfNode(parent);
+                const indexUsageContext = {};
+                inferTypeFromContext(parent, indexUsageContext);
+                if (indexType.flags & TypeFlags.NumberLike) {
+                    usageContext.numberIndexContext = indexUsageContext;
+                }
+                else {
+                    usageContext.stringIndexContext = indexUsageContext;
+                }
+            }
+        }
+
+        function getTypeFromUsageContext(usageContext: UsageContext): Type | undefined {
+            if (usageContext.isNumberOrString && !usageContext.isNumber && !usageContext.isString) {
+                return getUnionType([numberType, stringType]);
+            }
+            else if (usageContext.isNumber) {
+                return numberType;
+            }
+            else if (usageContext.isString) {
+                return stringType;
+            }
+            else if (usageContext.candidateTypes) {
+                return getWidenedType(getUnionType(usageContext.candidateTypes.map(t => getBaseTypeOfLiteralType(t)), UnionReduction.Subtype));
+            }
+            else if (usageContext.properties && hasCallContext(usageContext.properties.get("then" as __String))) {
+                const paramType = getParameterTypeFromCallContexts(0, usageContext.properties.get("then" as __String)!.callContexts!, /*isRestParameter*/ false)!; // TODO: GH#18217
+                const types = getSignaturesOfType(paramType, SignatureKind.Call).map(getReturnTypeOfSignature);
+                return createPromiseType(types.length ? getUnionType(types, UnionReduction.Subtype) : anyType);
+            }
+            else if (usageContext.properties && hasCallContext(usageContext.properties.get("push" as __String))) {
+                return createArrayType(getParameterTypeFromCallContexts(0, usageContext.properties.get("push" as __String)!.callContexts!, /*isRestParameter*/ false)!);
+            }
+            else if (usageContext.properties || usageContext.callContexts || usageContext.constructContexts || usageContext.numberIndexContext || usageContext.stringIndexContext) {
+                const members = createUnderscoreEscapedMap<Symbol>();
+                const callSignatures: Signature[] = [];
+                const constructSignatures: Signature[] = [];
+                let stringIndexInfo: IndexInfo | undefined;
+                let numberIndexInfo: IndexInfo | undefined;
+
+                if (usageContext.properties) {
+                    usageContext.properties.forEach((context, name) => {
+                        const symbol = createSymbol(SymbolFlags.Property, name);
+                        symbol.type = getTypeFromUsageContext(context) || anyType;
+                        members.set(name, symbol);
+                    });
+                }
+
+                if (usageContext.callContexts) {
+                    for (const callContext of usageContext.callContexts) {
+                        callSignatures.push(getSignatureFromCallContext(callContext));
+                    }
+                }
+
+                if (usageContext.constructContexts) {
+                    for (const constructContext of usageContext.constructContexts) {
+                        constructSignatures.push(getSignatureFromCallContext(constructContext));
+                    }
+                }
+
+                if (usageContext.numberIndexContext) {
+                    numberIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext)!, /*isReadonly*/ false); // TODO: GH#18217
+                }
+
+                if (usageContext.stringIndexContext) {
+                    stringIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext)!, /*isReadonly*/ false);
+                }
+
+                return createAnonymousType(/*symbol*/ undefined!, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo); // TODO: GH#18217
+            }
+            else {
+                return undefined;
+            }
+        }
+
+        function getParameterTypeFromCallContexts(parameterIndex: number, callContexts: CallContext[], isRestParameter: boolean) {
+            let types: Type[] = [];
+            if (callContexts) {
+                for (const callContext of callContexts) {
+                    if (callContext.argumentTypes.length > parameterIndex) {
+                        if (isRestParameter) {
+                            types = concatenate(types, map(callContext.argumentTypes.slice(parameterIndex), getBaseTypeOfLiteralType));
+                        }
+                        else {
+                            types.push(getBaseTypeOfLiteralType(callContext.argumentTypes[parameterIndex]));
+                        }
+                    }
+                }
+            }
+
+            if (types.length) {
+                const type = getWidenedType(getUnionType(types, UnionReduction.Subtype));
+                return isRestParameter ? createArrayType(type) : type;
+            }
+            return undefined;
+        }
+
+        function getSignatureFromCallContext(callContext: CallContext): Signature {
+            const parameters: Symbol[] = [];
+            for (let i = 0; i < callContext.argumentTypes.length; i++) {
+                const symbol = createSymbol(SymbolFlags.FunctionScopedVariable, escapeLeadingUnderscores(`arg${i}`));
+                symbol.type = getWidenedType(getBaseTypeOfLiteralType(callContext.argumentTypes[i]));
+                parameters.push(symbol);
+            }
+            const returnType = getTypeFromUsageContext(callContext.returnType) || voidType;
+            // TODO: GH#18217
+            return createSignature(/*declaration*/ undefined!, /*typeParameters*/ undefined, /*thisParameter*/ undefined, parameters, returnType, /*typePredicate*/ undefined, callContext.argumentTypes.length, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
+        }
+
+        function addCandidateType(context: UsageContext, type: Type | undefined) {
+            if (type && !(type.flags & TypeFlags.Any) && !(type.flags & TypeFlags.Never)) {
+                (context.candidateTypes || (context.candidateTypes = [])).push(type);
+            }
+        }
+
+        function hasCallContext(usageContext: UsageContext | undefined): boolean {
+            return !!usageContext && !!usageContext.callContexts;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
 
         function declarationBelongsToPrivateAmbientMember(declaration: VariableLikeDeclaration) {
             const root = getRootDeclaration(declaration);
