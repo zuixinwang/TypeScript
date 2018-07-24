@@ -50,6 +50,7 @@ namespace ts {
         const Signature = objectAllocator.getSignatureConstructor();
         // tslint:enable variable-name
 
+        let tryingHard = false; // not even trying
         let typeCount = 0;
         let symbolCount = 0;
         let enumCount = 0;
@@ -4334,10 +4335,12 @@ namespace ts {
         function pushTypeResolution(target: TypeSystemEntity, propertyName: TypeSystemPropertyName): boolean {
             const resolutionCycleStartIndex = findResolutionCycleStartIndex(target, propertyName);
             if (resolutionCycleStartIndex >= 0) {
-                // A cycle was found
-                const { length } = resolutionTargets;
-                for (let i = resolutionCycleStartIndex; i < length; i++) {
-                    resolutionResults[i] = false;
+                // A cycle was found, so invalidate upstream results if we are in normal checking (not tryhard typing)
+                if (!tryingHard) {
+                    const { length } = resolutionTargets;
+                    for (let i = resolutionCycleStartIndex; i < length; i++) {
+                        resolutionResults[i] = false;
+                    }
                 }
                 return false;
             }
@@ -4952,7 +4955,10 @@ namespace ts {
 
             // Report implicit any errors unless this is a private property within an ambient declaration
             if (reportErrors && noImplicitAny && !declarationBelongsToPrivateAmbientMember(declaration)) {
+                const saveTryingHard = tryingHard;
+                tryingHard = true;
                 const inferredType = tryKindOfHard(declaration);
+                tryingHard = saveTryingHard;
                 if (inferredType) {
                     return inferredType;
                 }
@@ -5220,7 +5226,7 @@ namespace ts {
 
             if (parent.arguments) {
                 for (const argument of parent.arguments) {
-                    callContext.argumentTypes.push(getTypeOfNode(argument)); // TODO: Get rid of usages of getTypeOfNode
+                    callContext.argumentTypes.push(getTypeOfExpression(argument));
                 }
             }
 
