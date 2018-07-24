@@ -5025,7 +5025,7 @@ namespace ts {
 
         function inferTypeFromContext(node: Expression, usageContext: UsageContext): void {
             while (isRightSideOfQualifiedNameOrPropertyAccess(node)) {
-                node = <Expression>node.parent;
+                node = node.parent as Expression;
             }
 
             switch (node.parent.kind) {
@@ -5033,29 +5033,24 @@ namespace ts {
                     usageContext.isNumber = true;
                     break;
                 case SyntaxKind.PrefixUnaryExpression:
-                    inferTypeFromPrefixUnaryExpressionContext(<PrefixUnaryExpression>node.parent, usageContext);
+                    inferTypeFromPrefixUnaryExpressionContext(node.parent as PrefixUnaryExpression, usageContext);
                     break;
                 case SyntaxKind.BinaryExpression:
-                    inferTypeFromBinaryExpressionContext(node, <BinaryExpression>node.parent, usageContext);
+                    inferTypeFromBinaryExpressionContext(node, node.parent as BinaryExpression, usageContext);
                     break;
                 case SyntaxKind.CaseClause:
                 case SyntaxKind.DefaultClause:
-                    inferTypeFromSwitchStatementLabelContext(<CaseOrDefaultClause>node.parent, usageContext);
+                    inferTypeFromSwitchStatementLabelContext(node.parent as CaseOrDefaultClause, usageContext);
                     break;
                 case SyntaxKind.CallExpression:
                 case SyntaxKind.NewExpression:
-                    if ((<CallExpression | NewExpression>node.parent).expression === node) {
-                        inferTypeFromCallExpressionContext(<CallExpression | NewExpression>node.parent, usageContext);
-                    }
-                    else {
-                        inferTypeFromContextualType(node, usageContext);
-                    }
+                    inferTypeFromCallExpression((node.parent as CallExpression | NewExpression), (node as Expression), usageContext);
                     break;
                 case SyntaxKind.PropertyAccessExpression:
-                    inferTypeFromPropertyAccessExpressionContext(<PropertyAccessExpression>node.parent, usageContext);
+                    inferTypeFromPropertyAccessExpressionContext(node.parent as PropertyAccessExpression, usageContext);
                     break;
                 case SyntaxKind.ElementAccessExpression:
-                    inferTypeFromPropertyElementExpressionContext(<ElementAccessExpression>node.parent, node, usageContext);
+                    inferTypeFromPropertyElementExpressionContext(node.parent as ElementAccessExpression, node, usageContext);
                     break;
                 case SyntaxKind.VariableDeclaration: {
                     const { name, initializer } = node.parent as VariableDeclaration;
@@ -5200,6 +5195,23 @@ namespace ts {
             addCandidateType(usageContext, getTypeOfNode(parent.parent.parent.expression));
         }
 
+        function inferTypeFromCallExpression(parent: CallExpression | NewExpression, node: Expression, usageContext: UsageContext): void {
+            if (parent.expression === node) {
+                inferTypeFromCallExpressionContext((node.parent as CallExpression | NewExpression), usageContext);
+            }
+            else {
+                if (parent.arguments) {
+                    const i = parent.arguments.indexOf(node);
+                    if (i > -1) {
+                        inferTypeFromArgumentContext(parent, i, usageContext);
+                    }
+                }
+                else {
+                    inferTypeFromContextualType(node, usageContext); // pretty sure that the resulting call to resolveCall tries to get the type of x (while getting the type of x). Instead I should just do the non-resolveCall parts? Maybe a simplified non-overload-aware version?
+                }
+            }
+        }
+
         function inferTypeFromCallExpressionContext(parent: CallExpression | NewExpression, usageContext: UsageContext): void {
             const callContext: CallContext = {
                 argumentTypes: [],
@@ -5208,7 +5220,7 @@ namespace ts {
 
             if (parent.arguments) {
                 for (const argument of parent.arguments) {
-                    callContext.argumentTypes.push(getTypeOfNode(argument));
+                    callContext.argumentTypes.push(getTypeOfNode(argument)); // TODO: Get rid of usages of getTypeOfNode
                 }
             }
 
@@ -5218,6 +5230,13 @@ namespace ts {
             }
             else {
                 (usageContext.constructContexts || (usageContext.constructContexts = [])).push(callContext);
+            }
+        }
+
+        function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, usageContext: UsageContext): void {
+            const sigs = getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct)
+            if (sigs.length === 1 && !sigs[0].typeParameters && hasCorrectArity(parent, parent.arguments!, sigs[0])) {
+                addCandidateType(usageContext, getTypeOfSymbol(sigs[0].parameters[i]));
             }
         }
 
