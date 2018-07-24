@@ -21,12 +21,12 @@ verify.codeFixAll({
     fixId: "inferFromUsage",
     fixAllDescription: "Infer all types from usage",
     newFileContent:
-`function f(x: number, y: string) {
+`function f(x, y) {
     x += 0;
     y += "";
 }
 
-function g(z: number) {
+function g(z) {
     return z * 2;
 }
 
