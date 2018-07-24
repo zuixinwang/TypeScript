@@ -35,25 +35,25 @@ function getFoo1(): Foo {
 >class {        static method1(arg) {            arg.numProp = 10;        }        static method2(arg) {            arg.strProp = "hello";        }    } : typeof (Anonymous class)
 
         static method1(arg) {
->method1 : (arg: any) => void
->arg : any
+>method1 : (arg: { numProp: number; }) => void
+>arg : { numProp: number; }
 
             arg.numProp = 10;
 >arg.numProp = 10 : 10
->arg.numProp : any
->arg : any
->numProp : any
+>arg.numProp : number
+>arg : { numProp: number; }
+>numProp : number
 >10 : 10
         }
         static method2(arg) {
->method2 : (arg: any) => void
->arg : any
+>method2 : (arg: { strProp: string; }) => void
+>arg : { strProp: string; }
 
             arg.strProp = "hello";
 >arg.strProp = "hello" : "hello"
->arg.strProp : any
->arg : any
->strProp : any
+>arg.strProp : string
+>arg : { strProp: string; }
+>strProp : string
 >"hello" : "hello"
         }
     }
@@ -67,27 +67,27 @@ function getFoo2(): Foo {
 >class {        static method1 = (arg) => {            arg.numProp = 10;        }        static method2 = (arg) => {            arg.strProp = "hello";        }    } : typeof (Anonymous class)
 
         static method1 = (arg) => {
->method1 : (arg: any) => void
->(arg) => {            arg.numProp = 10;        } : (arg: any) => void
->arg : any
+>method1 : (arg: { numProp: number; }) => void
+>(arg) => {            arg.numProp = 10;        } : (arg: { numProp: number; }) => void
+>arg : { numProp: number; }
 
             arg.numProp = 10;
 >arg.numProp = 10 : 10
->arg.numProp : any
->arg : any
->numProp : any
+>arg.numProp : number
+>arg : { numProp: number; }
+>numProp : number
 >10 : 10
         }
         static method2 = (arg) => {
->method2 : (arg: any) => void
->(arg) => {            arg.strProp = "hello";        } : (arg: any) => void
->arg : any
+>method2 : (arg: { strProp: string; }) => void
+>(arg) => {            arg.strProp = "hello";        } : (arg: { strProp: string; }) => void
+>arg : { strProp: string; }
 
             arg.strProp = "hello";
 >arg.strProp = "hello" : "hello"
->arg.strProp : any
->arg : any
->strProp : any
+>arg.strProp : string
+>arg : { strProp: string; }
+>strProp : string
 >"hello" : "hello"
         }
     }
@@ -101,27 +101,27 @@ function getFoo3(): Foo {
 >class {        static method1 = function (arg) {            arg.numProp = 10;        }        static method2 = function (arg) {            arg.strProp = "hello";        }    } : typeof (Anonymous class)
 
         static method1 = function (arg) {
->method1 : (arg: any) => void
->function (arg) {            arg.numProp = 10;        } : (arg: any) => void
->arg : any
+>method1 : (arg: { numProp: number; }) => void
+>function (arg) {            arg.numProp = 10;        } : (arg: { numProp: number; }) => void
+>arg : { numProp: number; }
 
             arg.numProp = 10;
 >arg.numProp = 10 : 10
->arg.numProp : any
->arg : any
->numProp : any
+>arg.numProp : number
+>arg : { numProp: number; }
+>numProp : number
 >10 : 10
         }
         static method2 = function (arg) {
->method2 : (arg: any) => void
->function (arg) {            arg.strProp = "hello";        } : (arg: any) => void
->arg : any
+>method2 : (arg: { strProp: string; }) => void
+>function (arg) {            arg.strProp = "hello";        } : (arg: { strProp: string; }) => void
+>arg : { strProp: string; }
 
             arg.strProp = "hello";
 >arg.strProp = "hello" : "hello"
->arg.strProp : any
->arg : any
->strProp : any
+>arg.strProp : string
+>arg : { strProp: string; }
+>strProp : string
 >"hello" : "hello"
         }
     }

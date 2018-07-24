@@ -23,7 +23,9 @@ someFunction(function(BaseClass) {
 
             const message = error.message || DEFAULT_MESSAGE;
 >message : Symbol(message, Decl(weird.js, 9, 17))
+>error.message : Symbol(message)
 >error : Symbol(error, Decl(weird.js, 8, 16))
+>message : Symbol(message)
 >DEFAULT_MESSAGE : Symbol(DEFAULT_MESSAGE, Decl(weird.js, 2, 9))
         }
     }

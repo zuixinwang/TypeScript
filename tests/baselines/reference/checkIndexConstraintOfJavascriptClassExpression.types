@@ -29,15 +29,15 @@ someFunction(function(BaseClass) {
 >"bar" : "bar"
         }
         _render(error) {
->_render : (error: any) => void
->error : any
+>_render : (error: { message: string; }) => void
+>error : { message: string; }
 
             const message = error.message || DEFAULT_MESSAGE;
->message : any
->error.message || DEFAULT_MESSAGE : any
->error.message : any
->error : any
->message : any
+>message : string
+>error.message || DEFAULT_MESSAGE : string
+>error.message : string
+>error : { message: string; }
+>message : string
 >DEFAULT_MESSAGE : "nop!"
         }
     }

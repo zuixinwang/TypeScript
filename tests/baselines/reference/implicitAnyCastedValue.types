@@ -131,18 +131,18 @@ function multipleRets1(x) {    // this should not be an error
 }
 
 function multipleRets2(x) {    // this should not be an error
->multipleRets2 : (x: any) => any
->x : any
+>multipleRets2 : (x: number) => any
+>x : number
 
     if (x) {
->x : any
+>x : number
 
         return null;
 >null : null
     }
     else if (x == 1) {
 >x == 1 : boolean
->x : any
+>x : number
 >1 : 1
 
         return <any>0;

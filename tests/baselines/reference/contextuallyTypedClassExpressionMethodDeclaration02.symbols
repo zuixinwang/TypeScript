@@ -44,14 +44,18 @@ function getFoo1(): Foo {
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 19, 16))
 
             arg.numProp = 10;
+>arg.numProp : Symbol(numProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 19, 16))
+>numProp : Symbol(numProp)
         }
         method2(arg) {
 >method2 : Symbol((Anonymous class).method2, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 21, 9))
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 22, 16))
 
             arg.strProp = "hello";
+>arg.strProp : Symbol(strProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 22, 16))
+>strProp : Symbol(strProp)
         }
     }
 }
@@ -66,14 +70,18 @@ function getFoo2(): Foo {
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 30, 19))
 
             arg.numProp = 10;
+>arg.numProp : Symbol(numProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 30, 19))
+>numProp : Symbol(numProp)
         }
         method2 = (arg) => {
 >method2 : Symbol((Anonymous class).method2, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 32, 9))
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 33, 19))
 
             arg.strProp = "hello";
+>arg.strProp : Symbol(strProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 33, 19))
+>strProp : Symbol(strProp)
         }
     }
 }
@@ -88,14 +96,18 @@ function getFoo3(): Foo {
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 41, 28))
 
             arg.numProp = 10;
+>arg.numProp : Symbol(numProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 41, 28))
+>numProp : Symbol(numProp)
         }
         method2 = function (arg) {
 >method2 : Symbol((Anonymous class).method2, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 43, 9))
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 44, 28))
 
             arg.strProp = "hello";
+>arg.strProp : Symbol(strProp)
 >arg : Symbol(arg, Decl(contextuallyTypedClassExpressionMethodDeclaration02.ts, 44, 28))
+>strProp : Symbol(strProp)
         }
     }
 }
