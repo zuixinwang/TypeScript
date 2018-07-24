@@ -5,4 +5,5 @@
 ////    b();
 ////}
 
-verify.rangeAfterCodeFix("b: () => void");
+// Handled by try-harder-typing
+// verify.rangeAfterCodeFix("b: () => void");

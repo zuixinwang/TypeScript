@@ -5,4 +5,5 @@
 ////    if (a < 9) return;
 ////}
 
-verify.rangeAfterCodeFix("a?: number");
+// Handled by try-harder-typing
+// verify.rangeAfterCodeFix("a?: number");

@@ -6,4 +6,5 @@
 ////    rest.push(22);
 ////}
 
-verify.rangeAfterCodeFix("...rest: number[]");
+// Handled by try-harder-typing
+// verify.rangeAfterCodeFix("...rest: number[]");
