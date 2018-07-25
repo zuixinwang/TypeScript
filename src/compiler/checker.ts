@@ -4957,7 +4957,9 @@ namespace ts {
             if (reportErrors && noImplicitAny && !declarationBelongsToPrivateAmbientMember(declaration)) {
                 const saveTryingHard = tryingHard;
                 tryingHard = true;
-                const inferredType = tryKindOfHard(declaration);
+                // tryingHard = false;
+                // if (tryingHard)
+                var inferredType = tryKindOfHard(declaration);
                 tryingHard = saveTryingHard;
                 if (inferredType) {
                     return inferredType;
@@ -4983,6 +4985,17 @@ namespace ts {
                             uses.push(node as Identifier);
                         }
                         return;
+                    case SyntaxKind.FunctionDeclaration:
+                    case SyntaxKind.FunctionExpression:
+                    case SyntaxKind.ArrowFunction:
+                    case SyntaxKind.MethodDeclaration:
+                    case SyntaxKind.Constructor:
+                        if ((node as FunctionLike).parameters.every(p => !isIdentifier(p) || p.escapedText !== name)) {
+                            return forEachChild(node, walk);
+                        }
+                        else {
+                            return;
+                        }
                     default:
                         return forEachChild(node, walk);
                 }
@@ -5242,7 +5255,7 @@ namespace ts {
         function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, usageContext: UsageContext): void {
             const sigs = getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct)
             if (sigs.length === 1 && !sigs[0].typeParameters && hasCorrectArity(parent, parent.arguments!, sigs[0])) {
-                addCandidateType(usageContext, getTypeOfSymbol(sigs[0].parameters[i]));
+                addCandidateType(usageContext, getTypeAtPosition(sigs[0], i));
             }
         }
 
@@ -5262,7 +5275,7 @@ namespace ts {
                 return;
             }
             else {
-                const indexType = getTypeOfNode(parent);
+                const indexType = getTypeOfNode(parent.argumentExpression);
                 const indexUsageContext = {};
                 inferTypeFromContext(parent, indexUsageContext);
                 if (indexType.flags & TypeFlags.NumberLike) {
@@ -5323,14 +5336,14 @@ namespace ts {
                 }
 
                 if (usageContext.numberIndexContext) {
-                    numberIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext)!, /*isReadonly*/ false); // TODO: GH#18217
+                    numberIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext) || anyType, /*isReadonly*/ false);
                 }
 
                 if (usageContext.stringIndexContext) {
-                    stringIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext)!, /*isReadonly*/ false);
+                    stringIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext) || anyType, /*isReadonly*/ false);
                 }
 
-                return createAnonymousType(/*symbol*/ undefined!, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo); // TODO: GH#18217
+                return createAnonymousType(/*symbol*/ undefined, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo);
             }
             else {
                 return undefined;

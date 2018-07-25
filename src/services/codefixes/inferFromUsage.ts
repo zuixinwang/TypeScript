@@ -562,11 +562,11 @@ namespace ts.codefix {
                 }
 
                 if (usageContext.numberIndexContext) {
-                    numberIndexInfo = checker.createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext, checker)!, /*isReadonly*/ false); // TODO: GH#18217
+                    numberIndexInfo = checker.createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext, checker) || checker.getAnyType(), /*isReadonly*/ false);
                 }
 
                 if (usageContext.stringIndexContext) {
-                    stringIndexInfo = checker.createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext, checker)!, /*isReadonly*/ false);
+                    stringIndexInfo = checker.createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext, checker) || checker.getAnyType(), /*isReadonly*/ false);
                 }
 
                 return checker.createAnonymousType(/*symbol*/ undefined!, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo); // TODO: GH#18217
