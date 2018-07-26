@@ -5042,67 +5042,67 @@ namespace ts {
             return getTypeFromUsageContext(usageContext);
         }
 
-        function inferTypeFromContext(node: Expression, usageContext: UsageContext): void {
+        function inferTypeFromContext(node: Expression, k: UsageContext): void {
             while (isRightSideOfQualifiedNameOrPropertyAccess(node)) {
                 node = node.parent as Expression;
             }
 
             switch (node.parent.kind) {
                 case SyntaxKind.PostfixUnaryExpression:
-                    usageContext.isNumber = true;
+                    k.isNumber = true;
                     break;
                 case SyntaxKind.PrefixUnaryExpression:
-                    inferTypeFromPrefixUnaryExpressionContext(node.parent as PrefixUnaryExpression, usageContext);
+                    inferTypeFromPrefixUnaryExpressionContext(node.parent as PrefixUnaryExpression, k);
                     break;
                 case SyntaxKind.BinaryExpression:
-                    inferTypeFromBinaryExpressionContext(node, node.parent as BinaryExpression, usageContext);
+                    inferTypeFromBinaryExpressionContext(node, node.parent as BinaryExpression, k);
                     break;
                 case SyntaxKind.CaseClause:
                 case SyntaxKind.DefaultClause:
-                    inferTypeFromSwitchStatementLabelContext(node.parent as CaseOrDefaultClause, usageContext);
+                    inferTypeFromSwitchStatementLabelContext(node.parent as CaseOrDefaultClause, k);
                     break;
                 case SyntaxKind.CallExpression:
                 case SyntaxKind.NewExpression:
-                    inferTypeFromCallExpression((node.parent as CallExpression | NewExpression), (node as Expression), usageContext);
+                    inferTypeFromCallExpression((node.parent as CallExpression | NewExpression), (node as Expression), k);
                     break;
                 case SyntaxKind.PropertyAccessExpression:
-                    inferTypeFromPropertyAccessExpressionContext(node.parent as PropertyAccessExpression, usageContext);
+                    inferTypeFromPropertyAccessExpressionContext(node.parent as PropertyAccessExpression, k);
                     break;
                 case SyntaxKind.ElementAccessExpression:
-                    inferTypeFromPropertyElementExpressionContext(node.parent as ElementAccessExpression, node, usageContext);
+                    inferTypeFromPropertyElementExpressionContext(node.parent as ElementAccessExpression, node, k);
                     break;
                 case SyntaxKind.VariableDeclaration: {
                     const { name, initializer } = node.parent as VariableDeclaration;
                     if (node === name) {
                         if (initializer) { // This can happen for `let x = null;` which still has an implicit-any error.
-                            addCandidateType(usageContext, getTypeOfNode(initializer));
+                            addCandidateType(k, getTypeOfExpression(initializer));
                         }
                         break;
                     }
                 }
                     // falls through
                 default:
-                    return inferTypeFromContextualType(node, usageContext);
+                    return inferTypeFromContextualType(node, k);
             }
         }
 
-        function inferTypeFromContextualType(node: Expression, usageContext: UsageContext): void {
+        function inferTypeFromContextualType(node: Expression, k: UsageContext): void {
             if (isExpressionNode(node)) {
-                addCandidateType(usageContext, getContextualType(node));
+                addCandidateType(k, getContextualType(node));
             }
         }
 
-        function inferTypeFromPrefixUnaryExpressionContext(node: PrefixUnaryExpression, usageContext: UsageContext): void {
+        function inferTypeFromPrefixUnaryExpressionContext(node: PrefixUnaryExpression, k: UsageContext): void {
             switch (node.operator) {
                 case SyntaxKind.PlusPlusToken:
                 case SyntaxKind.MinusMinusToken:
                 case SyntaxKind.MinusToken:
                 case SyntaxKind.TildeToken:
-                    usageContext.isNumber = true;
+                    k.isNumber = true;
                     break;
 
                 case SyntaxKind.PlusToken:
-                    usageContext.isNumberOrString = true;
+                    k.isNumberOrString = true;
                     break;
 
                 // case SyntaxKind.ExclamationToken:
@@ -5110,7 +5110,7 @@ namespace ts {
             }
         }
 
-        function inferTypeFromBinaryExpressionContext(node: Expression, parent: BinaryExpression, usageContext: UsageContext): void {
+        function inferTypeFromBinaryExpressionContext(node: Expression, parent: BinaryExpression, k: UsageContext): void {
             switch (parent.operatorToken.kind) {
                 // ExponentiationOperator
                 case SyntaxKind.AsteriskAsteriskToken:
@@ -5151,29 +5151,31 @@ namespace ts {
                 case SyntaxKind.LessThanEqualsToken:
                 case SyntaxKind.GreaterThanToken:
                 case SyntaxKind.GreaterThanEqualsToken:
-                    const operandType = getTypeOfNode(parent.left === node ? parent.right : parent.left);
+                    const operandType = getTypeOfExpression(parent.left === node ? parent.right : parent.left);
                     if (operandType.flags & TypeFlags.EnumLike) {
-                        addCandidateType(usageContext, operandType);
+                        addCandidateType(k, operandType);
                     }
                     else {
-                        usageContext.isNumber = true;
+                        k.isNumber = true;
                     }
                     break;
 
                 case SyntaxKind.PlusEqualsToken:
                 case SyntaxKind.PlusToken:
-                    const otherOperandType = getTypeOfNode(parent.left === node ? parent.right : parent.left);
+                    const otherOperandType = getTypeOfExpression(parent.left === node ? parent.right : parent.left);
                     if (otherOperandType.flags & TypeFlags.EnumLike) {
-                        addCandidateType(usageContext, otherOperandType);
+                        addCandidateType(k, otherOperandType);
                     }
                     else if (otherOperandType.flags & TypeFlags.NumberLike) {
-                        usageContext.isNumber = true;
+                        k.isNumber = true;
                     }
-                    else if (otherOperandType.flags & TypeFlags.StringLike) {
-                        usageContext.isString = true;
+                    else if (otherOperandType.flags & TypeFlags.StringLike &&
+                             (!isLiteralType(otherOperandType) || (otherOperandType as StringLiteralType).value === "")) {
+                            // "" + x is still string | number (and .. uh .. sometimes boolean)
+                        k.isString = true;
                     }
                     else {
-                        usageContext.isNumberOrString = true;
+                        k.isNumberOrString = true;
                     }
                     break;
 
@@ -5183,12 +5185,12 @@ namespace ts {
                 case SyntaxKind.EqualsEqualsEqualsToken:
                 case SyntaxKind.ExclamationEqualsEqualsToken:
                 case SyntaxKind.ExclamationEqualsToken:
-                    addCandidateType(usageContext, getTypeOfNode(parent.left === node ? parent.right : parent.left));
+                    addCandidateType(k, getTypeOfExpression(parent.left === node ? parent.right : parent.left));
                     break;
 
                 case SyntaxKind.InKeyword:
                     if (node === parent.left) {
-                        usageContext.isString = true;
+                        k.isString = true;
                     }
                     break;
 
@@ -5198,7 +5200,7 @@ namespace ts {
                         (node.parent.parent.kind === SyntaxKind.VariableDeclaration || isAssignmentExpression(node.parent.parent, /*excludeCompoundAssignment*/ true))) {
                         // var x = x || {};
                         // TODO: use getFalsyflagsOfType
-                        addCandidateType(usageContext, getTypeOfNode(parent.right));
+                        addCandidateType(k, getTypeOfExpression(parent.right));
                     }
                     break;
 
@@ -5210,28 +5212,28 @@ namespace ts {
             }
         }
 
-        function inferTypeFromSwitchStatementLabelContext(parent: CaseOrDefaultClause, usageContext: UsageContext): void {
-            addCandidateType(usageContext, getTypeOfNode(parent.parent.parent.expression));
+        function inferTypeFromSwitchStatementLabelContext(parent: CaseOrDefaultClause, k: UsageContext): void {
+            addCandidateType(k, getTypeOfExpression(parent.parent.parent.expression));
         }
 
-        function inferTypeFromCallExpression(parent: CallExpression | NewExpression, node: Expression, usageContext: UsageContext): void {
+        function inferTypeFromCallExpression(parent: CallExpression | NewExpression, node: Expression, k: UsageContext): void {
             if (parent.expression === node) {
-                inferTypeFromCallExpressionContext((node.parent as CallExpression | NewExpression), usageContext);
+                inferTypeFromCallExpressionContext((node.parent as CallExpression | NewExpression), k);
             }
             else {
                 if (parent.arguments) {
                     const i = parent.arguments.indexOf(node);
                     if (i > -1) {
-                        inferTypeFromArgumentContext(parent, i, usageContext);
+                        inferTypeFromArgumentContext(parent, i, k);
                     }
                 }
                 else {
-                    inferTypeFromContextualType(node, usageContext); // pretty sure that the resulting call to resolveCall tries to get the type of x (while getting the type of x). Instead I should just do the non-resolveCall parts? Maybe a simplified non-overload-aware version?
+                    inferTypeFromContextualType(node, k); // pretty sure that the resulting call to resolveCall tries to get the type of x (while getting the type of x). Instead I should just do the non-resolveCall parts? Maybe a simplified non-overload-aware version?
                 }
             }
         }
 
-        function inferTypeFromCallExpressionContext(parent: CallExpression | NewExpression, usageContext: UsageContext): void {
+        function inferTypeFromCallExpressionContext(parent: CallExpression | NewExpression, k: UsageContext): void {
             const callContext: CallContext = {
                 argumentTypes: [],
                 returnType: {}
@@ -5245,122 +5247,147 @@ namespace ts {
 
             inferTypeFromContext(parent, callContext.returnType);
             if (parent.kind === SyntaxKind.CallExpression) {
-                (usageContext.callContexts || (usageContext.callContexts = [])).push(callContext);
+                (k.callContexts || (k.callContexts = [])).push(callContext);
             }
             else {
-                (usageContext.constructContexts || (usageContext.constructContexts = [])).push(callContext);
+                (k.constructContexts || (k.constructContexts = [])).push(callContext);
             }
         }
 
-        function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, usageContext: UsageContext): void {
+        function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, k: UsageContext): void {
             const sigs = getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct)
             if (sigs.length === 1 && !sigs[0].typeParameters && hasCorrectArity(parent, parent.arguments!, sigs[0])) {
-                addCandidateType(usageContext, getTypeAtPosition(sigs[0], i));
+                addCandidateType(k, getTypeAtPosition(sigs[0], i));
             }
         }
 
-        function inferTypeFromPropertyAccessExpressionContext(parent: PropertyAccessExpression, usageContext: UsageContext): void {
+        function inferTypeFromPropertyAccessExpressionContext(parent: PropertyAccessExpression, k: UsageContext): void {
             const name = parent.name.escapedText;
-            if (!usageContext.properties) {
-                usageContext.properties = createUnderscoreEscapedMap<UsageContext>();
+            if (!k.properties) {
+                k.properties = createUnderscoreEscapedMap<UsageContext>();
             }
-            const propertyUsageContext = usageContext.properties.get(name) || { };
+            const propertyUsageContext = k.properties.get(name) || { };
             inferTypeFromContext(parent, propertyUsageContext);
-            usageContext.properties.set(name, propertyUsageContext);
+            k.properties.set(name, propertyUsageContext);
         }
 
-        function inferTypeFromPropertyElementExpressionContext(parent: ElementAccessExpression, node: Expression, usageContext: UsageContext): void {
+        function inferTypeFromPropertyElementExpressionContext(parent: ElementAccessExpression, node: Expression, k: UsageContext): void {
             if (node === parent.argumentExpression) {
-                usageContext.isNumberOrString = true;
+                k.isNumberOrString = true;
                 return;
             }
             else {
-                const indexType = getTypeOfNode(parent.argumentExpression);
+                const indexType = getTypeOfExpression(parent.argumentExpression);
                 const indexUsageContext = {};
                 inferTypeFromContext(parent, indexUsageContext);
                 if (indexType.flags & TypeFlags.NumberLike) {
-                    usageContext.numberIndexContext = indexUsageContext;
+                    k.numberIndexContext = indexUsageContext;
                 }
                 else {
-                    usageContext.stringIndexContext = indexUsageContext;
+                    k.stringIndexContext = indexUsageContext;
                 }
             }
         }
 
-        function getTypeFromUsageContext(usageContext: UsageContext): Type | undefined {
-            if (usageContext.isNumberOrString && !usageContext.isNumber && !usageContext.isString) {
+        /** This is a hack */
+        function postConvertType(type: Type) {
+            return isEmptyObjectType(type) ? createAnonymousType(type.symbol, emptySymbols, emptyArray, emptyArray, jsObjectLiteralIndexInfo, undefined) :
+                type === undefinedType ? undefinedWideningType :
+                type;
+        }
+
+        function getTypeFromUsageContext(k: UsageContext): Type | undefined {
+            if (k.isNumberOrString && !k.isNumber && !k.isString) {
                 return getUnionType([numberType, stringType]);
             }
-            else if (usageContext.isNumber) {
+            else if (k.isNumber) {
                 return numberType;
             }
-            else if (usageContext.isString) {
+            else if (k.isString) {
                 return stringType;
             }
-            else if (usageContext.candidateTypes) {
-                return getWidenedType(getUnionType(usageContext.candidateTypes.map(t => getBaseTypeOfLiteralType(t)), UnionReduction.Subtype));
+            // TODO: Need to know whether any candidateTypes came from inference themselves, and intersect with the object type if so
+            else if (k.candidateTypes) {
+                getOptionalType
+                return getWidenedType(getUnionType(k.candidateTypes.map(t => postConvertType(getBaseTypeOfLiteralType(t))), UnionReduction.Subtype));
             }
-            else if (usageContext.properties && hasCallContext(usageContext.properties.get("then" as __String))) {
-                const paramType = getParameterTypeFromCallContexts(0, usageContext.properties.get("then" as __String)!.callContexts!, /*isRestParameter*/ false)!; // TODO: GH#18217
-                const types = getSignaturesOfType(paramType, SignatureKind.Call).map(getReturnTypeOfSignature);
-                return createPromiseType(types.length ? getUnionType(types, UnionReduction.Subtype) : anyType);
+
+            const builtin = findBuiltinType(k);
+            if (builtin) {
+                return builtin;
             }
-            else if (usageContext.properties && hasCallContext(usageContext.properties.get("push" as __String))) {
-                return createArrayType(getParameterTypeFromCallContexts(0, usageContext.properties.get("push" as __String)!.callContexts!, /*isRestParameter*/ false)!);
-            }
-            else if (usageContext.properties || usageContext.callContexts || usageContext.constructContexts || usageContext.numberIndexContext || usageContext.stringIndexContext) {
-                const members = createUnderscoreEscapedMap<Symbol>();
-                const callSignatures: Signature[] = [];
-                const constructSignatures: Signature[] = [];
-                let stringIndexInfo: IndexInfo | undefined;
-                let numberIndexInfo: IndexInfo | undefined;
+            // TODO: Maybe don't do this part
+            // else if (k.properties || k.callContexts || k.constructContexts || k.numberIndexContext || k.stringIndexContext) {
+            //     const members = createUnderscoreEscapedMap<Symbol>();
+            //     let callSignatures: Signature[] = emptyArray;
+            //     let constructSignatures: Signature[] = emptyArray;
+            //     let stringIndexInfo: IndexInfo | undefined;
+            //     let numberIndexInfo: IndexInfo | undefined;
 
-                if (usageContext.properties) {
-                    usageContext.properties.forEach((context, name) => {
-                        const symbol = createSymbol(SymbolFlags.Property, name);
-                        symbol.type = getTypeFromUsageContext(context) || anyType;
-                        members.set(name, symbol);
-                    });
-                }
+            //     if (k.properties) {
+            //         k.properties.forEach((context, name) => {
+            //             const symbol = createSymbol(SymbolFlags.Property, name);
+            //             symbol.type = getTypeFromUsageContext(context) || anyType;
+            //             members.set(name, symbol);
+            //         });
+            //     }
 
-                if (usageContext.callContexts) {
-                    for (const callContext of usageContext.callContexts) {
-                        callSignatures.push(getSignatureFromCallContext(callContext));
-                    }
-                }
+            //     if (k.callContexts) {
+            //         callSignatures = [getSignatureFromCallContexts(k.callContexts)];
+            //     }
 
-                if (usageContext.constructContexts) {
-                    for (const constructContext of usageContext.constructContexts) {
-                        constructSignatures.push(getSignatureFromCallContext(constructContext));
-                    }
-                }
+            //     if (k.constructContexts) {
+            //         constructSignatures = [getSignatureFromCallContexts(k.constructContexts)];
+            //     }
 
-                if (usageContext.numberIndexContext) {
-                    numberIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.numberIndexContext) || anyType, /*isReadonly*/ false);
-                }
+            //     if (k.numberIndexContext) {
+            //         numberIndexInfo = createIndexInfo(getTypeFromUsageContext(k.numberIndexContext) || anyType, /*isReadonly*/ false);
+            //     }
 
-                if (usageContext.stringIndexContext) {
-                    stringIndexInfo = createIndexInfo(getTypeFromUsageContext(usageContext.stringIndexContext) || anyType, /*isReadonly*/ false);
-                }
+            //     if (k.stringIndexContext) {
+            //         stringIndexInfo = createIndexInfo(getTypeFromUsageContext(k.stringIndexContext) || anyType, /*isReadonly*/ false);
+            //     }
 
-                return createAnonymousType(/*symbol*/ undefined, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo);
-            }
+            //     return createAnonymousType(/*symbol*/ undefined, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo);
+            // }
             else {
                 return undefined;
             }
         }
 
+        function addCandidateType(context: UsageContext, type: Type | undefined) {
+            if (type && !(type.flags & TypeFlags.Any) && !(type.flags & TypeFlags.Never)) {
+                (context.candidateTypes || (context.candidateTypes = [])).push(type);
+            }
+        }
+
+        function getSignatureFromCallContexts(callContexts: CallContext[]): Signature {
+            const parameters: Symbol[] = [];
+            // TODO: Use max and fill in undefined in the type instead
+            const argLength = Math.min(...callContexts.map(k => k.argumentTypes.length));
+            for (let i = 0; i < argLength; i++) {
+                const symbol = createSymbol(SymbolFlags.FunctionScopedVariable, `arg${i}` as __String);
+                symbol.type = getWidenedType(getUnionType(callContexts.map(k => getBaseTypeOfLiteralType(k.argumentTypes[i]))));
+                parameters.push(symbol);
+            }
+            const returnType = getReturnTypeFromCallContexts(callContexts);
+            // TODO: GH#18217
+            return createSignature(/*declaration*/ undefined!, /*typeParameters*/ undefined, /*thisParameter*/ undefined, parameters, returnType, /*typePredicate*/ undefined, argLength, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
+        }
+
+        function getCallableFromCallContexts(callContexts: CallContext[]) {
+            return createAnonymousType(undefined, emptySymbols, [getSignatureFromCallContexts(callContexts)], emptyArray, undefined, undefined);
+        }
+
         function getParameterTypeFromCallContexts(parameterIndex: number, callContexts: CallContext[], isRestParameter: boolean) {
             let types: Type[] = [];
-            if (callContexts) {
-                for (const callContext of callContexts) {
-                    if (callContext.argumentTypes.length > parameterIndex) {
-                        if (isRestParameter) {
-                            types = concatenate(types, map(callContext.argumentTypes.slice(parameterIndex), getBaseTypeOfLiteralType));
-                        }
-                        else {
-                            types.push(getBaseTypeOfLiteralType(callContext.argumentTypes[parameterIndex]));
-                        }
+            for (const k of callContexts) {
+                if (k.argumentTypes.length > parameterIndex) {
+                    if (isRestParameter) {
+                        types = concatenate(types, map(k.argumentTypes.slice(parameterIndex), getBaseTypeOfLiteralType));
+                    }
+                    else {
+                        types.push(getBaseTypeOfLiteralType(k.argumentTypes[parameterIndex]));
                     }
                 }
             }
@@ -5372,28 +5399,49 @@ namespace ts {
             return undefined;
         }
 
-        function getSignatureFromCallContext(callContext: CallContext): Signature {
-            const parameters: Symbol[] = [];
-            for (let i = 0; i < callContext.argumentTypes.length; i++) {
-                const symbol = createSymbol(SymbolFlags.FunctionScopedVariable, escapeLeadingUnderscores(`arg${i}`));
-                symbol.type = getWidenedType(getBaseTypeOfLiteralType(callContext.argumentTypes[i]));
-                parameters.push(symbol);
-            }
-            const returnType = getTypeFromUsageContext(callContext.returnType) || voidType;
-            // TODO: GH#18217
-            return createSignature(/*declaration*/ undefined!, /*typeParameters*/ undefined, /*thisParameter*/ undefined, parameters, returnType, /*typePredicate*/ undefined, callContext.argumentTypes.length, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
+        function getReturnTypeFromCallContexts(callContexts: CallContext[]) {
+            return getWidenedType(getUnionType(callContexts.map(k => getBaseTypeOfLiteralType(getTypeFromUsageContext(k.returnType) || anyType)), UnionReduction.Subtype));
         }
 
-        function addCandidateType(context: UsageContext, type: Type | undefined) {
-            if (type && !(type.flags & TypeFlags.Any) && !(type.flags & TypeFlags.Never)) {
-                (context.candidateTypes || (context.candidateTypes = [])).push(type);
+        function hasCallContext(k: UsageContext | undefined): boolean {
+            return !!k && !!k.callContexts;
+        }
+
+        function getMethodCallNamed(k: UsageContext, name: __String) {
+            if (!k.properties) return;
+            const prop = k.properties.get(name);
+            if (prop && prop.callContexts) {
+                return prop.callContexts;
             }
         }
 
-        function hasCallContext(usageContext: UsageContext | undefined): boolean {
-            return !!usageContext && !!usageContext.callContexts;
+        function doesTypeMatch(k: UsageContext, properties: Symbol[]) {
+            for (const p of properties) {
+                const call = getMethodCallNamed(k, p.escapedName);
+                const t = getTypeOfSymbol(p);
+                // TODO: Should also be able to match on non-callable properties like Array.length, String.length, Function.name.
+                if(!!call && !!getSignaturesOfType(t, SignatureKind.Call).length && isTypeAssignableTo(getCallableFromCallContexts(call), t)) {
+                    return true;
+                }
+                // or forEach( ...) if we only care about getting one match
+            }
         }
-
+        function findBuiltinType(k: UsageContext): Type | undefined {
+            if (k.properties && hasCallContext(k.properties.get("then" as __String))) {
+                const paramType = getParameterTypeFromCallContexts(0, k.properties.get("then" as __String)!.callContexts!, /*isRestParameter*/ false)!; // TODO: GH#18217
+                const types = getSignaturesOfType(paramType, SignatureKind.Call).map(getReturnTypeOfSignature);
+                return createPromiseType(types.length ? getUnionType(types, UnionReduction.Subtype) : anyType);
+            }
+            else if (k.properties && hasCallContext(k.properties.get("push" as __String))) {
+                return createArrayType(getParameterTypeFromCallContexts(0, k.properties.get("push" as __String)!.callContexts!, /*isRestParameter*/ false)!);
+            }
+            // TODO: Smarter handling for arrays
+            // In general, post-match insertion of type parameters needs to be inferred by scanning the matching method(s) for instances of the bound type parmaeter and inferring that parameter type to it. *maybe* I can reuse the inference algorithm but probably not?
+            const matches = [globalStringType, globalNumberType, createArrayType(anyType), createPromiseType(anyType), globalFunctionType].filter(t => doesTypeMatch(k, getPropertiesOfType(t)))
+            if (matches.length > 0) {
+                return getUnionType(matches);
+            }
+        }
 
 
 
