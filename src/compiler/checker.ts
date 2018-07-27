@@ -5170,7 +5170,7 @@ namespace ts {
                         k.isNumber = true;
                     }
                     else if (otherOperandType.flags & TypeFlags.StringLike &&
-                             (!isLiteralType(otherOperandType) || (otherOperandType as StringLiteralType).value === "")) {
+                             (!isLiteralType(otherOperandType) || (otherOperandType as StringLiteralType).value !== "")) {
                             // "" + x is still string | number (and .. uh .. sometimes boolean)
                         k.isString = true;
                     }
@@ -5297,6 +5297,7 @@ namespace ts {
         }
 
         function getTypeFromUsageContext(k: UsageContext): Type | undefined {
+            // TODO: Probably should combine all inferences instead of strictly ranking them like this
             if (k.isNumberOrString && !k.isNumber && !k.isString) {
                 return getUnionType([numberType, stringType]);
             }
@@ -5308,8 +5309,14 @@ namespace ts {
             }
             // TODO: Need to know whether any candidateTypes came from inference themselves, and intersect with the object type if so
             else if (k.candidateTypes) {
-                getOptionalType
-                return getWidenedType(getUnionType(k.candidateTypes.map(t => postConvertType(getBaseTypeOfLiteralType(t))), UnionReduction.Subtype));
+                const u = getUnionType(k.candidateTypes.map(t => postConvertType(getBaseTypeOfLiteralType(t))), UnionReduction.Subtype);
+                if (u.flags & TypeFlags.Union && (u as UnionType).types.length > 2) {
+                    return undefined;
+                }
+                if (u === undefinedType || u === nullType) {
+                    return undefined;
+                }
+                return getWidenedType(u);
             }
 
             const builtin = findBuiltinType(k);
