@@ -5386,66 +5386,34 @@ namespace ts {
             return createAnonymousType(undefined, emptySymbols, [getSignatureFromCallContexts(callContexts)], emptyArray, undefined, undefined);
         }
 
-        function getParameterTypeFromCallContexts(parameterIndex: number, callContexts: CallContext[], isRestParameter: boolean) {
-            let types: Type[] = [];
-            for (const k of callContexts) {
-                if (k.argumentTypes.length > parameterIndex) {
-                    if (isRestParameter) {
-                        types = concatenate(types, map(k.argumentTypes.slice(parameterIndex), getBaseTypeOfLiteralType));
-                    }
-                    else {
-                        types.push(getBaseTypeOfLiteralType(k.argumentTypes[parameterIndex]));
-                    }
-                }
-            }
-
-            if (types.length) {
-                const type = getWidenedType(getUnionType(types, UnionReduction.Subtype));
-                return isRestParameter ? createArrayType(type) : type;
-            }
-            return undefined;
-        }
-
         function getReturnTypeFromCallContexts(callContexts: CallContext[]) {
             return getWidenedType(getUnionType(callContexts.map(k => getBaseTypeOfLiteralType(getTypeFromUsageContext(k.returnType) || anyType)), UnionReduction.Subtype));
         }
 
-        function hasCallContext(k: UsageContext | undefined): boolean {
-            return !!k && !!k.callContexts;
-        }
-
-        function getMethodCallNamed(k: UsageContext, name: __String) {
-            if (!k.properties) return;
-            const prop = k.properties.get(name);
-            if (prop && prop.callContexts) {
-                return prop.callContexts;
-            }
-        }
-
-        function doesTypeMatch(k: UsageContext, properties: Symbol[]) {
-            for (const p of properties) {
-                const call = getMethodCallNamed(k, p.escapedName);
-                const t = getTypeOfSymbol(p);
-                // TODO: Should also be able to match on non-callable properties like Array.length, String.length, Function.name.
-                if(!!call && !!getSignaturesOfType(t, SignatureKind.Call).length && isTypeAssignableTo(getCallableFromCallContexts(call), t)) {
-                    return true;
+        function matchesAllPropertiesOf(t: Type, k: UsageContext) {
+            if (!k.properties) return false;
+            let result = true;
+            k.properties.forEach((prop, name) => {
+                // TODO: Special case for callables to simulate resolveCall instead of trying to assign to whole overload set (or just figure out how to make resolveCall work)
+                // should start with if (prop.callContexts) ...
+                const source = getTypeFromUsageContext(prop);
+                const target = getTypeOfPropertyOfType(t, name);
+                if (target && prop.callContexts) {
+                    const sigs = getSignaturesOfType(target, SignatureKind.Call);
+                    result = result && !!sigs.length && some(sigs, sig => isTypeAssignableTo(getCallableFromCallContexts(prop.callContexts!), createAnonymousType(undefined, emptySymbols, [sig], emptyArray, undefined, undefined)));
                 }
-                // or forEach( ...) if we only care about getting one match
-            }
+                else {
+                    result = result && (!source || !!target && isTypeAssignableTo(source, target));
+                }
+            });
+            return result;
         }
         function findBuiltinType(k: UsageContext): Type | undefined {
-            if (k.properties && hasCallContext(k.properties.get("then" as __String))) {
-                const paramType = getParameterTypeFromCallContexts(0, k.properties.get("then" as __String)!.callContexts!, /*isRestParameter*/ false)!; // TODO: GH#18217
-                const types = getSignaturesOfType(paramType, SignatureKind.Call).map(getReturnTypeOfSignature);
-                return createPromiseType(types.length ? getUnionType(types, UnionReduction.Subtype) : anyType);
-            }
-            else if (k.properties && hasCallContext(k.properties.get("push" as __String))) {
-                return createArrayType(getParameterTypeFromCallContexts(0, k.properties.get("push" as __String)!.callContexts!, /*isRestParameter*/ false)!);
-            }
             // TODO: Smarter handling for arrays
             // In general, post-match insertion of type parameters needs to be inferred by scanning the matching method(s) for instances of the bound type parmaeter and inferring that parameter type to it. *maybe* I can reuse the inference algorithm but probably not?
-            const matches = [globalStringType, globalNumberType, createArrayType(anyType), createPromiseType(anyType), globalFunctionType].filter(t => doesTypeMatch(k, getPropertiesOfType(t)))
-            if (matches.length > 0) {
+            const matches = [stringType, numberType, createArrayType(anyType), createPromiseType(anyType), globalFunctionType].
+                filter(t => matchesAllPropertiesOf(t, k)) // t => [t, countMatchingProperties(k, getPropertiesOfType(t))] as [Type, number]).sort(([_,n1],[__,n2]) => n2 - n1)
+            if (0 < matches.length && matches.length < 3) {
                 return getUnionType(matches);
             }
         }
