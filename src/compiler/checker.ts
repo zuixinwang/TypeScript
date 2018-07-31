@@ -5255,9 +5255,11 @@ namespace ts {
         }
 
         function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, k: UsageContext): void {
-            const sigs = getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct)
-            if (sigs.length === 1 && !sigs[0].typeParameters && hasCorrectArity(parent, parent.arguments!, sigs[0])) {
-                addCandidateType(k, getTypeAtPosition(sigs[0], i));
+            const sigs = filter(getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct),
+                                sig => !sig.typeParameters && hasCorrectArity(parent, parent.arguments!, sig));
+            for (const sig of sigs) {
+                // TODO: This change caused a TON of new errors in npm and small improvement elsewhere
+                addCandidateType(k, getTypeAtPosition(sig, i));
             }
         }
 
