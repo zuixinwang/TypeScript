@@ -501,7 +501,7 @@ namespace ts.codefix {
                 return;
             }
             else {
-                const indexType = checker.getTypeAtLocation(parent);
+                const indexType = checker.getTypeAtLocation(parent.argumentExpression);
                 const indexUsageContext = {};
                 inferTypeFromContext(parent, checker, indexUsageContext);
                 if (indexType.flags & TypeFlags.NumberLike) {
