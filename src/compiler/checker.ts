@@ -5269,8 +5269,9 @@ namespace ts {
         }
 
         function inferTypeFromArgumentContext(parent: CallExpression | NewExpression, i: number, k: UsageContext): void {
-            const sigs = filter(getSignaturesOfType(getTypeOfExpression(parent.expression), isCallExpression(parent) ? SignatureKind.Call : SignatureKind.Construct),
-                                sig => !sig.typeParameters && hasCorrectArity(parent, parent.arguments!, sig));
+            const t = getTypeOfExpression(parent.expression)
+            const allSigs = getSignaturesOfType(t, t.symbol && t.symbol.valueDeclaration && isFunctionLikeDeclaration(t.symbol.valueDeclaration) ? SignatureKind.Call : SignatureKind.Construct);
+            const sigs = filter(allSigs, sig => !sig.typeParameters && hasCorrectArity(parent, parent.arguments!, sig));
             for (const sig of sigs) {
                 // TODO: This change caused a TON of new errors in npm and small improvement elsewhere
                 addCandidateType(k, getTypeAtPosition(sig, i));
@@ -5326,56 +5327,23 @@ namespace ts {
             // TODO: Need to know whether any candidateTypes came from inference themselves, and intersect with the object type if so
             else if (k.candidateTypes) {
                 const u = getUnionType(k.candidateTypes.map(t => postConvertType(getBaseTypeOfLiteralType(t))), UnionReduction.Subtype);
-                if (u.flags & TypeFlags.Union && (u as UnionType).types.length > 2) {
-                    return undefined;
-                }
-                if (u === undefinedType || u === nullType) {
+                if (u.flags & TypeFlags.Union && (u as UnionType).types.length > 2 ||
+                    getTypeWithFacts(u, TypeFacts.NEUndefinedOrNull) === neverType ||
+                    couldBeMissingProperties(u, k)) { // couldBeMissingProperties is almost the same as !matchesAllPropertiesOf
                     return undefined;
                 }
                 return getWidenedType(u);
             }
+            return findBuiltinType(k);
+        }
 
-            const builtin = findBuiltinType(k);
-            if (builtin) {
-                return builtin;
-            }
-            // TODO: Maybe don't do this part
-            // else if (k.properties || k.callContexts || k.constructContexts || k.numberIndexContext || k.stringIndexContext) {
-            //     const members = createUnderscoreEscapedMap<Symbol>();
-            //     let callSignatures: Signature[] = emptyArray;
-            //     let constructSignatures: Signature[] = emptyArray;
-            //     let stringIndexInfo: IndexInfo | undefined;
-            //     let numberIndexInfo: IndexInfo | undefined;
-
-            //     if (k.properties) {
-            //         k.properties.forEach((context, name) => {
-            //             const symbol = createSymbol(SymbolFlags.Property, name);
-            //             symbol.type = getTypeFromUsageContext(context) || anyType;
-            //             members.set(name, symbol);
-            //         });
-            //     }
-
-            //     if (k.callContexts) {
-            //         callSignatures = [getSignatureFromCallContexts(k.callContexts)];
-            //     }
-
-            //     if (k.constructContexts) {
-            //         constructSignatures = [getSignatureFromCallContexts(k.constructContexts)];
-            //     }
-
-            //     if (k.numberIndexContext) {
-            //         numberIndexInfo = createIndexInfo(getTypeFromUsageContext(k.numberIndexContext) || anyType, /*isReadonly*/ false);
-            //     }
-
-            //     if (k.stringIndexContext) {
-            //         stringIndexInfo = createIndexInfo(getTypeFromUsageContext(k.stringIndexContext) || anyType, /*isReadonly*/ false);
-            //     }
-
-            //     return createAnonymousType(/*symbol*/ undefined, members, callSignatures, constructSignatures, stringIndexInfo, numberIndexInfo);
-            // }
-            else {
-                return undefined;
-            }
+        function couldBeMissingProperties(type: Type, k: UsageContext) {
+            if (!k.properties) return false;
+            let result = false;
+            k.properties.forEach((_, name) => {
+                result = result || !!(type.flags & TypeFlags.Union ? getUnionOrIntersectionProperty(type as UnionType, name) : getPropertyOfType(type, name));
+            });
+            return result;
         }
 
         function addCandidateType(context: UsageContext, type: Type | undefined) {
@@ -5419,7 +5387,7 @@ namespace ts {
                     result = result && !!sigs.length && some(sigs, sig => isTypeAssignableTo(getCallableFromCallContexts(prop.callContexts!), createAnonymousType(undefined, emptySymbols, [sig], emptyArray, undefined, undefined)));
                 }
                 else {
-                    result = result && (!source || !!target && isTypeAssignableTo(source, target));
+                    result = result && !!source && !!target && isTypeAssignableTo(source, target);
                 }
             });
             return result;
