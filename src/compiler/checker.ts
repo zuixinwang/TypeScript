@@ -5339,11 +5339,11 @@ namespace ts {
 
         function couldBeMissingProperties(type: Type, k: UsageContext) {
             if (!k.properties) return false;
-            let result = false;
+            let foundMissing = false;
             k.properties.forEach((_, name) => {
-                result = result || !!(type.flags & TypeFlags.Union ? getUnionOrIntersectionProperty(type as UnionType, name) : getPropertyOfType(type, name));
+                foundMissing = foundMissing || !(type.flags & TypeFlags.Union ? getUnionOrIntersectionProperty(type as UnionType, name) : getPropertyOfType(type, name));
             });
-            return result;
+            return foundMissing;
         }
 
         function addCandidateType(context: UsageContext, type: Type | undefined) {
