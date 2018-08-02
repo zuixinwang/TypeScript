@@ -21,6 +21,7 @@
 
         "binder.ts",
         "symbolWalker.ts",
+        "infer.ts",
         "checker.ts",
         "factory.ts",
         "visitor.ts",
