@@ -6697,53 +6697,66 @@ namespace ts {
         getSourceMapSourceConstructor(): new (fileName: string, text: string, skipTrivia?: (pos: number) => number) => SourceMapSource;
     }
 
-    function Symbol(this: Symbol, flags: SymbolFlags, name: __String) {
-        this.flags = flags;
-        this.escapedName = name;
-        this.declarations = undefined!;
-        this.valueDeclaration = undefined!;
-        this.id = undefined;
-        this.mergeId = undefined;
-        this.parent = undefined;
-    }
+    // function Symbol(this: Symbol, flags: SymbolFlags, name: __String) {
+    //     this.flags = flags;
+    //     this.escapedName = name;
+    //     this.declarations = undefined!;
+    //     this.valueDeclaration = undefined!;
+    //     this.id = undefined;
+    //     this.mergeId = undefined;
+    //     this.parent = undefined;
+    // }
 
-    function Type(this: Type, checker: TypeChecker, flags: TypeFlags) {
-        this.flags = flags;
-        if (Debug.isDebugging) {
-            this.checker = checker;
-        }
-    }
+    // function Type(this: Type, checker: TypeChecker, flags: TypeFlags) {
+    //     this.flags = flags;
+    //     if (Debug.isDebugging) {
+    //         this.checker = checker;
+    //     }
+    // }
 
-    function Signature() {} // tslint:disable-line no-empty
+    // function Signature() {} // tslint:disable-line no-empty
 
-    function Node(this: Node, kind: SyntaxKind, pos: number, end: number) {
-        this.pos = pos;
-        this.end = end;
-        this.kind = kind;
-        this.id = 0;
-        this.flags = NodeFlags.None;
-        this.modifierFlagsCache = ModifierFlags.None;
-        this.transformFlags = TransformFlags.None;
-        this.parent = undefined!;
-        this.original = undefined;
-    }
+    // function Node(this: Node, kind: SyntaxKind, pos: number, end: number) {
+    //     this.pos = pos;
+    //     this.end = end;
+    //     this.kind = kind;
+    //     this.id = 0;
+    //     this.flags = NodeFlags.None;
+    //     this.modifierFlagsCache = ModifierFlags.None;
+    //     this.transformFlags = TransformFlags.None;
+    //     this.parent = undefined!;
+    //     this.original = undefined;
+    // }
 
-    function SourceMapSource(this: SourceMapSource, fileName: string, text: string, skipTrivia?: (pos: number) => number) {
-        this.fileName = fileName;
-        this.text = text;
-        this.skipTrivia = skipTrivia || (pos => pos);
-    }
+    // function SourceMapSource(this: SourceMapSource, fileName: string, text: string, skipTrivia?: (pos: number) => number) {
+    //     this.fileName = fileName;
+    //     this.text = text;
+    //     this.skipTrivia = skipTrivia || (pos => pos);
+    // }
 
     export let objectAllocator: ObjectAllocator = {
-        getNodeConstructor: () => <any>Node,
-        getTokenConstructor: () => <any>Node,
-        getIdentifierConstructor: () => <any>Node,
-        getSourceFileConstructor: () => <any>Node,
-        getSymbolConstructor: () => <any>Symbol,
-        getTypeConstructor: () => <any>Type,
-        getSignatureConstructor: () => <any>Signature,
-        getSourceMapSourceConstructor: () => <any>SourceMapSource,
+        getNodeConstructor: () => ts.Bumbershoot.NodeObject,
+        getTokenConstructor: () => ts.Bumbershoot.TokenObject,
+        getIdentifierConstructor: () => ts.Bumbershoot.IdentifierObject,
+        getSourceFileConstructor: () => ts.Bumbershoot.SourceFileObject,
+        getSymbolConstructor: () => ts.Bumbershoot.SymbolObject,
+        getTypeConstructor: () => ts.Bumbershoot.TypeObject,
+        getSignatureConstructor: () => ts.Bumbershoot.SignatureObject,
+        getSourceMapSourceConstructor: () => ts.Bumbershoot.SourceMapSourceObject,
     };
+
+    // export let objectAllocator(): ObjectAllocator = {
+    //     getNodeConstructor: () => NodeObject,
+    //     getTokenConstructor: () => TokenObject,
+
+    //     getIdentifierConstructor: () => IdentifierObject,
+    //     getSourceFileConstructor: () => SourceFileObject,
+    //     getSymbolConstructor: () => SymbolObject,
+    //     getTypeConstructor: () => TypeObject,
+    //     getSignatureConstructor: () => SignatureObject,
+    //     getSourceMapSourceConstructor: () => SourceMapSourceObject,
+    // };
+
 
     /* @internal */
     export function formatStringFromArgs(text: string, args: ArrayLike<string>, baseIndex = 0): string {

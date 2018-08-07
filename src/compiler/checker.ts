@@ -427,8 +427,7 @@ namespace ts {
 
         const enumNumberIndexInfo = createIndexInfo(stringType, /*isReadonly*/ true);
         const jsObjectLiteralIndexInfo = createIndexInfo(anyType, /*isReadonly*/ false);
-        const realLifeInference = createInference(
-            resolveName,
+        const tryKindOfHard = createInference(
             getTypeOfExpression,
             getContextualType,
             getTypeOfPropertyOfType,
@@ -5009,7 +5008,7 @@ namespace ts {
                 tryingHard = true;
                 // tryingHard = false;
                 // if (tryingHard)
-                var inferredType = realLifeInference(declaration);
+                var inferredType = tryKindOfHard(declaration, host as Program);
                 tryingHard = saveTryingHard;
                 if (inferredType) {
                     return inferredType;

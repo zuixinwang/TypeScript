@@ -2,15 +2,7 @@
 namespace ts {
     export function createInference(
         // TODO: Probably can just pass in a checker instance to abbreviate some of this.
-        resolveName: (
-            location: Node | undefined,
-            name: __String,
-            meaning: SymbolFlags,
-            nameNotFoundMessage: DiagnosticMessage | undefined,
-            nameArg: __String | Identifier | undefined,
-            isUse: boolean,
-            excludeGlobals?: boolean,
-            suggestedNameNotFoundMessage?: DiagnosticMessage) => Symbol | undefined,
+        // TODO: Things with no checker dependencies can be created outside createInference. Just saying.
         getTypeOfExpression: (node: Expression, cache?: boolean) => Type,
         getContextualType: (node: Expression) => Type | undefined,
         getTypeOfPropertyOfType: (type: Type, propertyName: __String) => Type | undefined,
@@ -50,50 +42,80 @@ namespace ts {
         createArrayType: (elementType: Type) => Type,
         createPromiseType: (type: Type) => Type) {
         return tryKindOfHard;
-        function tryKindOfHard(declaration: any): Type | undefined {
+        function tryKindOfHard(declaration: any, program: Program): Type | undefined {
             // TODO:
+            // 1. I have no way of getting a program, but I *really* need one.
             // 1. variables with no informative usages should (arguably) create unconstrained type parameters instead of failing
             if (!(isParameter(declaration) && isIdentifier(declaration.name) && isApplicableFunctionForInference(declaration.parent) && declaration.parent.body)) {
                 return;
             }
-            const uses: Identifier[] = [];
-            const name = declaration.name.escapedText;
-            const walk = function(node: Node): void {
-                switch (node.kind) {
-                    case SyntaxKind.Identifier:
-                        // TODO: This walk needs to be replaced by a text search, one that looks for all parameters and builds a map: decl->uses
-                        if ((node as Identifier).escapedText === name && resolveName(node, name, SymbolFlags.Value, undefined, name, /*isUse*/ true)) {
-                            uses.push(node as Identifier);
-                        }
-                        return;
-                    case SyntaxKind.FunctionDeclaration:
-                    case SyntaxKind.FunctionExpression:
-                    case SyntaxKind.ArrowFunction:
-                    case SyntaxKind.MethodDeclaration:
-                    case SyntaxKind.Constructor:
-                        if ((node as FunctionLike).parameters.every(p => !isIdentifier(p) || p.escapedText !== name)) {
-                            return forEachChild(node, walk);
-                        }
-                        else {
-                            return;
-                        }
-                    default:
-                        return forEachChild(node, walk);
-                }
+            // const uses: Identifier[] = [];
+            // const name = declaration.name.escapedText;
+            // const walk = function(node: Node): void {
+            //     switch (node.kind) {
+            //         case SyntaxKind.Identifier:
+            //             // TODO: This walk needs to be replaced by a text search, one that looks for all parameters and builds a map: decl->uses
+            //             if ((node as Identifier).escapedText === name && resolveName(node, name, SymbolFlags.Value, undefined, name, /*isUse*/ true)) {
+            //                 uses.push(node as Identifier);
+            //             }
+            //             return;
+            //         case SyntaxKind.FunctionDeclaration:
+            //         case SyntaxKind.FunctionExpression:
+            //         case SyntaxKind.ArrowFunction:
+            //         case SyntaxKind.MethodDeclaration:
+            //         case SyntaxKind.Constructor:
+            //             if ((node as FunctionLike).parameters.every(p => !isIdentifier(p) || p.escapedText !== name)) {
+            //                 return forEachChild(node, walk);
+            //             }
+            //             else {
+            //                 return;
+            //             }
+            //         default:
+            //             return forEachChild(node, walk);
+            //     }
+            // }
+            // forEachChild(declaration.parent.body, walk);
+            const i = declaration.parent.parameters.indexOf(declaration);
+            Debug.assert(i > -1);
+            const containingFunction = declaration.parent;
+            // const isConstructor = containingFunction.kind === SyntaxKind.Constructor;
+            // TODO: It's pretty unfortunate that we have to use the unretained ConstructorKeyword as the searchToken for constructors ...
+            // TODO: Probably I can just pass isConstructor separately?
+            // const searchToken = isConstructor ? findChildOfKind<Token<SyntaxKind.ConstructorKeyword>>(containingFunction, SyntaxKind.ConstructorKeyword, sourceFile) :
+                // containingFunction.name;
+            if (!containingFunction.name) {
+                return undefined;
             }
-            forEachChild(declaration.parent.body, walk);
-            return inferTypeFromReferences(uses as ReadonlyArray<Identifier>);
+            const uses = getReferences(containingFunction.name, program);
+            return inferTypeForParameterFromReferences(uses as ReadonlyArray<Identifier>, declaration.parent, i);
+            // return inferTypeFromReferences(uses as ReadonlyArray<Identifier>);
+        }
+
+        // function findChildOfKind<T extends Node>(n: Node, kind: T["kind"], sourceFile: SourceFileLike): T | undefined {
+        //     // TODO: Probably can use a different implementation than find(n.getChildren(sourceFile) ...)
+        //     return find(n.getChildren(sourceFile), (c): c is T => c.kind === kind);
+        // }
+
+        function getReferences(token: PropertyName /*| Token<SyntaxKind.ConstructorKeyword>*/, program: Program): ReadonlyArray<Identifier> {
+            // TODO: Need to make a fake cancellationtoken I guess?
+            return mapDefined(ts.Bumbershoot.FindAllReferences.getReferenceEntriesForNode(
+                -1,
+                token as Node as ts.Bumbershoot.Node,
+                program,
+                program.getSourceFiles() as ts.Bumbershoot.SourceFile[],
+                { isCancellationRequested: () => false, throwIfCancellationRequested() { }}),
+                              entry => entry.type === "node" ? tryCast(entry.node, isIdentifier) : undefined);
         }
 
         function isApplicableFunctionForInference(declaration: SignatureDeclaration):
-            declaration is MethodDeclaration | FunctionDeclaration | ConstructorDeclaration | FunctionExpression | ArrowFunction{
+            declaration is MethodDeclaration | FunctionDeclaration | ConstructorDeclaration | FunctionExpression | ArrowFunction {
             switch (declaration.kind) {
                 case SyntaxKind.FunctionDeclaration:
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.Constructor:
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
-                    return true;
+                    return !!declaration.parameters;
             }
             return false;
         }
@@ -115,12 +137,48 @@ namespace ts {
             stringIndexContext?: UsageContext;
         }
 
-        function inferTypeFromReferences(references: ReadonlyArray<Identifier>): Type | undefined {
+        // function inferTypeFromReferences(references: ReadonlyArray<Identifier>): Type | undefined {
+        //     const usageContext: UsageContext = {};
+        //     for (const reference of references) {
+        //         inferTypeFromContext(reference, usageContext);
+        //     }
+        //     return getTypeFromUsageContext(usageContext);
+        // }
+
+        function inferTypeForParameterFromReferences(references: ReadonlyArray<Identifier>, declaration: FunctionLikeDeclaration, i: number): Type | undefined {
+            if (references.length === 0) {
+                return undefined;
+            }
+
+            if (!declaration.parameters) {
+                return undefined;
+            }
+
             const usageContext: UsageContext = {};
             for (const reference of references) {
                 inferTypeFromContext(reference, usageContext);
             }
-            return getTypeFromUsageContext(usageContext);
+            const isConstructor = declaration.kind === SyntaxKind.Constructor;
+            const callContexts = isConstructor ? usageContext.constructContexts : usageContext.callContexts;
+            if (!callContexts) {
+                return undefined;
+            }
+            const parameter = declaration.parameters[i];
+
+            // return callContexts && declaration.parameters.map((parameter, parameterIndex) => {
+            const types: Type[] = [];
+            for (const callContext of callContexts) {
+                if (callContext.argumentTypes.length <= i) {
+                    continue;
+                }
+                types.push(getBaseTypeOfLiteralType(callContext.argumentTypes[i]));
+            }
+            if (!types.length) {
+                return undefined;
+            }
+            const type = getWidenedType(getUnionType(types, UnionReduction.Subtype));
+            return isRestParameter(parameter) ? createArrayType(type) : type;
+            // });
         }
 
         function inferTypeFromContext(node: Expression, k: UsageContext): void {
