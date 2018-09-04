@@ -208,7 +208,7 @@ namespace ts {
             },
             getContextualTypeForArgumentAtIndex: (nodeIn, argIndex) => {
                 const node = getParseTreeNode(nodeIn, isCallLikeExpression);
-                return node && getContextualTypeForArgumentAtIndex(node, argIndex);
+                return node && getContextualTypeForArgumentAtIndex(node, argIndex, getEffectiveCallArguments(node)[argIndex]);
             },
             getContextualTypeForJsxAttribute: (nodeIn) => {
                 const node = getParseTreeNode(nodeIn, isJsxAttributeLike);
@@ -16079,14 +16079,18 @@ namespace ts {
         function getContextualTypeForArgument(callTarget: CallLikeExpression, arg: Expression): Type | undefined {
             const args = getEffectiveCallArguments(callTarget);
             const argIndex = args.indexOf(arg); // -1 for e.g. the expression of a CallExpression, or the tag of a TaggedTemplateExpression
-            return argIndex === -1 ? undefined : getContextualTypeForArgumentAtIndex(callTarget, argIndex);
+            return argIndex === -1 ? undefined : getContextualTypeForArgumentAtIndex(callTarget, argIndex, arg);
         }
 
-        function getContextualTypeForArgumentAtIndex(callTarget: CallLikeExpression, argIndex: number): Type {
+        function getContextualTypeForArgumentAtIndex(callTarget: CallLikeExpression, argIndex: number, arg: Expression): Type | undefined {
             // If we're already in the process of resolving the given signature, don't resolve again as
             // that could cause infinite recursion. Instead, return anySignature.
             const signature = getNodeLinks(callTarget).resolvedSignature === resolvingSignature ? resolvingSignature : getResolvedSignature(callTarget);
-            return getTypeAtPosition(signature, argIndex);
+            //return getTypeAtPosition(signature, argIndex);
+            const type = getTypeAtPosition(signature, argIndex);
+            // Don't return a contextual type that is a type inferred from this argument itself.
+            const declarations = type.symbol && type.symbol.declarations;
+            return length(declarations) === 1 && first(declarations!) === <Declaration | Expression>arg ? undefined : type;
         }
 
         function getContextualTypeForSubstitutionExpression(template: TemplateExpression, substitutionExpression: Expression) {
