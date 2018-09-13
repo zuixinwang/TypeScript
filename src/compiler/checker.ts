@@ -7802,13 +7802,13 @@ namespace ts {
             return -1;
         }
 
-        function getReturnTypeOfSignature(signature: Signature): Type {
+        function getReturnTypeOfSignature(signature: Signature, errorNode?: Node): Type {
             if (!signature.resolvedReturnType) {
                 if (!pushTypeResolution(signature, TypeSystemPropertyName.ResolvedReturnType)) {
                     return errorType;
                 }
-                let type = signature.target ? instantiateType(getReturnTypeOfSignature(signature.target), signature.mapper!) :
-                    signature.unionSignatures ? getUnionType(map(signature.unionSignatures, getReturnTypeOfSignature), UnionReduction.Subtype) :
+                let type = signature.target ? instantiateType(getReturnTypeOfSignature(signature.target), signature.mapper!, errorNode) :
+                    signature.unionSignatures ? getUnionType(map(signature.unionSignatures, s => getReturnTypeOfSignature(s)), UnionReduction.Subtype) :
                     getReturnTypeFromAnnotation(signature.declaration!) ||
                     (nodeIsMissing((<FunctionLikeDeclaration>signature.declaration).body) ? anyType : getReturnTypeFromBody(<FunctionLikeDeclaration>signature.declaration));
                 if (!popTypeResolution()) {
@@ -9299,7 +9299,8 @@ namespace ts {
                 return anyType;
             }
             if (accessNode) {
-                const indexNode = accessNode.kind === SyntaxKind.ElementAccessExpression ? accessNode.argumentExpression : accessNode.indexType;
+                const indexNode = accessNode.kind === SyntaxKind.ElementAccessExpression ? accessNode.argumentExpression :
+                    accessNode.kind === SyntaxKind.IndexedAccessType ? accessNode.indexType : accessNode;
                 if (indexType.flags & (TypeFlags.StringLiteral | TypeFlags.NumberLiteral)) {
                     error(indexNode, Diagnostics.Property_0_does_not_exist_on_type_1, "" + (<LiteralType>indexType).value, typeToString(objectType));
                 }
@@ -10341,9 +10342,9 @@ namespace ts {
             return getConditionalType(root, mapper);
         }
 
-        function instantiateType(type: Type, mapper: TypeMapper | undefined): Type;
-        function instantiateType(type: Type | undefined, mapper: TypeMapper | undefined): Type | undefined;
-        function instantiateType(type: Type | undefined, mapper: TypeMapper | undefined): Type | undefined {
+        function instantiateType(type: Type, mapper: TypeMapper | undefined, errorNode?: Node): Type;
+        function instantiateType(type: Type | undefined, mapper: TypeMapper | undefined, errorNode?: Node): Type | undefined;
+        function instantiateType(type: Type | undefined, mapper: TypeMapper | undefined, errorNode?: Node): Type | undefined {
             if (!type || !mapper || mapper === identityMapper) {
                 return type;
             }
@@ -10354,12 +10355,12 @@ namespace ts {
                 return errorType;
             }
             instantiationDepth++;
-            const result = instantiateTypeWorker(type, mapper);
+            const result = instantiateTypeWorker(type, mapper, errorNode);
             instantiationDepth--;
             return result;
         }
 
-        function instantiateTypeWorker(type: Type, mapper: TypeMapper): Type {
+        function instantiateTypeWorker(type: Type, mapper: TypeMapper, errorNode?: Node): Type {
             const flags = type.flags;
             if (flags & TypeFlags.TypeParameter) {
                 return mapper(type);
@@ -10397,7 +10398,7 @@ namespace ts {
                 return getIndexType(instantiateType((<IndexType>type).type, mapper));
             }
             if (flags & TypeFlags.IndexedAccess) {
-                return getIndexedAccessType(instantiateType((<IndexedAccessType>type).objectType, mapper), instantiateType((<IndexedAccessType>type).indexType, mapper));
+                return getIndexedAccessType(instantiateType((<IndexedAccessType>type).objectType, mapper), instantiateType((<IndexedAccessType>type).indexType, mapper), errorNode as ElementAccessExpression | IndexedAccessTypeNode | undefined);
             }
             if (flags & TypeFlags.Conditional) {
                 return getConditionalTypeInstantiation(<ConditionalType>type, combineTypeMappers((<ConditionalType>type).mapper, mapper));
@@ -17832,7 +17833,7 @@ namespace ts {
             if (!length(instantiatedSignatures)) {
                 return errorType;
             }
-            const elemInstanceType = getUnionType(instantiatedSignatures!.map(getReturnTypeOfSignature), UnionReduction.Subtype);
+            const elemInstanceType = getUnionType(instantiatedSignatures!.map(s => getReturnTypeOfSignature(s)), UnionReduction.Subtype);
 
             // If we should include all stateless attributes type, then get all attributes type from all stateless function signature.
             // Otherwise get only attributes type from the signature picked by choose-overload logic.
@@ -19586,7 +19587,7 @@ namespace ts {
                 /*typeParameters*/ undefined, // Before calling this we tested for `!candidates.some(c => !!c.typeParameters)`.
                 thisParameter,
                 parameters,
-                /*resolvedReturnType*/ getIntersectionType(candidates.map(getReturnTypeOfSignature)),
+                /*resolvedReturnType*/ getIntersectionType(candidates.map(s => getReturnTypeOfSignature(s))),
                 /*typePredicate*/ undefined,
                 minArgumentCount,
                 hasRestParameter,
@@ -20236,7 +20237,7 @@ namespace ts {
                 return resolveExternalModuleTypeByLiteral(node.arguments![0] as StringLiteral);
             }
 
-            const returnType = getReturnTypeOfSignature(signature);
+            const returnType = getReturnTypeOfSignature(signature, node.expression);
             // Treat any call to the global 'Symbol' function that is part of a const variable or readonly property
             // as a fresh unique symbol literal type.
             if (returnType.flags & TypeFlags.ESSymbolLike && isSymbolOrSymbolForCall(node)) {
@@ -25145,7 +25146,7 @@ namespace ts {
                     return undefined;
                 }
 
-                const returnType = getUnionType(map(signatures, getReturnTypeOfSignature), UnionReduction.Subtype);
+                const returnType = getUnionType(map(signatures, s => getReturnTypeOfSignature(s)), UnionReduction.Subtype);
                 const iteratedType = getIteratedTypeOfIterator(returnType, errorNode, /*isAsyncIterator*/ !!asyncMethodType);
                 if (checkAssignability && errorNode && iteratedType) {
                     // If `checkAssignability` was specified, we were called from
@@ -25226,7 +25227,7 @@ namespace ts {
                 return undefined;
             }
 
-            let nextResult: Type | undefined = getUnionType(map(nextMethodSignatures, getReturnTypeOfSignature), UnionReduction.Subtype);
+            let nextResult: Type | undefined = getUnionType(map(nextMethodSignatures, s => getReturnTypeOfSignature(s)), UnionReduction.Subtype);
             if (isTypeAny(nextResult)) {
                 return undefined;
             }
