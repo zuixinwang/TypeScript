@@ -1115,7 +1115,7 @@ namespace ts {
                 return true;
             }
 
-            const container = getEnclosingBlockScopeContainer(declaration);
+            const container = getEnclosingBlockScopeContainer(declaration);
             return !!(usage.flags & NodeFlags.JSDoc) || isInTypeQuery(usage) || isUsedInFunctionOrInstanceProperty(usage, declaration, container);
 
             function isImmediatelyUsedInInitializerOfBlockScopedVariable(declaration: VariableDeclaration, usage: Node): boolean {
@@ -10702,7 +10702,7 @@ namespace ts {
             }
             const returnExpression = node.body;
             const sourceReturn = getReturnTypeOfSignature(sourceSig);
-            const targetReturn = getUnionType(map(targetSignatures, getReturnTypeOfSignature));
+            const targetReturn = getUnionType(map(targetSignatures, sigs => getReturnTypeOfSignature(sigs)));
             if (!checkTypeRelatedTo(sourceReturn, targetReturn, relation, /*errorNode*/ undefined)) {
                 const elaborated = returnExpression && elaborateError(returnExpression, sourceReturn, targetReturn, relation, /*headMessage*/ undefined);
                 if (elaborated) {
