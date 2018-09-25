@@ -9323,6 +9323,8 @@ namespace ts {
                                 }
                             }
                             else {
+                                // TODO: Should check here whether indexType is even a legal index type. If not, issue 2538 "Type ${indexType} cannot be used as an index type."
+                                // (or somehow delegate to the thing that *actually* issues this error)
                                 error(accessExpression, Diagnostics.Element_implicitly_has_an_any_type_because_type_0_has_no_index_signature, typeToString(objectType));
                             }
                         }
