@@ -1115,7 +1115,7 @@ namespace ts {
                 return true;
             }
 
-            const container = getEnclosingBlockScopeContainer(declaration);
+            const container = getEnclosingBlockScopeContainer(declaration);
             return !!(usage.flags & NodeFlags.JSDoc) || isInTypeQuery(usage) || isUsedInFunctionOrInstanceProperty(usage, declaration, container);
 
             function isImmediatelyUsedInInitializerOfBlockScopedVariable(declaration: VariableDeclaration, usage: Node): boolean {
@@ -9181,6 +9181,7 @@ namespace ts {
             return type.flags & TypeFlags.Union ? getIntersectionType(map((<IntersectionType>type).types, t => getIndexType(t, stringsOnly))) :
                 type.flags & TypeFlags.Intersection ? getUnionType(map((<IntersectionType>type).types, t => getIndexType(t, stringsOnly))) :
                 maybeTypeOfKind(type, TypeFlags.InstantiableNonPrimitive) ? getIndexTypeForGenericType(<InstantiableType | UnionOrIntersectionType>type, stringsOnly) :
+                // TODO:calls instantiateType, which takes an errorNode
                 getObjectFlags(type) & ObjectFlags.Mapped ? getConstraintTypeFromMappedType(<MappedType>type) :
                 type === wildcardType ? wildcardType :
                 type.flags & TypeFlags.Any ? keyofConstraintType :
@@ -10415,6 +10416,7 @@ namespace ts {
                 return mapper(type);
             }
             if (flags & TypeFlags.Object) {
+                // TODO
                 const objectFlags = (<ObjectType>type).objectFlags;
                 if (objectFlags & ObjectFlags.Anonymous) {
                     // If the anonymous type originates in a declaration of a function, method, class, or
@@ -10444,16 +10446,20 @@ namespace ts {
                 return newTypes !== types ? getIntersectionType(newTypes, type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper)) : type;
             }
             if (flags & TypeFlags.Index) {
+                // TODO
                 return getIndexType(instantiateType((<IndexType>type).type, mapper));
             }
             if (flags & TypeFlags.IndexedAccess) {
+                // DONE
                 return getIndexedAccessType(instantiateType((<IndexedAccessType>type).objectType, mapper), instantiateType((<IndexedAccessType>type).indexType, mapper), errorNode as ElementAccessExpression | IndexedAccessTypeNode | undefined);
             }
             if (flags & TypeFlags.Conditional) {
+                // TODO: MAYBE?????????????????????????????????
                 return getConditionalTypeInstantiation(<ConditionalType>type, combineTypeMappers((<ConditionalType>type).mapper, mapper));
             }
             if (flags & TypeFlags.Substitution) {
-                return instantiateType((<SubstitutionType>type).typeVariable, mapper);
+                // DONE
+                return instantiateType((<SubstitutionType>type).typeVariable, mapper, errorNode);
             }
             return type;
         }
