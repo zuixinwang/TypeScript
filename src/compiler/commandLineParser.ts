@@ -374,6 +374,14 @@ namespace ts {
             description: Diagnostics.Enable_strict_checking_of_function_types
         },
         {
+            name: "strictBindCallApply",
+            type: "boolean",
+            strictFlag: true,
+            showInSimplifiedHelpView: true,
+            category: Diagnostics.Strict_Type_Checking_Options,
+            description: Diagnostics.Enable_strict_bind_call_and_apply_methods_on_functions
+        },
+        {
             name: "strictPropertyInitialization",
             type: "boolean",
             affectsSemanticDiagnostics: true,
@@ -1887,7 +1895,8 @@ namespace ts {
                     filesSpecs = <ReadonlyArray<string>>raw.files;
                     const hasReferences = hasProperty(raw, "references") && !isNullOrUndefined(raw.references);
                     const hasZeroOrNoReferences = !hasReferences || raw.references.length === 0;
-                    if (filesSpecs.length === 0 && hasZeroOrNoReferences) {
+                    const hasExtends = hasProperty(raw, "extends");
+                    if (filesSpecs.length === 0 && hasZeroOrNoReferences && !hasExtends) {
                         if (sourceFile) {
                             const fileName = configFileName || "tsconfig.json";
                             const diagnosticMessage = Diagnostics.The_files_list_in_config_file_0_is_empty;
