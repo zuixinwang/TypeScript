@@ -896,6 +896,10 @@ namespace ts {
         return getJSDocTags(node).filter(doc => doc.kind === kind);
     }
 
+    export function getTextOfJSDocComment(comment?: NodeArray<JSDocText>) {
+        return comment?.map(c => c.text).join("");
+    }
+
     /**
      * Gets the effective type parameters. If the node was parsed in a
      * JavaScript file, gets the type parameters from the `@template` tag from JSDoc.

@@ -370,6 +370,7 @@ namespace ts {
         JSDocVariadicType,
         JSDocNamepathType, // https://jsdoc.app/about-namepaths.html
         JSDocComment,
+        JSDocText,
         JSDocTypeLiteral,
         JSDocSignature,
         JSDocTag,
@@ -3133,13 +3134,18 @@ namespace ts {
         readonly kind: SyntaxKind.JSDocComment;
         readonly parent: HasJSDoc;
         readonly tags?: NodeArray<JSDocTag>;
-        readonly comment?: string;
+        readonly comment?: NodeArray<JSDocText>;
     }
 
     export interface JSDocTag extends Node {
         readonly parent: JSDoc | JSDocTypeLiteral;
         readonly tagName: Identifier;
-        readonly comment?: string;
+        readonly comment?: NodeArray<JSDocText>;
+    }
+
+    export interface JSDocText extends Node {
+        readonly kind: SyntaxKind.JSDocText;
+        text: string;
     }
 
     export interface JSDocUnknownTag extends JSDocTag {
