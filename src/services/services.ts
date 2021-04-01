@@ -1284,6 +1284,7 @@ namespace ts {
             }
 
             const rootFileNames = host.getScriptFileNames();
+            log(`rootFileNames: ${rootFileNames}`);
 
             // Get a fresh cache of the host information
             const newSettings = host.getCompilationSettings() || getDefaultCompilerOptions();
@@ -1352,6 +1353,7 @@ namespace ts {
 
             // If the program is already up-to-date, we can reuse it
             if (isProgramUptoDate(program, rootFileNames, newSettings, (_path, fileName) => host.getScriptVersion(fileName), fileName => compilerHost!.fileExists(fileName), hasInvalidatedResolution, hasChangedAutomaticTypeDirectiveNames, getParsedCommandLine, projectReferences)) {
+                log(`Program is upto date`);
                 return;
             }
 

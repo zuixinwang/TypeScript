@@ -989,6 +989,7 @@ namespace ts.server {
         }
 
         removeFile(info: ScriptInfo, fileExists: boolean, detachFromProject: boolean) {
+            this.log(`Removing file:: ${info.fileName}`);
             if (this.isRoot(info)) {
                 this.removeRoot(info);
             }
@@ -1119,6 +1120,7 @@ namespace ts.server {
 
         /*@internal*/
         updateTypingFiles(typingFiles: SortedReadonlyArray<string>) {
+            this.log(`Typing files:: ${typingFiles}`);
             if (enumerateInsertsAndDeletes<string, string>(typingFiles, this.typingFiles, getStringComparer(!this.useCaseSensitiveFileNames()),
                 /*inserted*/ noop,
                 removed => this.detachScriptInfoFromProject(removed)
@@ -1285,6 +1287,7 @@ namespace ts.server {
         private detachScriptInfoFromProject(uncheckedFileName: string, noRemoveResolution?: boolean) {
             const scriptInfoToDetach = this.projectService.getScriptInfo(uncheckedFileName);
             if (scriptInfoToDetach) {
+                this.log(`Detaching script info from project:: ${scriptInfoToDetach.fileName} from ${this.projectName}`);
                 scriptInfoToDetach.detachFromProject(this);
                 if (!noRemoveResolution) {
                     this.resolutionCache.removeResolutionsOfFile(scriptInfoToDetach.path);
