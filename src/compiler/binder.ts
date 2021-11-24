@@ -1433,15 +1433,15 @@ namespace ts {
         }
 
         function bindLogicalLikeExpression(node: BinaryExpression, trueTarget: FlowLabel, falseTarget: FlowLabel) {
-            const preRightLabel = createBranchLabel();
+            const preRightLabel = createBranchLabel(); // V
             if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken || node.operatorToken.kind === SyntaxKind.AmpersandAmpersandEqualsToken) {
                 bindCondition(node.left, preRightLabel, falseTarget);
             }
             else {
                 bindCondition(node.left, trueTarget, preRightLabel);
             }
-            currentFlow = finishFlowLabel(preRightLabel);
-            bind(node.operatorToken);
+            currentFlow = finishFlowLabel(preRightLabel); // V
+            bind(node.operatorToken); // V
 
             if (isLogicalOrCoalescingAssignmentOperator(node.operatorToken.kind)) {
                 doWithConditionalBranches(bind, node.right, trueTarget, falseTarget);
@@ -1498,11 +1498,21 @@ namespace ts {
         }
 
         function createBindBinaryExpressionFlow() {
+            interface LogicalLikeState {
+                trueTarget: FlowLabel;
+                falseTarget: FlowLabel;
+                preRightLabel: FlowLabel;
+                postExpressionLabel?: FlowLabel;
+            }
+
             interface WorkArea {
                 stackIndex: number;
-                skip: boolean;
+                // skip: boolean;
                 inStrictModeStack: (boolean | undefined)[];
                 parentStack: (Node | undefined)[];
+                currentBranchTargetStack: ([FlowLabel | undefined, FlowLabel | undefined])[];
+                logicalStack: (LogicalLikeState | undefined)[];
+                isLogicalLike: boolean;
             }
 
             return createBinaryExpressionTrampoline(onEnter, onLeft, onOperator, onRight, onExit, /*foldState*/ undefined);
@@ -1517,70 +1527,139 @@ namespace ts {
                     bindWorker(node);
                     const saveParent = parent;
                     parent = node;
-                    state.skip = false;
+                    // state.skip = false;
                     state.inStrictModeStack[state.stackIndex] = saveInStrictMode;
                     state.parentStack[state.stackIndex] = saveParent;
+                    state.currentBranchTargetStack[state.stackIndex] = [currentTrueTarget, currentFalseTarget];
                 }
                 else {
                     state = {
                         stackIndex: 0,
-                        skip: false,
+                        // skip: false,
                         inStrictModeStack: [undefined],
-                        parentStack: [undefined]
+                        parentStack: [undefined],
+                        logicalStack: [undefined],
+                        currentBranchTargetStack: [[currentTrueTarget, currentFalseTarget]],
+                        isLogicalLike: false,
                     };
                 }
-                // TODO: bindLogicalExpression is recursive - if we want to handle deeply nested `&&` expressions
-                // we'll need to handle the `bindLogicalExpression` scenarios in this state machine, too
-                // For now, though, since the common cases are chained `+`, leaving it recursive is fine
+
                 const operator = node.operatorToken.kind;
                 if (operator === SyntaxKind.AmpersandAmpersandToken ||
                     operator === SyntaxKind.BarBarToken ||
                     operator === SyntaxKind.QuestionQuestionToken ||
                     isLogicalOrCoalescingAssignmentOperator(operator)) {
+                    state.isLogicalLike = true;
+
+                    let logicalState: LogicalLikeState;
+                    const preRightLabel = createBranchLabel();
                     if (isTopLevelLogicalExpression(node)) {
-                        const postExpressionLabel = createBranchLabel();
-                        bindLogicalLikeExpression(node, postExpressionLabel, postExpressionLabel);
-                        currentFlow = finishFlowLabel(postExpressionLabel);
+                        const postExpressionLabel = createBranchLabel(); // >> TODO: we need to set current flow afterwards, at the end of onexit
+                        logicalState = {
+                            preRightLabel,
+                            trueTarget: postExpressionLabel,
+                            falseTarget: postExpressionLabel,
+                            postExpressionLabel,
+                        };
+                        // bindLogicalLikeExpression(node, postExpressionLabel, postExpressionLabel);
+                        // currentFlow = finishFlowLabel(postExpressionLabel); // >> TODO: on exit?
                     }
                     else {
-                        bindLogicalLikeExpression(node, currentTrueTarget!, currentFalseTarget!);
+                        logicalState = {
+                            preRightLabel,
+                            trueTarget: currentTrueTarget!,
+                            falseTarget: currentFalseTarget!,
+                        };
                     }
-                    state.skip = true;
+                    state.logicalStack[state.stackIndex] = logicalState;
                 }
+
+                // TODO: bindLogicalExpression is recursive - if we want to handle deeply nested `&&` expressions
+                // we'll need to handle the `bindLogicalExpression` scenarios in this state machine, too
+                // For now, though, since the common cases are chained `+`, leaving it recursive is fine // >> TODO: suspiscious
+                // const operator = node.operatorToken.kind;
+                // if (operator === SyntaxKind.AmpersandAmpersandToken ||
+                //     operator === SyntaxKind.BarBarToken ||
+                //     operator === SyntaxKind.QuestionQuestionToken ||
+                //     isLogicalOrCoalescingAssignmentOperator(operator)) {
+                //     if (isTopLevelLogicalExpression(node)) {
+                //         const postExpressionLabel = createBranchLabel();
+                //         bindLogicalLikeExpression(node, postExpressionLabel, postExpressionLabel);
+                //         currentFlow = finishFlowLabel(postExpressionLabel);
+                //     }
+                //     else {
+                //         bindLogicalLikeExpression(node, currentTrueTarget!, currentFalseTarget!);
+                //     }
+                //     state.skip = true;
+                // }
                 return state;
             }
 
-            function onLeft(left: Expression, state: WorkArea, _node: BinaryExpression) {
-                if (!state.skip) {
-                    return maybeBind(left);
+            function onLeft(left: Expression, state: WorkArea, node: BinaryExpression) {
+                if (state.isLogicalLike) {
+                    if (node.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken ||
+                        node.operatorToken.kind === SyntaxKind.AmpersandAmpersandEqualsToken) {
+                        currentTrueTarget = state.logicalStack[state.stackIndex]!.preRightLabel;
+                        currentFalseTarget = state.logicalStack[state.stackIndex]!.falseTarget;
+                    }
+                    else {
+                        currentTrueTarget = state.logicalStack[state.stackIndex]!.trueTarget;
+                        currentFalseTarget = state.logicalStack[state.stackIndex]!.preRightLabel;
+                    }
                 }
+                return maybeBind(left);
+                // if (!state.skip) {
+                //     return maybeBind(left);
+                // }
             }
 
             function onOperator(operatorToken: BinaryOperatorToken, state: WorkArea, node: BinaryExpression) {
-                if (!state.skip) {
-                    if (operatorToken.kind === SyntaxKind.CommaToken) {
-                        maybeBindExpressionFlowIfCall(node.left);
+                if (state.isLogicalLike) {
+                    if (!isLogicalAssignmentExpression(node) && !isLogicalExpression(node) && !(isOptionalChain(node) && isOutermostOptionalChain(node))) {
+                        addAntecedent(currentTrueTarget!, createFlowCondition(FlowFlags.TrueCondition, currentFlow, node));
+                        addAntecedent(currentFalseTarget!, createFlowCondition(FlowFlags.FalseCondition, currentFlow, node));
                     }
-                    bind(operatorToken);
+                    // >> TODO: restore current true and current false right here, to emulate end of `bindCondition` call
+                    currentFlow = finishFlowLabel(state.logicalStack[state.stackIndex]!.preRightLabel);
                 }
+                else if (operatorToken.kind === SyntaxKind.CommaToken) {
+                    maybeBindExpressionFlowIfCall(node.left);
+                }
+                bind(operatorToken);
+                // if (!state.skip) {
+                //     if (operatorToken.kind === SyntaxKind.CommaToken) {
+                //         maybeBindExpressionFlowIfCall(node.left);
+                //     }
+                //     bind(operatorToken);
+                // }
             }
 
-            function onRight(right: Expression, state: WorkArea, _node: BinaryExpression) {
-                if (!state.skip) {
-                    return maybeBind(right);
+            function onRight(right: Expression, state: WorkArea, node: BinaryExpression) {
+                if (state.isLogicalLike) {
+                    // >> TODO: do special stuff if assignment operator
+                    currentTrueTarget = state.logicalStack[state.stackIndex]!.trueTarget;
+                    currentFalseTarget = state.logicalStack[state.stackIndex]!.falseTarget;
                 }
+                return maybeBind(right);
+                // if (!state.skip) {
+                //     return maybeBind(right);
+                // }
             }
 
             function onExit(node: BinaryExpression, state: WorkArea) {
-                if (!state.skip) {
-                    const operator = node.operatorToken.kind;
-                    if (isAssignmentOperator(operator) && !isAssignmentTarget(node)) {
-                        bindAssignmentTargetFlow(node.left);
-                        if (operator === SyntaxKind.EqualsToken && node.left.kind === SyntaxKind.ElementAccessExpression) {
-                            const elementAccess = node.left as ElementAccessExpression;
-                            if (isNarrowableOperand(elementAccess.expression)) {
-                                currentFlow = createFlowMutation(FlowFlags.ArrayMutation, currentFlow, node);
-                            }
+                const operator = node.operatorToken.kind;
+                if (state.isLogicalLike) {
+                    const postExpressionLabel = state.logicalStack[state.stackIndex]?.postExpressionLabel;
+                    if (postExpressionLabel) {
+                        currentFlow = finishFlowLabel(postExpressionLabel);
+                    }
+                }
+                else if (isAssignmentOperator(operator) && !isAssignmentTarget(node)) {
+                    bindAssignmentTargetFlow(node.left);
+                    if (operator === SyntaxKind.EqualsToken && node.left.kind === SyntaxKind.ElementAccessExpression) {
+                        const elementAccess = node.left as ElementAccessExpression;
+                        if (isNarrowableOperand(elementAccess.expression)) {
+                            currentFlow = createFlowMutation(FlowFlags.ArrayMutation, currentFlow, node);
                         }
                     }
                 }
@@ -1592,7 +1671,9 @@ namespace ts {
                 if (savedParent !== undefined) {
                     parent = savedParent;
                 }
-                state.skip = false;
+                currentTrueTarget = state.currentBranchTargetStack[state.stackIndex][0];
+                currentFalseTarget = state.currentBranchTargetStack[state.stackIndex][1];
+                state.isLogicalLike = false;
                 state.stackIndex--;
             }
 

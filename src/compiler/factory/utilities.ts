@@ -1016,7 +1016,15 @@ namespace ts {
          * @param frame The current frame
          * @returns The new frame
          */
-        export function enter<TOuterState, TState, TResult>(machine: BinaryExpressionStateMachine<TOuterState, TState, TResult>, stackIndex: number, stateStack: BinaryExpressionState[], nodeStack: BinaryExpression[], userStateStack: TState[], _resultHolder: { value: TResult }, outerState: TOuterState): number {
+        export function enter<TOuterState, TState, TResult>(
+            machine: BinaryExpressionStateMachine<TOuterState, TState, TResult>,
+            stackIndex: number,
+            stateStack: BinaryExpressionState[],
+            nodeStack: BinaryExpression[],
+            userStateStack: TState[],
+            _resultHolder: { value: TResult },
+            outerState: TOuterState,
+        ): number {
             const prevUserState = stackIndex > 0 ? userStateStack[stackIndex - 1] : undefined;
             Debug.assertEqual(stateStack[stackIndex], enter);
             userStateStack[stackIndex] = machine.onEnter(nodeStack[stackIndex], prevUserState, outerState);
@@ -1030,7 +1038,15 @@ namespace ts {
          * @param frame The current frame
          * @returns The new frame
          */
-        export function left<TOuterState, TState, TResult>(machine: BinaryExpressionStateMachine<TOuterState, TState, TResult>, stackIndex: number, stateStack: BinaryExpressionState[], nodeStack: BinaryExpression[], userStateStack: TState[], _resultHolder: { value: TResult }, _outerState: TOuterState): number {
+        export function left<TOuterState, TState, TResult>(
+            machine: BinaryExpressionStateMachine<TOuterState, TState, TResult>,
+            stackIndex: number,
+            stateStack: BinaryExpressionState[],
+            nodeStack: BinaryExpression[],
+            userStateStack: TState[],
+            _resultHolder: { value: TResult },
+            _outerState: TOuterState,
+        ): number {
             Debug.assertEqual(stateStack[stackIndex], left);
             Debug.assertIsDefined(machine.onLeft);
             stateStack[stackIndex] = nextState(machine, left);
