@@ -1134,6 +1134,17 @@ namespace FourSlash {
             }
         }
 
+        public verifyTypeAtLocation(range: Range, expected: string): void {
+            const node = this.goToAndGetNode(range);
+            const checker = this.getChecker();
+            const type = checker.getTypeAtLocation(node);
+
+            const actual = checker.typeToString(type);
+            if (actual !== expected) {
+                this.raiseError(displayExpectedAndActualString(expected, actual));
+            }
+        }
+
         public verifyBaselineFindAllReferences(...markerNames: string[]) {
             ts.Debug.assert(markerNames.length > 0, "Must pass at least one marker name to `verifyBaselineFindAllReferences()`");
             this.verifyBaselineFindAllReferencesWorker("", markerNames);
