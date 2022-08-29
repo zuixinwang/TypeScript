@@ -64,6 +64,7 @@ namespace ts.Completions {
         ResolvedExport      = 1 << 5,
         TypeOnlyAlias       = 1 << 6,
         ObjectLiteralMethod = 1 << 7,
+        EnumMember          = 1 << 8,
 
         SymbolMemberNoExport = SymbolMember,
         SymbolMemberExport   = SymbolMember | Export,
@@ -101,6 +102,10 @@ namespace ts.Completions {
         isSnippet?: true,
     }
 
+    interface SymbolOriginEnumMember extends SymbolOriginInfo {
+        symbolName: string,
+    }
+
     function originIsThisType(origin: SymbolOriginInfo): boolean {
         return !!(origin.kind & SymbolOriginInfoKind.ThisType);
     }
@@ -117,8 +122,8 @@ namespace ts.Completions {
         return !!(origin && origin.kind === SymbolOriginInfoKind.ResolvedExport);
     }
 
-    function originIncludesSymbolName(origin: SymbolOriginInfo | undefined): origin is SymbolOriginInfoExport | SymbolOriginInfoResolvedExport {
-        return originIsExport(origin) || originIsResolvedExport(origin);
+    function originIncludesSymbolName(origin: SymbolOriginInfo | undefined): origin is SymbolOriginInfoExport | SymbolOriginInfoResolvedExport | SymbolOriginEnumMember {
+        return originIsExport(origin) || originIsResolvedExport(origin) || originIsEnumMember(origin);
     }
 
     function originIsPackageJsonImport(origin: SymbolOriginInfo | undefined): origin is SymbolOriginInfoExport {
@@ -139,6 +144,10 @@ namespace ts.Completions {
 
     function originIsObjectLiteralMethod(origin: SymbolOriginInfo | undefined): origin is SymbolOriginInfoObjectLiteralMethod {
         return !!(origin && origin.kind & SymbolOriginInfoKind.ObjectLiteralMethod);
+    }
+
+    function originIsEnumMember(origin: SymbolOriginInfo | undefined): origin is SymbolOriginEnumMember {
+        return !!(origin && origin.kind & SymbolOriginInfoKind.EnumMember);
     }
 
     interface UniqueNameSet {
@@ -2218,6 +2227,24 @@ namespace ts.Completions {
 
         log("getCompletionData: Semantic work: " + (timestamp() - semanticStart));
         const contextualType = previousToken && getContextualType(previousToken, position, sourceFile, typeChecker);
+
+        // >> TODO: delete; prototype
+        if (previousToken.kind === SyntaxKind.CaseKeyword) {
+            const caseClause = tryCast(previousToken.parent, isCaseClause);
+            if (caseClause && contextualType && contextualType.isUnion()) {
+                contextualType.types.forEach(type => {
+                    const symbol = type.getSymbol();
+                    if (symbol && symbol.getFlags() & SymbolFlags.EnumMember) {
+                        const origin: SymbolOriginEnumMember = {
+                            kind: SymbolOriginInfoKind.EnumMember,
+                            symbolName: `${symbol.parent!.name}.${symbol.name}`,
+                        };
+                        symbolToOriginInfoMap[symbols.length] = origin;
+                        symbols.push(symbol);
+                    }
+                });
+            }
+        }
 
         const literals = mapDefined(
             contextualType && (contextualType.isUnion() ? contextualType.types : [contextualType]),
