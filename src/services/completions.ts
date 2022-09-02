@@ -2192,6 +2192,8 @@ namespace ts.Completions {
             return createModuleSpecifierResolutionHost(isFromPackageJson ? host.getPackageJsonAutoImportProvider!()! : program, host);
         });
 
+        const contextualType = previousToken && getContextualType(previousToken, position, sourceFile, typeChecker);
+
         if (isRightOfDot || isRightOfQuestionDot) {
             getTypeScriptMemberSymbols();
         }
@@ -2223,7 +2225,7 @@ namespace ts.Completions {
         }
 
         log("getCompletionData: Semantic work: " + (timestamp() - semanticStart));
-        const contextualType = previousToken && getContextualType(previousToken, position, sourceFile, typeChecker);let literals = mapDefined(
+        let literals = mapDefined(
             contextualType && (contextualType.isUnion() ? contextualType.types : [contextualType]),
             t => t.isLiteral() && !(t.flags & TypeFlags.EnumLiteral) ? t.value : undefined);
 
@@ -2264,37 +2266,37 @@ namespace ts.Completions {
             }
         }
 
-        const parent = previousToken.parent;
-        const grandparent = parent?.parent;
-        if (previousToken.kind === SyntaxKind.DotToken && isPropertyAccessExpression(parent) && isCaseClause(grandparent)) {
-            // >> TODO: does text only comparison works?
-            // >> I think so, everything is in the same scope (case-level in switch statement),
-            // >> and should/could be referred to by the same name
-            const switchStatement = grandparent.parent.parent;
-            const clauses = switchStatement.caseBlock.clauses;
-            const cases = flatMap(clauses, clause => {
-                if (isCaseClause(clause)) {
-                    return clause.expression.getText();
-                }
-            });
+        // const parent = previousToken.parent;
+        // const grandparent = parent?.parent;
+        // if (previousToken.kind === SyntaxKind.DotToken && isPropertyAccessExpression(parent) && isCaseClause(grandparent)) {
+        //     // >> TODO: does text only comparison works?
+        //     // >> I think so, everything is in the same scope (case-level in switch statement),
+        //     // >> and should/could be referred to by the same name
+        //     const switchStatement = grandparent.parent.parent;
+        //     const clauses = switchStatement.caseBlock.clauses;
+        //     const cases = flatMap(clauses, clause => {
+        //         if (isCaseClause(clause)) {
+        //             return clause.expression.getText();
+        //         }
+        //     });
 
-            const propertyAccess = parent.getText();
-            for (let i = 0; i < symbols.length; i++) {
-                const symbol = symbols[i];
-                const origin = symbolToOriginInfoMap?.[i];
-                const info = getCompletionEntryDisplayNameForSymbol(symbol, getEmitScriptTarget(compilerOptions), origin, completionKind, isJsxIdentifierExpected);
-                if (info) {
-                    if (contains(cases, `${propertyAccess}${info.name}`)) {
-                        if (origin) {
-                            origin.kind |= SymbolOriginInfoKind.Omit;
-                        }
-                        else {
-                            symbolToOriginInfoMap[i] = { kind: SymbolOriginInfoKind.Omit };
-                        }
-                    }
-                }
-            }
-        }
+        //     const propertyAccess = parent.getText();
+        //     for (let i = 0; i < symbols.length; i++) {
+        //         const symbol = symbols[i];
+        //         const origin = symbolToOriginInfoMap?.[i];
+        //         const info = getCompletionEntryDisplayNameForSymbol(symbol, getEmitScriptTarget(compilerOptions), origin, completionKind, isJsxIdentifierExpected);
+        //         if (info) {
+        //             if (contains(cases, `${propertyAccess}${info.name}`)) {
+        //                 if (origin) {
+        //                     origin.kind |= SymbolOriginInfoKind.Omit;
+        //                 }
+        //                 else {
+        //                     symbolToOriginInfoMap[i] = { kind: SymbolOriginInfoKind.Omit };
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         const recommendedCompletion = previousToken && contextualType && getRecommendedCompletion(previousToken, contextualType, typeChecker);
         return {
@@ -2366,7 +2368,7 @@ namespace ts.Completions {
                     symbol = skipAlias(symbol, typeChecker);
                     if (symbol.flags & (SymbolFlags.Module | SymbolFlags.Enum)) {
                         // Extract module or enum members
-                        const exportedSymbols = typeChecker.getExportsOfModule(symbol);
+                        let exportedSymbols = typeChecker.getExportsOfModule(symbol);
                         Debug.assertEachIsDefined(exportedSymbols, "getExportsOfModule() should all be defined");
                         const isValidValueAccess = (symbol: Symbol) => typeChecker.isValidPropertyAccess(isImportType ? node as ImportTypeNode : (node.parent as PropertyAccessExpression), symbol.name);
                         const isValidTypeAccess = (symbol: Symbol) => symbolCanBeReferencedAtTypeLocation(symbol, typeChecker);
@@ -2378,6 +2380,48 @@ namespace ts.Completions {
                                     // Any kind is allowed when dotting off namespace in internal import equals declaration
                                     symbol => isValidTypeAccess(symbol) || isValidValueAccess(symbol) :
                                     isTypeLocation ? isValidTypeAccess : isValidValueAccess;
+
+                        const parent = previousToken.parent;
+                        const grandparent = parent?.parent;
+                        if (previousToken.kind === SyntaxKind.DotToken && isPropertyAccessExpression(parent) && isCaseClause(grandparent)) {
+                            // >> TODO: does text only comparison works?
+                            // >> I think so, everything is in the same scope (case-level in switch statement),
+                            // >> and should/could be referred to by the same name
+                            const switchStatement = grandparent.parent.parent;
+                            const clauses = switchStatement.caseBlock.clauses;
+                            const cases = flatMap(clauses, clause => {
+                                if (isCaseClause(clause)) {
+                                    return clause.expression.getText();
+                                }
+                            });
+
+                            const propertyAccess = parent.getText();
+                            // for (let i = 0; i < symbols.length; i++) {
+                            //     const symbol = symbols[i];
+                            //     const origin = symbolToOriginInfoMap?.[i];
+                            //     const info = getCompletionEntryDisplayNameForSymbol(symbol, getEmitScriptTarget(compilerOptions), origin, completionKind, isJsxIdentifierExpected);
+                            //     if (info) {
+                            //         if (contains(cases, `${propertyAccess}${info.name}`)) {
+                            //             if (origin) {
+                            //                 origin.kind |= SymbolOriginInfoKind.Omit;
+                            //             }
+                            //             else {
+                            //                 symbolToOriginInfoMap[i] = { kind: SymbolOriginInfoKind.Omit };
+                            //             }
+                            //         }
+                            //     }
+                            // }
+                            exportedSymbols = filter(exportedSymbols, symbol => {
+                                const info = getCompletionEntryDisplayNameForSymbol(symbol, getEmitScriptTarget(compilerOptions), /*origin*/ undefined, completionKind, isJsxIdentifierExpected);
+                                if (info) {
+                                    return !contains(cases, `${propertyAccess}${info.name}`);
+                                }
+                                return true;
+                            });
+
+                            // >> TODO: also filter symbols by contextual type
+
+                        }
                         for (const exportedSymbol of exportedSymbols) {
                             if (isValidAccess(exportedSymbol)) {
                                 symbols.push(exportedSymbol);
