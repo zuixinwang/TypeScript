@@ -64,6 +64,7 @@ namespace ts.Completions {
         ResolvedExport      = 1 << 5,
         TypeOnlyAlias       = 1 << 6,
         ObjectLiteralMethod = 1 << 7,
+        Omit                = 1 << 8,
 
         SymbolMemberNoExport = SymbolMember,
         SymbolMemberExport   = SymbolMember | Export,
@@ -1428,7 +1429,10 @@ namespace ts.Completions {
             const symbol = symbols[i];
             const origin = symbolToOriginInfoMap?.[i];
             const info = getCompletionEntryDisplayNameForSymbol(symbol, target, origin, kind, !!jsxIdentifierExpected);
-            if (!info || (uniques.get(info.name) && (!origin || !originIsObjectLiteralMethod(origin))) || kind === CompletionKind.Global && symbolToSortTextMap && !shouldIncludeSymbol(symbol, symbolToSortTextMap)) {
+            if (!info ||
+                (uniques.get(info.name) && (!origin || !originIsObjectLiteralMethod(origin))) ||
+                kind === CompletionKind.Global && symbolToSortTextMap && !shouldIncludeSymbol(symbol, symbolToSortTextMap) ||
+                (origin && origin.kind & SymbolOriginInfoKind.Omit)) {
                 continue;
             }
 
@@ -2219,11 +2223,78 @@ namespace ts.Completions {
         }
 
         log("getCompletionData: Semantic work: " + (timestamp() - semanticStart));
-        const contextualType = previousToken && getContextualType(previousToken, position, sourceFile, typeChecker);
-
-        const literals = mapDefined(
+        const contextualType = previousToken && getContextualType(previousToken, position, sourceFile, typeChecker);let literals = mapDefined(
             contextualType && (contextualType.isUnion() ? contextualType.types : [contextualType]),
             t => t.isLiteral() && !(t.flags & TypeFlags.EnumLiteral) ? t.value : undefined);
+
+        // >> TODO: prototype
+        if (previousToken.kind === SyntaxKind.CaseKeyword) {
+            const caseClause = tryCast(previousToken.parent, isCaseClause);
+            if (caseClause && contextualType?.isUnion() && every(contextualType.types, t => t.isLiteral())) { // >> TODO: check if not enum member literal
+                const switchStatement = caseClause.parent.parent;
+                const clauses = switchStatement.caseBlock.clauses;
+                const cases: readonly (number | string | PseudoBigInt)[] = flatMap(clauses, clause => {
+                    if (isCaseClause(clause)) {
+                        if (isNumericLiteral(clause.expression)) {
+                            return parseInt(clause.expression.text);
+                        }
+                        if (isBigIntLiteral(clause.expression)) {
+                            const text = clause.expression.text;
+                            const negative = startsWith(text, "-");
+                            const base10Value = parsePseudoBigInt(`${negative ? text.slice(1) : text}n`);
+                            return { negative, base10Value };
+                        }
+                        if (isStringLiteral(clause.expression)) {
+                            return clause.expression.text;
+                        }
+                    }
+                });
+
+                literals = filter(literals, literal => { // >> TODO: that's quadratic; does it matter? is there a better way?
+                    return !some(cases, existingCase => {
+                        if (typeof existingCase === "object") {
+                            if (typeof literal === "object") {
+                                return existingCase.negative === literal.negative && existingCase.base10Value === literal.base10Value;
+                            }
+                            return false;
+                        }
+                        return existingCase === literal;
+                    });
+                });
+            }
+        }
+
+        const parent = previousToken.parent;
+        const grandparent = parent?.parent;
+        if (previousToken.kind === SyntaxKind.DotToken && isPropertyAccessExpression(parent) && isCaseClause(grandparent)) {
+            // >> TODO: does text only comparison works?
+            // >> I think so, everything is in the same scope (case-level in switch statement),
+            // >> and should/could be referred to by the same name
+            const switchStatement = grandparent.parent.parent;
+            const clauses = switchStatement.caseBlock.clauses;
+            const cases = flatMap(clauses, clause => {
+                if (isCaseClause(clause)) {
+                    return clause.expression.getText();
+                }
+            });
+
+            const propertyAccess = parent.getText();
+            for (let i = 0; i < symbols.length; i++) {
+                const symbol = symbols[i];
+                const origin = symbolToOriginInfoMap?.[i];
+                const info = getCompletionEntryDisplayNameForSymbol(symbol, getEmitScriptTarget(compilerOptions), origin, completionKind, isJsxIdentifierExpected);
+                if (info) {
+                    if (contains(cases, `${propertyAccess}${info.name}`)) {
+                        if (origin) {
+                            origin.kind |= SymbolOriginInfoKind.Omit;
+                        }
+                        else {
+                            symbolToOriginInfoMap[i] = { kind: SymbolOriginInfoKind.Omit };
+                        }
+                    }
+                }
+            }
+        }
 
         const recommendedCompletion = previousToken && contextualType && getRecommendedCompletion(previousToken, contextualType, typeChecker);
         return {
