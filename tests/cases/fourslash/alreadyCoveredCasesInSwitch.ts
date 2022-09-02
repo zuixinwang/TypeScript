@@ -34,7 +34,7 @@ verify.completions(
         isNewIdentifierLocation: false,
         includes: [
             {
-                name: "B",
+                name: `"B"`,
                 sortText: completion.SortText.LocationPriority,
             },
             {
