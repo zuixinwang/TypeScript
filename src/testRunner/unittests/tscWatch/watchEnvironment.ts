@@ -698,11 +698,11 @@ namespace ts.tscWatch {
                     {
                         caption: "Change file",
                         change: sys => sys.appendFile(`${projectRoot}/b.ts`, "export function foo() { }"),
-                    //     timeouts: sys => sys.checkTimeoutQueueLength(0),
-                    // },
-                    // {
-                    //     caption: "Invoke plugin watches",
-                    //     change: sys => (sys as WatchFactorySystem).factoryData.watchedFiles.get(`${projectRoot}/b.ts`)!.forEach(({ callback }) => callback(`${projectRoot}/b.ts`, FileWatcherEventKind.Changed)),
+                        timeouts: sys => sys.checkTimeoutQueueLength(0),
+                    },
+                    {
+                        caption: "Invoke plugin watches",
+                        change: sys => (sys as WatchFactorySystem).factoryData.watchedFiles.get(`${projectRoot}/b.ts`)!.forEach(({ callback }) => callback(`${projectRoot}/b.ts`, FileWatcherEventKind.Changed)),
                         timeouts: sys => sys.runQueuedTimeoutCallbacks(),
                     },
                 ]
@@ -728,11 +728,11 @@ namespace ts.tscWatch {
                     {
                         caption: "Change file",
                         change: sys => sys.appendFile(`${projectRoot}/b.ts`, "export function foo() { }"),
-                    //     timeouts: sys => sys.checkTimeoutQueueLength(0),
-                    // },
-                    // {
-                    //     caption: "Invoke plugin watches",
-                    //     change: sys => (sys as WatchFactorySystem).factoryData.watchedFiles.get(`${projectRoot}/b.ts`)!.forEach(({ callback }) => callback(`${projectRoot}/b.ts`, FileWatcherEventKind.Changed)),
+                        timeouts: sys => sys.checkTimeoutQueueLength(0),
+                    },
+                    {
+                        caption: "Invoke plugin watches",
+                        change: sys => (sys as WatchFactorySystem).factoryData.watchedFiles.get(`${projectRoot}/b.ts`)!.forEach(({ callback }) => callback(`${projectRoot}/b.ts`, FileWatcherEventKind.Changed)),
                         timeouts: sys => sys.runQueuedTimeoutCallbacks(),
                     },
                 ]
@@ -785,11 +785,11 @@ namespace ts.tscWatch {
                     {
                         caption: "Add file",
                         change: sys => sys.writeFile(`${projectRoot}/c.ts`, "export function foo() { }"),
-                    //     timeouts: sys => sys.checkTimeoutQueueLength(0),
-                    // },
-                    // {
-                    //     caption: "Invoke plugin watches",
-                    //     change: sys => (sys as WatchFactorySystem).factoryData.watchedDirectoriesRecursive.get(projectRoot)!.forEach(({ callback }) => callback(`${projectRoot}/c.ts`)),
+                        timeouts: sys => sys.checkTimeoutQueueLength(0),
+                    },
+                    {
+                        caption: "Invoke plugin watches",
+                        change: sys => (sys as WatchFactorySystem).factoryData.watchedDirectoriesRecursive.get(projectRoot)!.forEach(({ callback }) => callback(`${projectRoot}/c.ts`)),
                         timeouts: sys => sys.runQueuedTimeoutCallbacks(),
                     },
                 ]

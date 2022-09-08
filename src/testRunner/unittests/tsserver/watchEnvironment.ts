@@ -528,12 +528,12 @@ namespace ts.projectSystem {
                 // Add c.ts
                 session.logger.info("Add a file");
                 host.writeFile(`${tscWatch.projectRoot}/c.ts`, aTs.content);
-                // // Since we have overriden watch, this shouldnt do anything
-                // host.checkTimeoutQueueLength(0);
+                // Since we have overriden watch, this shouldnt do anything
+                host.checkTimeoutQueueLength(0);
 
-                // // Actually invoke watches
-                // session.logger.info("Invoke plugin watches");
-                // plugin.watchedDirectoriesRecursive.get(tscWatch.projectRoot)!.forEach(({ callback }) => callback(`${tscWatch.projectRoot}/c.ts`));
+                // Actually invoke watches
+                session.logger.info("Invoke plugin watches");
+                plugin.watchedDirectoriesRecursive.get(tscWatch.projectRoot)!.forEach(({ callback }) => callback(`${tscWatch.projectRoot}/c.ts`));
                 // Host should have updates queued
                 host.runQueuedTimeoutCallbacks();
 
@@ -554,12 +554,12 @@ namespace ts.projectSystem {
                 // Change b.ts
                 session.logger.info("Change file");
                 host.writeFile(bTs.path, aTs.content);
-                // // Since we have overriden watch, this shouldnt do anything
-                // host.checkTimeoutQueueLength(0);
+                // Since we have overriden watch, this shouldnt do anything
+                host.checkTimeoutQueueLength(0);
 
-                // // Actually invoke watches
-                // session.logger.info("Invoke plugin watches");
-                // plugin.watchedFiles.get(bTs.path)!.forEach(({ callback }) => callback(bTs.path, FileWatcherEventKind.Changed));
+                // Actually invoke watches
+                session.logger.info("Invoke plugin watches");
+                plugin.watchedFiles.get(bTs.path)!.forEach(({ callback }) => callback(bTs.path, FileWatcherEventKind.Changed));
                 // Host should have updates queued
                 host.runQueuedTimeoutCallbacks();
 
@@ -587,24 +587,24 @@ namespace ts.projectSystem {
                 // Add c.ts
                 session.logger.info("Add a file");
                 host.writeFile(`${tscWatch.projectRoot}/c.ts`, aTs.content);
-                // // Since we have overriden watch, this shouldnt do anything
-                // host.checkTimeoutQueueLength(0);
+                // Since we have overriden watch, this shouldnt do anything
+                host.checkTimeoutQueueLength(0);
 
-                // // Actually invoke watches
-                // session.logger.info("Invoke plugin watches");
-                // plugin.watchedDirectoriesRecursive.get(tscWatch.projectRoot)!.forEach(({ callback }) => callback(`${tscWatch.projectRoot}/c.ts`));
+                // Actually invoke watches
+                session.logger.info("Invoke plugin watches");
+                plugin.watchedDirectoriesRecursive.get(tscWatch.projectRoot)!.forEach(({ callback }) => callback(`${tscWatch.projectRoot}/c.ts`));
                 // Host should have updates queued
                 host.runQueuedTimeoutCallbacks();
 
                 // Change b.ts
                 session.logger.info("Change file");
                 host.writeFile(bTs.path, aTs.content);
-                // // Since we have overriden watch, this shouldnt do anything
-                // host.checkTimeoutQueueLength(0);
+                // Since we have overriden watch, this shouldnt do anything
+                host.checkTimeoutQueueLength(0);
 
-                // // Actually invoke watches
-                // session.logger.info("Invoke plugin watches");
-                // plugin2.watchedFiles.get(bTs.path)!.forEach(({ callback }) => callback(bTs.path, FileWatcherEventKind.Changed));
+                // Actually invoke watches
+                session.logger.info("Invoke plugin watches");
+                plugin2.watchedFiles.get(bTs.path)!.forEach(({ callback }) => callback(bTs.path, FileWatcherEventKind.Changed));
                 // Host should have updates queued
                 host.runQueuedTimeoutCallbacks();
 

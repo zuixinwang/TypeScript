@@ -2003,6 +2003,7 @@ namespace ts.server {
 
         close() {
             forEach(this.getRootScriptInfos(), info => this.projectService.stopWatchingConfigFilesForInferredProjectRoot(info));
+            this.projectService.clearWatchOptionsFromProjectWatchOptions(this.watchOptions);
             super.close();
         }
 
@@ -2653,6 +2654,11 @@ namespace ts.server {
 
         getExcludedFiles() {
             return this.excludedFiles;
+        }
+
+        close() {
+            this.projectService.clearWatchOptionsFromProjectWatchOptions(this.watchOptions);
+            super.close();
         }
     }
 
