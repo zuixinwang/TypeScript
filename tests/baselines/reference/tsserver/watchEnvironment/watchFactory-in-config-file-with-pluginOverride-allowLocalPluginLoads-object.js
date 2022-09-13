@@ -323,6 +323,7 @@ WatchedDirectories:Recursive::
 /user/username/projects/myproject/node_modules/@types:
   {"options":{"watchFactory":"myplugin"}}
 WatchedDirectories::
+Custom:: onConfigurationChanged:: {"extraData":"myData"}
 Info 41   [00:01:24.000] response:
     {"seq":0,"type":"response","command":"configurePlugin","request_seq":2,"success":true,"performanceData":{"updateGraphDurationMs":*}}
 After request

@@ -597,6 +597,7 @@ WatchedFiles::
   {"pollingInterval":500,"options":{"watchFactory":"myplugin2"}}
 WatchedDirectories:Recursive::
 WatchedDirectories::
+Custom:: onConfigurationChanged:: {"extraData":"myData"}
 Info 61   [00:01:59.000] response:
     {"seq":0,"type":"response","command":"configurePlugin","request_seq":4,"success":true,"performanceData":{"updateGraphDurationMs":*}}
 After request
@@ -675,6 +676,7 @@ WatchedFiles::
   {"pollingInterval":500,"options":{"watchFactory":"myplugin2"}}
 WatchedDirectories:Recursive::
 WatchedDirectories::
+Custom:: myplugin2onConfigurationChanged:: {"extraData":"myData"}
 Info 64   [00:02:02.000] response:
     {"seq":0,"type":"response","command":"configurePlugin","request_seq":5,"success":true,"performanceData":{"updateGraphDurationMs":*}}
 After request
