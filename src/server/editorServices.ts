@@ -779,7 +779,7 @@ namespace ts.server {
         public readonly pluginProbeLocations: readonly string[];
         public readonly allowLocalPluginLoads: boolean;
         /*@internal*/
-        currentPluginConfigOverrides: ESMap<string, any> | undefined;
+        private currentPluginConfigOverrides: ESMap<string, any> | undefined;
 
         public readonly typesMapLocation: string | undefined;
 
@@ -3082,7 +3082,8 @@ namespace ts.server {
         /*@internal*/
         private setWatchOptionsFactoryHost(options: WatchOptions, canonicalConfigFilePath: NormalizedPath | undefined) {
             setWatchOptionInternalProperty(options, "getHost", memoize(() => ({
-                searchPaths: this.getProjectPluginSearchPaths(canonicalConfigFilePath)
+                searchPaths: this.getProjectPluginSearchPaths(canonicalConfigFilePath),
+                getPluginWithConfigOverride: plugin => this.getPluginWithConfigOverride(plugin),
             })));
         }
 
@@ -4127,6 +4128,18 @@ namespace ts.server {
                 searchPaths.unshift(local);
             }
             return searchPaths;
+        }
+
+        /*@internal*/
+        getPluginWithConfigOverride(pluginConfigEntry: PluginImport) {
+            const configurationOverride = this.currentPluginConfigOverrides?.get(pluginConfigEntry.name);
+            if (configurationOverride) {
+                // Preserve the name property since it's immutable
+                const pluginName = pluginConfigEntry.name;
+                pluginConfigEntry = configurationOverride;
+                pluginConfigEntry.name = pluginName;
+            }
+            return pluginConfigEntry;
         }
 
         /*@internal*/

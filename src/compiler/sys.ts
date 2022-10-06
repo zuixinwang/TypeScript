@@ -953,7 +953,7 @@ namespace ts {
                 ];
             sysLog(`Enabling watchFactory ${isString(options.watchFactory) ? options.watchFactory : JSON.stringify(options.watchFactory)} from candidate paths: ${searchPaths.join(",")}`);
             const { resolvedModule, errorLogs, pluginConfigEntry } = resolveModule<UserWatchFactoryModule>(
-                isString(options.watchFactory) ? { name: options.watchFactory } : options.watchFactory,
+                getWatchFactoryPlugin(options),
                 searchPaths,
                 getSystem(),
                 sysLog
@@ -969,6 +969,11 @@ namespace ts {
                 sysLog(`Skipped loading plugin ${pluginConfigEntry.name} because it did not expose a proper factory function`);
             }
             return setUserWatchFactory(options, /*userWatchFactory*/ undefined);
+        }
+
+        function getWatchFactoryPlugin(options: WatchOptions) {
+            const plugin = isString(options.watchFactory) ? { name: options.watchFactory } : options.watchFactory!;
+            return options.getHost?.().getPluginWithConfigOverride(plugin) || plugin;
         }
 
         function setUserWatchFactory(options: WatchOptions, userWatchFactory: UserWatchFactory | undefined) {
