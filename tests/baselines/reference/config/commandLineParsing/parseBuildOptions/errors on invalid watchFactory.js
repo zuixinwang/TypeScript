@@ -1,0 +1,9 @@
+--watchFactory somefactory/../malicious
+buildOptions::
+{}
+WatchOptions::
+{}
+Projects::
+.
+Errors::
+error TS5096: 'watchFactory' name can only be a package name.

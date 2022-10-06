@@ -183,7 +183,20 @@ namespace ts {
             category: Diagnostics.Watch_and_Build_Modes,
             description: Diagnostics.Remove_a_list_of_files_from_the_watch_mode_s_processing,
         },
+        {
+            name: "watchFactory",
+            type: "string",
+            category: Diagnostics.Watch_and_Build_Modes,
+            description: Diagnostics.Specify_which_factory_to_invoke_watchFile_and_watchDirectory_on,
+            extraValidation: watchFactoryToDiagnostic
+        },
     ];
+
+    function watchFactoryToDiagnostic(watchFactory: string): [DiagnosticMessage] | undefined {
+        return parsePackageName(watchFactory).rest ?
+            [Diagnostics.watchFactory_name_can_only_be_a_package_name] :
+            undefined;
+    }
 
     /* @internal */
     export const commonOptionsWithBuild: CommandLineOption[] = [
