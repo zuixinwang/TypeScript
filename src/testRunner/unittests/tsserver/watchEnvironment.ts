@@ -712,9 +712,8 @@ namespace ts.projectSystem {
         interface PluginImport extends ts.PluginImport {
             myconfig: "somethingelse";
         }
-        function getWatchFactory(watchFactory: string, _useObject: boolean): PluginImport | string {
-            return watchFactory;
-            // return useObject ? { name: watchFactory, myconfig: "somethingelse" } : watchFactory;
+        function getWatchFactory(watchFactory: string, useObject: boolean): PluginImport | string {
+            return useObject ? { name: watchFactory, myconfig: "somethingelse" } : watchFactory;
         }
 
         function configureGlobalWatchOptions(session: TestSession, watchFactory: string, useObject: boolean) {

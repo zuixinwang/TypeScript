@@ -926,8 +926,7 @@ namespace ts.tscWatch {
                     scenario,
                     ...input,
                     subScenario: `${input.subScenario} object`,
-                    sys: () => input.sys({ watchFactory }),
-                    // sys: () => input.sys({ watchFactory: { name: watchFactory, myconfig: "somethingelse" } as PluginImport }),
+                    sys: () => input.sys({ watchFactory: { name: watchFactory, myconfig: "somethingelse" } as PluginImport }),
                 });
             }
 
@@ -944,8 +943,7 @@ namespace ts.tscWatch {
                     scenario,
                     ...input,
                     subScenario: `${input.subScenario} object`,
-                    commandLineArgs: ["-w", "--extendedDiagnostics", "--watchFactory", watchFactory],
-                    // commandLineArgs: ["-w", "--extendedDiagnostics", "--watchFactory", JSON.stringify({ name: watchFactory, myconfig: "somethingelse" })],
+                    commandLineArgs: ["-w", "--extendedDiagnostics", "--watchFactory", JSON.stringify({ name: watchFactory, myconfig: "somethingelse" })],
                 });
             }
         });

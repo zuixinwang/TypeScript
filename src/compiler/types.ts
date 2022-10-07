@@ -6842,10 +6842,16 @@ namespace ts {
         configFileParsingDiagnostics?: readonly Diagnostic[];
     }
 
+     /* @internal */
+    export type CommandLineOptionExtraValidation = (value: CompilerOptionsValue, valueExpression?: Expression) =>
+        readonly [DiagnosticMessage, ...string[]] |
+        { diagnostics: readonly [DiagnosticMessage, ...string[]]; errorNode: Expression; } |
+        undefined;
+
     /* @internal */
     export interface CommandLineOptionBase {
         name: string;
-        type: "string" | "number" | "boolean" | "object" | "list" | ESMap<string, number | string>;    // a value of a primitive type, or an object literal mapping named values to actual values
+        type: "string" | "number" | "boolean" | "object" | "list" | "string | object" | ESMap<string, number | string>;    // a value of a primitive type, or an object literal mapping named values to actual values
         isFilePath?: boolean;                                   // True if option value is a path or fileName
         shortName?: string;                                     // A short mnemonic for convenience - for instance, 'h' can be used in place of 'help'
         description?: DiagnosticMessage;                        // The message describing what the command line switch does.
@@ -6866,7 +6872,7 @@ namespace ts {
         affectsMultiFileEmitBuildInfo?: true;                   // true if this options should be emitted in buildInfo without --out
         affectsBundleEmitBuildInfo?: true;                      // true if this options should be emitted in buildInfo with --out
         transpileOptionValue?: boolean | undefined;             // If set this means that the option should be set to this value when transpiling
-        extraValidation?: (value: CompilerOptionsValue) => [DiagnosticMessage, ...string[]] | undefined; // Additional validation to be performed for the value to be valid
+        extraValidation?: CommandLineOptionExtraValidation;     // Additional validation to be performed for the value to be valid
     }
 
     /* @internal */
@@ -6908,8 +6914,8 @@ namespace ts {
     }
 
     /* @internal */
-    export interface TsConfigOnlyOption extends CommandLineOptionBase {
-        type: "object";
+    export interface CommandLineOptionOfObjectType extends CommandLineOptionBase {
+        type: "object" | "string | object";
         elementOptions?: ESMap<string, CommandLineOption>;
         extraKeyDiagnostics?: DidYouMeanOptionsDiagnostics;
     }
@@ -6917,12 +6923,12 @@ namespace ts {
     /* @internal */
     export interface CommandLineOptionOfListType extends CommandLineOptionBase {
         type: "list";
-        element: CommandLineOptionOfCustomType | CommandLineOptionOfStringType | CommandLineOptionOfNumberType | CommandLineOptionOfBooleanType | TsConfigOnlyOption;
+        element: CommandLineOptionOfCustomType | CommandLineOptionOfStringType | CommandLineOptionOfNumberType | CommandLineOptionOfBooleanType | CommandLineOptionOfObjectType;
         listPreserveFalsyValues?: boolean;
     }
 
     /* @internal */
-    export type CommandLineOption = CommandLineOptionOfCustomType | CommandLineOptionOfStringType | CommandLineOptionOfNumberType | CommandLineOptionOfBooleanType | TsConfigOnlyOption | CommandLineOptionOfListType;
+    export type CommandLineOption = CommandLineOptionOfCustomType | CommandLineOptionOfStringType | CommandLineOptionOfNumberType | CommandLineOptionOfBooleanType | CommandLineOptionOfObjectType | CommandLineOptionOfListType;
 
     /* @internal */
     export const enum CharacterCodes {
