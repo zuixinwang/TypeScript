@@ -1604,13 +1604,8 @@ namespace ts.server {
         }
 
         /*@internal*/
-        protected getGlobalPluginSearchPaths() {
-            // Search any globally-specified probe paths, then our peer node_modules
-            return [
-                ...this.projectService.pluginProbeLocations,
-                // ../../.. to walk from X/node_modules/typescript/lib/tsserver.js to X/node_modules/
-                combinePaths(this.projectService.getExecutingFilePath(), "../../.."),
-            ];
+        protected getProjectPluginSearchPaths() {
+            return this.projectService.getProjectPluginSearchPaths(/*canonicalConfigFilePath*/ undefined);
         }
 
         protected enableGlobalPlugins(options: CompilerOptions): void {
@@ -1623,7 +1618,7 @@ namespace ts.server {
             }
 
             // Enable global plugins with synthetic configuration entries
-            const searchPaths = this.getGlobalPluginSearchPaths();
+            const searchPaths = this.projectService.getGlobalPluginSearchPaths();
             for (const globalPluginName of this.projectService.globalPlugins) {
                 // Skip empty names from odd commandline parses
                 if (!globalPluginName) continue;
@@ -2482,6 +2477,11 @@ namespace ts.server {
         }
 
         /*@internal*/
+        protected getProjectPluginSearchPaths() {
+            return this.projectService.getProjectPluginSearchPaths(this.canonicalConfigFilePath);
+        }
+
+        /*@internal*/
         enablePluginsWithOptions(options: CompilerOptions): void {
             this.plugins.length = 0;
             if (!options.plugins?.length && !this.projectService.globalPlugins.length) return;
@@ -2491,14 +2491,8 @@ namespace ts.server {
                 return;
             }
 
-            const searchPaths = this.getGlobalPluginSearchPaths();
-            if (this.projectService.allowLocalPluginLoads) {
-                const local = getDirectoryPath(this.canonicalConfigFilePath);
-                this.projectService.logger.info(`Local plugin loading enabled; adding ${local} to search paths`);
-                searchPaths.unshift(local);
-            }
-
             // Enable tsconfig-specified plugins
+            const searchPaths = this.getProjectPluginSearchPaths();
             if (options.plugins) {
                 for (const pluginConfigEntry of options.plugins) {
                     this.enablePlugin(pluginConfigEntry, searchPaths);

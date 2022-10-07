@@ -1311,7 +1311,7 @@ namespace ts.server {
          * This is to watch whenever files are added or removed to the wildcard directories
          */
         /*@internal*/
-        private watchWildcardDirectory(directory: Path, flags: WatchDirectoryFlags, configFileName: NormalizedPath, config: ParsedConfig) {
+        private watchWildcardDirectory(directory: Path, flags: WatchDirectoryFlags, configFileName: NormalizedPath, canonicalConfigFilePath: NormalizedPath, config: ParsedConfig) {
             return this.watchFactory.watchDirectory(
                 directory,
                 fileOrDirectory => {
@@ -1370,7 +1370,7 @@ namespace ts.server {
                     });
                 },
                 flags,
-                this.getWatchOptionsFromProjectWatchOptions(config.parsedCommandLine!.watchOptions),
+                this.getWatchOptionsFromProjectWatchOptions(config.parsedCommandLine!.watchOptions, canonicalConfigFilePath),
                 WatchType.WildcardDirectory,
                 configFileName
             );
@@ -1684,7 +1684,7 @@ namespace ts.server {
                     configFileName,
                     (_fileName, eventKind) => this.onConfigFileChanged(canonicalConfigFilePath, eventKind),
                     PollingInterval.High,
-                    this.getWatchOptionsFromProjectWatchOptions(configFileExistenceInfo?.config?.parsedCommandLine?.watchOptions),
+                    this.getWatchOptionsFromProjectWatchOptions(configFileExistenceInfo?.config?.parsedCommandLine?.watchOptions, canonicalConfigFilePath),
                     WatchType.ConfigFile,
                     forProject
                 );
@@ -2236,9 +2236,9 @@ namespace ts.server {
             // If watch options different than older options when setting for the first time, update the config file watcher
             if (!oldCommandLine && !isJsonEqual(
                 // Old options
-                this.getWatchOptionsFromProjectWatchOptions(/*projectOptions*/ undefined),
+                this.getWatchOptionsFromProjectWatchOptions(/*projectOptions*/ undefined, canonicalConfigFilePath),
                 // New options
-                this.getWatchOptionsFromProjectWatchOptions(parsedCommandLine.watchOptions)
+                this.getWatchOptionsFromProjectWatchOptions(parsedCommandLine.watchOptions, canonicalConfigFilePath)
             )) {
                 // Reset the config file watcher
                 configFileExistenceInfo.watcher?.close();
@@ -2284,7 +2284,7 @@ namespace ts.server {
                     config!.watchedDirectories ||= new Map(),
                     new Map(getEntries(config!.parsedCommandLine!.wildcardDirectories!)),
                     // Create new directory watcher
-                    (directory, flags) => this.watchWildcardDirectory(directory as Path, flags, configFileName, config!),
+                    (directory, flags) => this.watchWildcardDirectory(directory as Path, flags, configFileName, forProject.canonicalConfigFilePath, config!),
                 );
             }
             else {
@@ -3044,6 +3044,9 @@ namespace ts.server {
                 if (args.watchOptions) {
                     const result = convertWatchOptions(args.watchOptions);
                     this.hostConfiguration.watchOptions = result?.watchOptions;
+                    if (this.hostConfiguration.watchOptions?.watchFactory) {
+                        this.setWatchOptionsFactoryHost(this.hostConfiguration.watchOptions, /*canonicalConfigFilePath*/ undefined);
+                    }
                     this.projectWatchOptions.clear();
                     this.logger.info(`Host watch options changed to ${JSON.stringify(this.hostConfiguration.watchOptions)}, it will be take effect for next watches.`);
                     if (result?.errors?.length) {
@@ -3059,12 +3062,12 @@ namespace ts.server {
         }
 
         /*@internal*/
-        getWatchOptions(project: Project) {
-            return this.getWatchOptionsFromProjectWatchOptions(project.getWatchOptions());
+        getWatchOptions(project: Project): WatchOptions | undefined {
+            return this.getWatchOptionsFromProjectWatchOptions(project.getWatchOptions(), isConfiguredProject(project) ? project.canonicalConfigFilePath : undefined);
         }
 
         /*@internal*/
-        private getWatchOptionsFromProjectWatchOptions(projectOptions: WatchOptions | undefined) {
+        private getWatchOptionsFromProjectWatchOptions(projectOptions: WatchOptions | undefined, canonicalConfigFilePath: NormalizedPath | undefined) {
             if (!projectOptions) return this.hostConfiguration.watchOptions;
             let options = this.projectWatchOptions.get(projectOptions);
             if (options) return options;
@@ -3072,7 +3075,15 @@ namespace ts.server {
                 { ...this.hostConfiguration.watchOptions, ...projectOptions } :
                 projectOptions
             );
+            this.setWatchOptionsFactoryHost(options, canonicalConfigFilePath);
             return options;
+        }
+
+        /*@internal*/
+        private setWatchOptionsFactoryHost(options: WatchOptions, canonicalConfigFilePath: NormalizedPath | undefined) {
+            setWatchOptionInternalProperty(options, "getHost", memoize(() => ({
+                searchPaths: this.getProjectPluginSearchPaths(canonicalConfigFilePath)
+            })));
         }
 
         /*@internal*/
@@ -4095,6 +4106,27 @@ namespace ts.server {
             }
 
             return false;
+        }
+
+        /*@internal */
+        getGlobalPluginSearchPaths() {
+            // Search any globally-specified probe paths, then our peer node_modules
+            return [
+                ...this.pluginProbeLocations,
+                // ../../.. to walk from X/node_modules/typescript/lib/tsserver.js to X/node_modules/
+                combinePaths(this.getExecutingFilePath(), "../../.."),
+            ];
+        }
+
+        /*@internal*/
+        getProjectPluginSearchPaths(canonicalConfigFilePath: string | undefined) {
+            const searchPaths = this.getGlobalPluginSearchPaths();
+            if (canonicalConfigFilePath && this.allowLocalPluginLoads) {
+                const local = getDirectoryPath(canonicalConfigFilePath);
+                this.logger.info(`Local plugin loading enabled; adding ${local} to search paths`);
+                searchPaths.unshift(local);
+            }
+            return searchPaths;
         }
 
         /*@internal*/
