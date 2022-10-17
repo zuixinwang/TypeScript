@@ -1,40 +1,45 @@
-3:: emit js files
+4:: no-change-run
 *** Needs explanation
-File: /src/project1/outfile.js
-CleanBuild:
-define("a", ["require", "exports"], function (require, exports) {
-    "use strict";
-    exports.__esModule = true;
-    exports.aaa = exports.a = void 0;
-    exports.a = 10;
-    var aLocal = 10;
-    var aa = 10;
-    exports.aaa = 10;
-});
-define("b", ["require", "exports"], function (require, exports) {
-    "use strict";
-    exports.__esModule = true;
-    exports.b = void 0;
-    exports.b = 10;
-    var bLocal = 10;
-});
-define("c", ["require", "exports", "a"], function (require, exports, a_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.c = void 0;
-    exports.c = a_1.a;
-});
-define("d", ["require", "exports", "b"], function (require, exports, b_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.d = void 0;
-    exports.d = b_1.b;
-});
-
-IncrementalBuild:
-
 TsBuild info text without affectedFilesPendingEmit:: /src/project1/outfile.tsbuildinfo.readable.baseline.txt::
 CleanBuild:
+{
+  "bundle": {
+    "commonSourceDirectory": "./src",
+    "sourceFiles": [
+      "./src/a.ts",
+      "./src/b.ts",
+      "./src/c.ts",
+      "./src/d.ts"
+    ],
+    "dts": {
+      "sections": [
+        {
+          "pos": 0,
+          "end": 232,
+          "kind": "text"
+        }
+      ],
+      "hash": "18384476281-declare module \"a\" {\r\n    export const a = 10;\r\n    export const aaa = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n"
+    }
+  },
+  "program": {
+    "fileInfos": {
+      "./src/a.ts": "-6435489413-export const a = 10;const aLocal = 10;const aa = 10;export const aaa = 10;",
+      "./src/b.ts": "-6189287562-export const b = 10;const bLocal = 10;",
+      "./src/c.ts": "3248317647-import { a } from \"./a\";export const c = a;",
+      "./src/d.ts": "-19615769517-import { b } from \"./b\";export const d = b;"
+    },
+    "options": {
+      "composite": true,
+      "emitDeclarationOnly": true,
+      "outFile": "./outFile.js"
+    },
+    "outSignature": "18384476281-declare module \"a\" {\r\n    export const a = 10;\r\n    export const aaa = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
+    "latestChangedDtsFile": "FakeFileName"
+  },
+  "version": "FakeTSVersion"
+}
+IncrementalBuild:
 {
   "bundle": {
     "commonSourceDirectory": "./src",
@@ -81,46 +86,28 @@ CleanBuild:
   },
   "version": "FakeTSVersion"
 }
-IncrementalBuild:
-{
-  "bundle": {
-    "commonSourceDirectory": "./src",
-    "sourceFiles": [
-      "./src/a.ts",
-      "./src/b.ts",
-      "./src/c.ts",
-      "./src/d.ts"
-    ],
-    "dts": {
-      "sections": [
-        {
-          "pos": 0,
-          "end": 232,
-          "kind": "text"
-        }
-      ],
-      "hash": "18384476281-declare module \"a\" {\r\n    export const a = 10;\r\n    export const aaa = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n"
-    }
-  },
-  "program": {
-    "fileInfos": {
-      "./src/a.ts": "-6435489413-export const a = 10;const aLocal = 10;const aa = 10;export const aaa = 10;",
-      "./src/b.ts": "-6189287562-export const b = 10;const bLocal = 10;",
-      "./src/c.ts": "3248317647-import { a } from \"./a\";export const c = a;",
-      "./src/d.ts": "-19615769517-import { b } from \"./b\";export const d = b;"
-    },
-    "options": {
-      "composite": true,
-      "emitDeclarationOnly": true,
-      "outFile": "./outFile.js"
-    },
-    "outSignature": "18384476281-declare module \"a\" {\r\n    export const a = 10;\r\n    export const aaa = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
-    "latestChangedDtsFile": "FakeFileName"
-  },
-  "version": "FakeTSVersion"
-}
 File: /src/project1/outfile.tsbuildinfo.baseline.txt
 CleanBuild:
+======================================================================
+File:: /src/project1/outFile.d.ts
+----------------------------------------------------------------------
+text: (0-232)
+declare module "a" {
+    export const a = 10;
+    export const aaa = 10;
+}
+declare module "b" {
+    export const b = 10;
+}
+declare module "c" {
+    export const c = 10;
+}
+declare module "d" {
+    export const d = 10;
+}
+
+======================================================================
+IncrementalBuild:
 ======================================================================
 File:: /src/project1/outFile.js
 ----------------------------------------------------------------------
@@ -174,51 +161,44 @@ declare module "d" {
 }
 
 ======================================================================
-IncrementalBuild:
-======================================================================
-File:: /src/project1/outFile.d.ts
-----------------------------------------------------------------------
-text: (0-232)
-declare module "a" {
-    export const a = 10;
-    export const aaa = 10;
-}
-declare module "b" {
-    export const b = 10;
-}
-declare module "c" {
-    export const c = 10;
-}
-declare module "d" {
-    export const d = 10;
-}
-
-======================================================================
-File: /src/project2/outfile.js
-CleanBuild:
-define("e", ["require", "exports"], function (require, exports) {
-    "use strict";
-    exports.__esModule = true;
-    exports.e = void 0;
-    exports.e = 10;
-});
-define("f", ["require", "exports", "a"], function (require, exports, a_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.f = void 0;
-    exports.f = a_1.a;
-});
-define("g", ["require", "exports", "b"], function (require, exports, b_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.g = void 0;
-    exports.g = b_1.b;
-});
-
-IncrementalBuild:
-
 TsBuild info text without affectedFilesPendingEmit:: /src/project2/outfile.tsbuildinfo.readable.baseline.txt::
 CleanBuild:
+{
+  "bundle": {
+    "commonSourceDirectory": "./src",
+    "sourceFiles": [
+      "./src/e.ts",
+      "./src/f.ts",
+      "./src/g.ts"
+    ],
+    "dts": {
+      "sections": [
+        {
+          "pos": 0,
+          "end": 153,
+          "kind": "text"
+        }
+      ],
+      "hash": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n"
+    }
+  },
+  "program": {
+    "fileInfos": {
+      "./src/e.ts": "-13789510868-export const e = 10;",
+      "./src/f.ts": "-4849089835-import { a } from \"a\"; export const f = a;",
+      "./src/g.ts": "-18341999015-import { b } from \"b\"; export const g = b;"
+    },
+    "options": {
+      "composite": true,
+      "emitDeclarationOnly": true,
+      "outFile": "./outFile.js"
+    },
+    "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
+    "latestChangedDtsFile": "FakeFileName"
+  },
+  "version": "FakeTSVersion"
+}
+IncrementalBuild:
 {
   "bundle": {
     "commonSourceDirectory": "./src",
@@ -263,44 +243,24 @@ CleanBuild:
   },
   "version": "FakeTSVersion"
 }
-IncrementalBuild:
-{
-  "bundle": {
-    "commonSourceDirectory": "./src",
-    "sourceFiles": [
-      "./src/e.ts",
-      "./src/f.ts",
-      "./src/g.ts"
-    ],
-    "dts": {
-      "sections": [
-        {
-          "pos": 0,
-          "end": 153,
-          "kind": "text"
-        }
-      ],
-      "hash": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n"
-    }
-  },
-  "program": {
-    "fileInfos": {
-      "./src/e.ts": "-13789510868-export const e = 10;",
-      "./src/f.ts": "-4849089835-import { a } from \"a\"; export const f = a;",
-      "./src/g.ts": "-18341999015-import { b } from \"b\"; export const g = b;"
-    },
-    "options": {
-      "composite": true,
-      "emitDeclarationOnly": true,
-      "outFile": "./outFile.js"
-    },
-    "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
-    "latestChangedDtsFile": "FakeFileName"
-  },
-  "version": "FakeTSVersion"
-}
 File: /src/project2/outfile.tsbuildinfo.baseline.txt
 CleanBuild:
+======================================================================
+File:: /src/project2/outFile.d.ts
+----------------------------------------------------------------------
+text: (0-153)
+declare module "e" {
+    export const e = 10;
+}
+declare module "f" {
+    export const f = 10;
+}
+declare module "g" {
+    export const g = 10;
+}
+
+======================================================================
+IncrementalBuild:
 ======================================================================
 File:: /src/project2/outFile.js
 ----------------------------------------------------------------------
@@ -340,49 +300,46 @@ declare module "g" {
 }
 
 ======================================================================
-IncrementalBuild:
-======================================================================
-File:: /src/project2/outFile.d.ts
-----------------------------------------------------------------------
-text: (0-153)
-declare module "e" {
-    export const e = 10;
-}
-declare module "f" {
-    export const f = 10;
-}
-declare module "g" {
-    export const g = 10;
-}
-
-======================================================================
-5:: js emit with change without emitDeclarationOnly
+6:: local change
 *** Needs explanation
-File: /src/project2/outfile.js
-CleanBuild:
-define("e", ["require", "exports"], function (require, exports) {
-    "use strict";
-    exports.__esModule = true;
-    exports.e = void 0;
-    exports.e = 10;
-});
-define("f", ["require", "exports", "a"], function (require, exports, a_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.f = void 0;
-    exports.f = a_1.a;
-});
-define("g", ["require", "exports", "b"], function (require, exports, b_1) {
-    "use strict";
-    exports.__esModule = true;
-    exports.g = void 0;
-    exports.g = b_1.b;
-});
-
-IncrementalBuild:
-
 TsBuild info text without affectedFilesPendingEmit:: /src/project2/outfile.tsbuildinfo.readable.baseline.txt::
 CleanBuild:
+{
+  "bundle": {
+    "commonSourceDirectory": "./src",
+    "sourceFiles": [
+      "./src/e.ts",
+      "./src/f.ts",
+      "./src/g.ts"
+    ],
+    "dts": {
+      "sections": [
+        {
+          "pos": 0,
+          "end": 153,
+          "kind": "text"
+        }
+      ],
+      "hash": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n"
+    }
+  },
+  "program": {
+    "fileInfos": {
+      "./src/e.ts": "-13789510868-export const e = 10;",
+      "./src/f.ts": "-4849089835-import { a } from \"a\"; export const f = a;",
+      "./src/g.ts": "-18341999015-import { b } from \"b\"; export const g = b;"
+    },
+    "options": {
+      "composite": true,
+      "emitDeclarationOnly": true,
+      "outFile": "./outFile.js"
+    },
+    "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
+    "latestChangedDtsFile": "FakeFileName"
+  },
+  "version": "FakeTSVersion"
+}
+IncrementalBuild:
 {
   "bundle": {
     "commonSourceDirectory": "./src",
@@ -427,44 +384,24 @@ CleanBuild:
   },
   "version": "FakeTSVersion"
 }
-IncrementalBuild:
-{
-  "bundle": {
-    "commonSourceDirectory": "./src",
-    "sourceFiles": [
-      "./src/e.ts",
-      "./src/f.ts",
-      "./src/g.ts"
-    ],
-    "dts": {
-      "sections": [
-        {
-          "pos": 0,
-          "end": 153,
-          "kind": "text"
-        }
-      ],
-      "hash": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n"
-    }
-  },
-  "program": {
-    "fileInfos": {
-      "./src/e.ts": "-13789510868-export const e = 10;",
-      "./src/f.ts": "-4849089835-import { a } from \"a\"; export const f = a;",
-      "./src/g.ts": "-18341999015-import { b } from \"b\"; export const g = b;"
-    },
-    "options": {
-      "composite": true,
-      "emitDeclarationOnly": true,
-      "outFile": "./outFile.js"
-    },
-    "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
-    "latestChangedDtsFile": "FakeFileName"
-  },
-  "version": "FakeTSVersion"
-}
 File: /src/project2/outfile.tsbuildinfo.baseline.txt
 CleanBuild:
+======================================================================
+File:: /src/project2/outFile.d.ts
+----------------------------------------------------------------------
+text: (0-153)
+declare module "e" {
+    export const e = 10;
+}
+declare module "f" {
+    export const f = 10;
+}
+declare module "g" {
+    export const g = 10;
+}
+
+======================================================================
+IncrementalBuild:
 ======================================================================
 File:: /src/project2/outFile.js
 ----------------------------------------------------------------------
@@ -489,22 +426,6 @@ define("g", ["require", "exports", "b"], function (require, exports, b_1) {
 });
 
 ======================================================================
-======================================================================
-File:: /src/project2/outFile.d.ts
-----------------------------------------------------------------------
-text: (0-153)
-declare module "e" {
-    export const e = 10;
-}
-declare module "f" {
-    export const f = 10;
-}
-declare module "g" {
-    export const g = 10;
-}
-
-======================================================================
-IncrementalBuild:
 ======================================================================
 File:: /src/project2/outFile.d.ts
 ----------------------------------------------------------------------
