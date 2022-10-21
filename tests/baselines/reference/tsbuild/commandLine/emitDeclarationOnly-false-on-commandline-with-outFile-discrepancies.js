@@ -73,6 +73,7 @@ CleanBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": false,
       "outFile": "./outFile.js"
     },
     "outSignature": "-10569306755-declare module \"a\" {\r\n    export const a = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
@@ -110,6 +111,7 @@ IncrementalBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": true,
       "outFile": "./outFile.js"
     },
     "outSignature": "-10569306755-declare module \"a\" {\r\n    export const a = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
@@ -251,6 +253,7 @@ CleanBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": false,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
@@ -286,6 +289,7 @@ IncrementalBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": true,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
@@ -425,6 +429,7 @@ CleanBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": false,
       "outFile": "./outFile.js"
     },
     "outSignature": "-10569306755-declare module \"a\" {\r\n    export const a = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
@@ -462,6 +467,7 @@ IncrementalBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": true,
       "outFile": "./outFile.js"
     },
     "outSignature": "-10569306755-declare module \"a\" {\r\n    export const a = 10;\r\n}\r\ndeclare module \"b\" {\r\n    export const b = 10;\r\n}\r\ndeclare module \"c\" {\r\n    export const c = 10;\r\n}\r\ndeclare module \"d\" {\r\n    export const d = 10;\r\n}\r\n",
@@ -603,6 +609,7 @@ CleanBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": false,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
@@ -638,6 +645,7 @@ IncrementalBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": true,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
@@ -766,6 +774,7 @@ CleanBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": false,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
@@ -801,6 +810,7 @@ IncrementalBuild:
     },
     "options": {
       "composite": true,
+      "emitDeclarationOnly": true,
       "outFile": "./outFile.js"
     },
     "outSignature": "-13732890156-declare module \"e\" {\r\n    export const e = 10;\r\n}\r\ndeclare module \"f\" {\r\n    export const f = 10;\r\n}\r\ndeclare module \"g\" {\r\n    export const g = 10;\r\n}\r\n",
