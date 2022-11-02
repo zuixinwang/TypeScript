@@ -726,16 +726,23 @@ namespace ts.moduleSpecifiers {
     }
 
     function tryGetModuleNameFromRootDirs(rootDirs: readonly string[], moduleFileName: string, sourceDirectory: string, getCanonicalFileName: (file: string) => string, ending: Ending, compilerOptions: CompilerOptions): string | undefined {
-        const normalizedTargetPath = getPathRelativeToRootDirs(moduleFileName, rootDirs, getCanonicalFileName);
-        if (normalizedTargetPath === undefined) {
+        const normalizedTargetPaths = getPathsRelativeToRootDirs(moduleFileName, rootDirs, getCanonicalFileName);
+        if (normalizedTargetPaths === undefined) {
             return undefined;
         }
 
-        const normalizedSourcePath = getPathRelativeToRootDirs(sourceDirectory, rootDirs, getCanonicalFileName);
-        const relativePath = normalizedSourcePath !== undefined ? ensurePathIsNonModuleName(getRelativePathFromDirectory(normalizedSourcePath, normalizedTargetPath, getCanonicalFileName)) : normalizedTargetPath;
+        const normalizedSourcePaths = getPathsRelativeToRootDirs(sourceDirectory, rootDirs, getCanonicalFileName);
+        const relativePaths = flatMap(normalizedSourcePaths, sourcePath => {
+            return map(normalizedTargetPaths, targetPath => ensurePathIsNonModuleName(getRelativePathFromDirectory(sourcePath, targetPath, getCanonicalFileName)));
+        });
+        const shortest = min(relativePaths, compareNumberOfDirectorySeparators);
+        if (!shortest) {
+            return undefined;
+        }
+
         return getEmitModuleResolutionKind(compilerOptions) === ModuleResolutionKind.NodeJs
-            ? removeExtensionAndIndexPostFix(relativePath, ending, compilerOptions)
-            : removeFileExtension(relativePath);
+            ? removeExtensionAndIndexPostFix(shortest, ending, compilerOptions)
+            : removeFileExtension(shortest);
     }
 
     function tryGetModuleNameAsNodeModule({ path, isRedirect }: ModulePath, { getCanonicalFileName, sourceDirectory }: Info, importingSourceFile: SourceFile , host: ModuleSpecifierResolutionHost, options: CompilerOptions, userPreferences: UserPreferences, packageNameOnly?: boolean, overrideMode?: ModuleKind.ESNext | ModuleKind.CommonJS): string | undefined {
@@ -807,7 +814,7 @@ namespace ts.moduleSpecifiers {
             let maybeBlockedByTypesVersions = false;
             const cachedPackageJson = host.getPackageJsonInfoCache?.()?.getPackageJsonInfo(packageJsonPath);
             if (typeof cachedPackageJson === "object" || cachedPackageJson === undefined && host.fileExists(packageJsonPath)) {
-                const packageJsonContent = cachedPackageJson?.packageJsonContent || JSON.parse(host.readFile!(packageJsonPath)!);
+                const packageJsonContent = cachedPackageJson?.contents.packageJsonContent || JSON.parse(host.readFile!(packageJsonPath)!);
                 const importMode = overrideMode || importingSourceFile.impliedNodeFormat;
                 if (getEmitModuleResolutionKind(options) === ModuleResolutionKind.Node16 || getEmitModuleResolutionKind(options) === ModuleResolutionKind.NodeNext) {
                     const conditions = ["node", importMode === ModuleKind.ESNext ? "import" : "require", "types"];
@@ -882,8 +889,8 @@ namespace ts.moduleSpecifiers {
         }
     }
 
-    function getPathRelativeToRootDirs(path: string, rootDirs: readonly string[], getCanonicalFileName: GetCanonicalFileName): string | undefined {
-        return firstDefined(rootDirs, rootDir => {
+    function getPathsRelativeToRootDirs(path: string, rootDirs: readonly string[], getCanonicalFileName: GetCanonicalFileName): string[] | undefined {
+        return mapDefined(rootDirs, rootDir => {
             const relativePath = getRelativePathIfInDirectory(path, rootDir, getCanonicalFileName);
             return relativePath !== undefined && isPathRelativeToParent(relativePath) ? undefined : relativePath;
         });

@@ -159,6 +159,7 @@ namespace ts {
         YieldKeyword,
         // Contextual keywords
         AbstractKeyword,
+        AccessorKeyword,
         AsKeyword,
         AssertsKeyword,
         AssertKeyword,
@@ -181,6 +182,7 @@ namespace ts {
         RequireKeyword,
         NumberKeyword,
         ObjectKeyword,
+        SatisfiesKeyword,
         SetKeyword,
         StringKeyword,
         SymbolKeyword,
@@ -274,6 +276,7 @@ namespace ts {
         NonNullExpression,
         MetaProperty,
         SyntheticExpression,
+        SatisfiesExpression,
 
         // Misc
         TemplateSpan,
@@ -548,6 +551,7 @@ namespace ts {
 
     export type KeywordSyntaxKind =
         | SyntaxKind.AbstractKeyword
+        | SyntaxKind.AccessorKeyword
         | SyntaxKind.AnyKeyword
         | SyntaxKind.AsKeyword
         | SyntaxKind.AssertsKeyword
@@ -607,6 +611,7 @@ namespace ts {
         | SyntaxKind.OverrideKeyword
         | SyntaxKind.RequireKeyword
         | SyntaxKind.ReturnKeyword
+        | SyntaxKind.SatisfiesKeyword
         | SyntaxKind.SetKeyword
         | SyntaxKind.StaticKeyword
         | SyntaxKind.StringKeyword
@@ -631,6 +636,7 @@ namespace ts {
 
     export type ModifierSyntaxKind =
         | SyntaxKind.AbstractKeyword
+        | SyntaxKind.AccessorKeyword
         | SyntaxKind.AsyncKeyword
         | SyntaxKind.ConstKeyword
         | SyntaxKind.DeclareKeyword
@@ -814,9 +820,10 @@ namespace ts {
         Protected =          1 << 4,  // Property/Method
         Static =             1 << 5,  // Property/Method
         Readonly =           1 << 6,  // Property/Method
-        Abstract =           1 << 7,  // Class/Method/ConstructSignature
-        Async =              1 << 8,  // Property/Method/Function
-        Default =            1 << 9,  // Function/Class (export default declaration)
+        Accessor =           1 << 7,  // Property
+        Abstract =           1 << 8,  // Class/Method/ConstructSignature
+        Async =              1 << 9,  // Property/Method/Function
+        Default =            1 << 10, // Function/Class (export default declaration)
         Const =              1 << 11, // Const enum
         HasComputedJSDocModifiers = 1 << 12, // Indicates the computed modifier flags include modifiers from JSDoc.
 
@@ -834,7 +841,7 @@ namespace ts {
 
         TypeScriptModifier = Ambient | Public | Private | Protected | Readonly | Abstract | Const | Override | In | Out,
         ExportDefault = Export | Default,
-        All = Export | Ambient | Public | Private | Protected | Static | Readonly | Abstract | Async | Default | Const | Deprecated | Override | In | Out | Decorator,
+        All = Export | Ambient | Public | Private | Protected | Static | Readonly | Abstract | Accessor | Async | Default | Const | Deprecated | Override | In | Out | Decorator,
         Modifier = All & ~Decorator
     }
 
@@ -928,6 +935,7 @@ namespace ts {
         | JSDocProtectedTag
         | JSDocReadonlyTag
         | JSDocDeprecatedTag
+        | JSDocOverrideTag
         ;
 
     /* @internal */
@@ -1007,6 +1015,7 @@ namespace ts {
         | ExpressionWithTypeArguments
         | AsExpression
         | NonNullExpression
+        | SatisfiesExpression
         | MetaProperty
         | TemplateSpan
         | Block
@@ -1328,6 +1337,7 @@ namespace ts {
     }
 
     export type AbstractKeyword = ModifierToken<SyntaxKind.AbstractKeyword>;
+    export type AccessorKeyword = ModifierToken<SyntaxKind.AccessorKeyword>;
     export type AsyncKeyword = ModifierToken<SyntaxKind.AsyncKeyword>;
     export type ConstKeyword = ModifierToken<SyntaxKind.ConstKeyword>;
     export type DeclareKeyword = ModifierToken<SyntaxKind.DeclareKeyword>;
@@ -1347,6 +1357,7 @@ namespace ts {
 
     export type Modifier =
         | AbstractKeyword
+        | AccessorKeyword
         | AsyncKeyword
         | ConstKeyword
         | DeclareKeyword
@@ -1379,6 +1390,7 @@ namespace ts {
         | AccessibilityModifier
         | ReadonlyKeyword
         | StaticKeyword
+        | AccessorKeyword
         ;
 
     export type ModifiersArray = NodeArray<Modifier>;
@@ -1409,10 +1421,13 @@ namespace ts {
         readonly originalKeywordKind?: SyntaxKind;                // Original syntaxKind which get set so that we can report an error later
         /*@internal*/ readonly autoGenerateFlags?: GeneratedIdentifierFlags; // Specifies whether to auto-generate the text for an identifier.
         /*@internal*/ readonly autoGenerateId?: number;           // Ensures unique generated identifiers get unique names, but clones get the same name.
+        /*@internal*/ readonly autoGeneratePrefix?: string | GeneratedNamePart;
+        /*@internal*/ readonly autoGenerateSuffix?: string;
         /*@internal*/ generatedImportReference?: ImportSpecifier; // Reference to the generated import specifier this identifier refers to
         isInJSDocNamespace?: boolean;                             // if the node is a member in a JSDoc namespace
         /*@internal*/ typeArguments?: NodeArray<TypeNode | TypeParameterDeclaration>; // Only defined on synthesized nodes. Though not syntactically valid, used in emitting diagnostics, quickinfo, and signature help.
         /*@internal*/ jsdocDotPos?: number;                       // Identifier occurs in JSDoc-style generic: Id.<T>
+        /*@internal*/ hasExtendedUnicodeEscape?: boolean;
     }
 
     // Transient identifier node (marked by id === -1)
@@ -1498,8 +1513,16 @@ namespace ts {
         // escaping not strictly necessary
         // avoids gotchas in transforms and utils
         readonly escapedText: __String;
+        /*@internal*/ readonly autoGenerateFlags?: GeneratedIdentifierFlags; // Specifies whether to auto-generate the text for an identifier.
+        /*@internal*/ readonly autoGenerateId?: number;           // Ensures unique generated identifiers get unique names, but clones get the same name.
+        /*@internal*/ readonly autoGeneratePrefix?: string | GeneratedNamePart;
+        /*@internal*/ readonly autoGenerateSuffix?: string;
     }
 
+    /*@internal*/
+    export interface GeneratedPrivateIdentifier extends PrivateIdentifier {
+        autoGenerateFlags: GeneratedIdentifierFlags;
+    }
 
     /* @internal */
     // A name that supports late-binding (used in checker)
@@ -1623,8 +1646,16 @@ namespace ts {
         readonly initializer?: Expression;           // Optional initializer
     }
 
+    export interface AutoAccessorPropertyDeclaration extends PropertyDeclaration {
+        _autoAccessorBrand: any;
+    }
+
     /*@internal*/
     export interface PrivateIdentifierPropertyDeclaration extends PropertyDeclaration {
+        name: PrivateIdentifier;
+    }
+    /*@internal*/
+    export interface PrivateIdentifierAutoAccessorPropertyDeclaration extends AutoAccessorPropertyDeclaration {
         name: PrivateIdentifier;
     }
     /*@internal*/
@@ -1644,6 +1675,7 @@ namespace ts {
     /*@internal*/
     export type PrivateClassElementDeclaration =
         | PrivateIdentifierPropertyDeclaration
+        | PrivateIdentifierAutoAccessorPropertyDeclaration
         | PrivateIdentifierMethodDeclaration
         | PrivateIdentifierGetAccessorDeclaration
         | PrivateIdentifierSetAccessorDeclaration;
@@ -2047,7 +2079,7 @@ namespace ts {
 
     export interface StringLiteral extends LiteralExpression, Declaration {
         readonly kind: SyntaxKind.StringLiteral;
-        /* @internal */ readonly textSourceNode?: Identifier | StringLiteralLike | NumericLiteral; // Allows a StringLiteral to get its text from another node (used by transforms).
+        /* @internal */ readonly textSourceNode?: Identifier | StringLiteralLike | NumericLiteral | PrivateIdentifier; // Allows a StringLiteral to get its text from another node (used by transforms).
         /** Note: this is only set when synthesizing a node, not during parsing. */
         /* @internal */ readonly singleQuote?: boolean;
     }
@@ -2813,6 +2845,12 @@ namespace ts {
         readonly kind: SyntaxKind.TypeAssertionExpression;
         readonly type: TypeNode;
         readonly expression: UnaryExpression;
+    }
+
+    export interface SatisfiesExpression extends Expression {
+        readonly kind: SyntaxKind.SatisfiesExpression;
+        readonly expression: Expression;
+        readonly type: TypeNode;
     }
 
     export type AssertionExpression =
@@ -4557,6 +4595,7 @@ namespace ts {
         /* @internal */ getTypeOfPropertyOfType(type: Type, propertyName: string): Type | undefined;
         getIndexInfoOfType(type: Type, kind: IndexKind): IndexInfo | undefined;
         getIndexInfosOfType(type: Type): readonly IndexInfo[];
+        getIndexInfosOfIndexSymbol: (indexSymbol: Symbol) => IndexInfo[];
         getSignaturesOfType(type: Type, kind: SignatureKind): readonly Signature[];
         getIndexTypeOfType(type: Type, kind: IndexKind): Type | undefined;
         /* @internal */ getIndexType(type: Type): Type;
@@ -4594,6 +4633,8 @@ namespace ts {
         symbolToEntityName(symbol: Symbol, meaning: SymbolFlags, enclosingDeclaration: Node | undefined, flags: NodeBuilderFlags | undefined): EntityName | undefined;
         /** Note that the resulting nodes cannot be checked. */
         symbolToExpression(symbol: Symbol, meaning: SymbolFlags, enclosingDeclaration: Node | undefined, flags: NodeBuilderFlags | undefined): Expression | undefined;
+        /** Note that the resulting nodes cannot be checked. */
+        /* @internal */ symbolToNode(symbol: Symbol, meaning: SymbolFlags, enclosingDeclaration: Node | undefined, flags: NodeBuilderFlags | undefined): Node | undefined;
         /** Note that the resulting nodes cannot be checked. */
         symbolToTypeParameterDeclarations(symbol: Symbol, enclosingDeclaration: Node | undefined, flags: NodeBuilderFlags | undefined): NodeArray<TypeParameterDeclaration> | undefined;
         /** Note that the resulting nodes cannot be checked. */
@@ -4720,6 +4761,7 @@ namespace ts {
         /* @internal */ createPromiseType(type: Type): Type;
         /* @internal */ getPromiseType(): Type;
         /* @internal */ getPromiseLikeType(): Type;
+        /* @internal */ getAsyncIterableType(): Type | undefined;
 
         /* @internal */ isTypeAssignableTo(source: Type, target: Type): boolean;
         /* @internal */ createAnonymousType(symbol: Symbol | undefined, members: SymbolTable, callSignatures: Signature[], constructSignatures: Signature[], indexInfos: IndexInfo[]): Type;
@@ -4814,6 +4856,7 @@ namespace ts {
         /* @internal */ isPropertyAccessible(node: Node, isSuper: boolean, isWrite: boolean, containingType: Type, property: Symbol): boolean;
         /* @internal */ getTypeOnlyAliasDeclaration(symbol: Symbol): TypeOnlyAliasDeclaration | undefined;
         /* @internal */ getMemberOverrideModifierStatus(node: ClassLikeDeclaration, member: ClassElement): MemberOverrideStatus;
+        /* @internal */ isTypeParameterPossiblyReferenced(tp: TypeParameter, node: Node): boolean;
     }
 
     /* @internal */
@@ -4872,6 +4915,7 @@ namespace ts {
         AllowEmptyTuple                         = 1 << 19,
         AllowUniqueESSymbolType                 = 1 << 20,
         AllowEmptyIndexInfoType                 = 1 << 21,
+        /* @internal */ WriteComputedProps      = 1 << 30, // { [E.A]: 1 }
 
         // Errors (cont.)
         AllowNodeModulesRelativePaths           = 1 << 26,
@@ -4930,27 +4974,30 @@ namespace ts {
     }
 
     export const enum SymbolFormatFlags {
-        None = 0x00000000,
+        None                                    = 0,
 
         // Write symbols's type argument if it is instantiated symbol
         // eg. class C<T> { p: T }   <-- Show p as C<T>.p here
         //     var a: C<number>;
         //     var p = a.p; <--- Here p is property of C<number> so show it as C<number>.p instead of just C.p
-        WriteTypeParametersOrArguments = 0x00000001,
+        WriteTypeParametersOrArguments          = 1 << 0,
 
         // Use only external alias information to get the symbol name in the given context
         // eg.  module m { export class c { } } import x = m.c;
         // When this flag is specified m.c will be used to refer to the class instead of alias symbol x
-        UseOnlyExternalAliasing = 0x00000002,
+        UseOnlyExternalAliasing                 = 1 << 1,
 
         // Build symbol name using any nodes needed, instead of just components of an entity name
-        AllowAnyNodeKind = 0x00000004,
+        AllowAnyNodeKind                        = 1 << 2,
 
         // Prefer aliases which are not directly visible
-        UseAliasDefinedOutsideCurrentScope = 0x00000008,
+        UseAliasDefinedOutsideCurrentScope      = 1 << 3,
+
+        // { [E.A]: 1 }
+        /* @internal */ WriteComputedProps      = 1 << 4,
 
         // Skip building an accessible symbol chain
-        /* @internal */ DoNotIncludeSymbolChain = 0x00000010,
+        /* @internal */ DoNotIncludeSymbolChain = 1 << 5,
     }
 
     /* @internal */
@@ -5270,6 +5317,7 @@ namespace ts {
         MethodExcludes = Value & ~Method,
         GetAccessorExcludes = Value & ~SetAccessor,
         SetAccessorExcludes = Value & ~GetAccessor,
+        AccessorExcludes = Value & ~Accessor,
         TypeParameterExcludes = Type & ~TypeParameter,
         TypeAliasExcludes = Type,
         AliasExcludes = Alias,
@@ -5367,6 +5415,7 @@ namespace ts {
         isConstructorDeclaredProperty?: boolean;    // Property declared through 'this.x = ...' assignment in constructor
         tupleLabelDeclaration?: NamedTupleMember | ParameterDeclaration; // Declaration associated with the tuple's label
         accessibleChainCache?: ESMap<string, Symbol[] | undefined>;
+        filteredIndexSymbolCache?: ESMap<string, Symbol> //Symbol with applicable declarations
     }
 
     /* @internal */
@@ -5478,8 +5527,8 @@ namespace ts {
         SuperInstance                            = 0x00000100,  // Instance 'super' reference
         SuperStatic                              = 0x00000200,  // Static 'super' reference
         ContextChecked                           = 0x00000400,  // Contextual types have been assigned
-        AsyncMethodWithSuper                     = 0x00000800,  // An async method that reads a value from a member of 'super'.
-        AsyncMethodWithSuperBinding              = 0x00001000,  // An async method that assigns a value to a member of 'super'.
+        MethodWithSuperPropertyAccessInAsync     = 0x00000800,  // A method that contains a SuperProperty access in an async context.
+        MethodWithSuperPropertyAssignmentInAsync = 0x00001000,  // A method that contains a SuperProperty assignment in an async context.
         CaptureArguments                         = 0x00002000,  // Lexical 'arguments' used in body
         EnumValuesComputed                       = 0x00004000,  // Values for enum members have been computed, and any errors have been reported for them.
         LexicalModuleMergesWithClass             = 0x00008000,  // Instantiated lexical module declaration is merged with a previous class declaration.
@@ -5522,7 +5571,7 @@ namespace ts {
         deferredNodes?: Set<Node>;          // Set of nodes whose checking has been deferred
         capturedBlockScopeBindings?: Symbol[]; // Block-scoped bindings captured beneath this part of an IterationStatement
         outerTypeParameters?: TypeParameter[]; // Outer type parameters of anonymous object type
-        isExhaustive?: boolean;             // Is node an exhaustive switch statement
+        isExhaustive?: boolean | 0;         // Is node an exhaustive switch statement (0 indicates in-process resolution)
         skipDirectInference?: true;         // Flag set by the API `getContextualType` call on a node when `Completions` is passed to force the checker to skip making inferences to a node's type
         declarationRequiresScopeChange?: boolean; // Set by `useOuterVariableScopeInParameter` in checker when downlevel emit would change the name resolution scope inside of a parameter.
         serializedTypes?: ESMap<string, TypeNode & {truncating?: boolean, addedLength: number}>; // Collection of types serialized at this location
@@ -6127,8 +6176,8 @@ namespace ts {
     // types disappear upon instantiation (just like type parameters).
     export interface SubstitutionType extends InstantiableType {
         objectFlags: ObjectFlags;
-        baseType: Type;     // Target type
-        substitute: Type;   // Type to substitute for type parameter
+        baseType: Type;    // Target type
+        constraint: Type;  // Constraint that target type is known to satisfy
     }
 
     /* @internal */
@@ -7132,7 +7181,7 @@ namespace ts {
     }
 
     /* @internal */
-    export type HasInvalidatedResolution = (sourceFile: Path) => boolean;
+    export type HasInvalidatedResolutions = (sourceFile: Path) => boolean;
     /* @internal */
     export type HasChangedAutomaticTypeDirectiveNames = () => boolean;
 
@@ -7178,7 +7227,8 @@ namespace ts {
         getEnvironmentVariable?(name: string): string | undefined;
         /* @internal */ onReleaseOldSourceFile?(oldSourceFile: SourceFile, oldOptions: CompilerOptions, hasSourceFileByPath: boolean): void;
         /* @internal */ onReleaseParsedCommandLine?(configFileName: string, oldResolvedRef: ResolvedProjectReference | undefined, optionOptions: CompilerOptions): void;
-        /* @internal */ hasInvalidatedResolution?: HasInvalidatedResolution;
+        /** If provided along with custom resolveModuleNames or resolveTypeReferenceDirectives, used to determine if unchanged file path needs to re-resolve modules/type reference directives */
+        hasInvalidatedResolutions?(filePath: Path): boolean;
         /* @internal */ hasChangedAutomaticTypeDirectiveNames?: HasChangedAutomaticTypeDirectiveNames;
         createHash?(data: string): string;
         getParsedCommandLine?(fileName: string): ParsedCommandLine | undefined;
@@ -7525,6 +7575,7 @@ namespace ts {
     export type OuterExpression =
         | ParenthesizedExpression
         | TypeAssertion
+        | SatisfiesExpression
         | AsExpression
         | NonNullExpression
         | PartiallyEmittedExpression;
@@ -7584,6 +7635,15 @@ namespace ts {
         convertToAssignmentElementTarget(node: BindingOrAssignmentElementTarget): Expression;
     }
 
+    /* @internal */
+    export interface GeneratedNamePart {
+        /** an additional prefix to insert before the text sourced from `node` */
+        prefix?: string;
+        node: Identifier | PrivateIdentifier;
+        /** an additional suffix to insert after the text sourced from `node` */
+        suffix?: string;
+    }
+
     export interface NodeFactory {
         /* @internal */ readonly parenthesizer: ParenthesizerRules;
         /* @internal */ readonly converters: NodeConverters;
@@ -7599,7 +7659,7 @@ namespace ts {
         createBigIntLiteral(value: string | PseudoBigInt): BigIntLiteral;
         createStringLiteral(text: string, isSingleQuote?: boolean): StringLiteral;
         /* @internal*/ createStringLiteral(text: string, isSingleQuote?: boolean, hasExtendedUnicodeEscape?: boolean): StringLiteral; // eslint-disable-line @typescript-eslint/unified-signatures
-        createStringLiteralFromNode(sourceNode: PropertyNameLiteral, isSingleQuote?: boolean): StringLiteral;
+        createStringLiteralFromNode(sourceNode: PropertyNameLiteral | PrivateIdentifier, isSingleQuote?: boolean): StringLiteral;
         createRegularExpressionLiteral(text: string): RegularExpressionLiteral;
 
         //
@@ -7607,7 +7667,7 @@ namespace ts {
         //
 
         createIdentifier(text: string): Identifier;
-        /* @internal */ createIdentifier(text: string, typeArguments?: readonly (TypeNode | TypeParameterDeclaration)[], originalKeywordKind?: SyntaxKind): Identifier; // eslint-disable-line @typescript-eslint/unified-signatures
+        /* @internal */ createIdentifier(text: string, typeArguments?: readonly (TypeNode | TypeParameterDeclaration)[], originalKeywordKind?: SyntaxKind, hasExtendedUnicodeEscape?: boolean): Identifier; // eslint-disable-line @typescript-eslint/unified-signatures
         /* @internal */ updateIdentifier(node: Identifier, typeArguments: NodeArray<TypeNode | TypeParameterDeclaration> | undefined): Identifier;
 
         /**
@@ -7620,6 +7680,7 @@ namespace ts {
          * setting `EmitFlags.ReuseTempVariableScope` on the nested function itself.
          */
         createTempVariable(recordTempVariable: ((node: Identifier) => void) | undefined, reservedInNestedScopes?: boolean): Identifier;
+        /*@internal*/ createTempVariable(recordTempVariable: ((node: Identifier) => void) | undefined, reservedInNestedScopes?: boolean, prefix?: string | GeneratedNamePart, suffix?: string): Identifier; // eslint-disable-line @typescript-eslint/unified-signatures
 
         /**
          * Create a unique temporary variable for use in a loop.
@@ -7631,11 +7692,17 @@ namespace ts {
 
         /** Create a unique name based on the supplied text. */
         createUniqueName(text: string, flags?: GeneratedIdentifierFlags): Identifier;
+        /*@internal*/ createUniqueName(text: string, flags?: GeneratedIdentifierFlags, prefix?: string | GeneratedNamePart, suffix?: string): Identifier; // eslint-disable-line @typescript-eslint/unified-signatures
 
         /** Create a unique name generated for a node. */
         getGeneratedNameForNode(node: Node | undefined, flags?: GeneratedIdentifierFlags): Identifier;
+        /*@internal*/ getGeneratedNameForNode(node: Node | undefined, flags?: GeneratedIdentifierFlags, prefix?: string | GeneratedNamePart, suffix?: string): Identifier; // eslint-disable-line @typescript-eslint/unified-signatures
 
         createPrivateIdentifier(text: string): PrivateIdentifier
+        createUniquePrivateName(text?: string): PrivateIdentifier;
+        /*@internal*/ createUniquePrivateName(text?: string, prefix?: string | GeneratedNamePart, suffix?: string): PrivateIdentifier; // eslint-disable-line @typescript-eslint/unified-signatures
+        getGeneratedPrivateNameForNode(node: Node): PrivateIdentifier;
+        /*@internal*/ getGeneratedPrivateNameForNode(node: Node, prefix?: string | GeneratedNamePart, suffix?: string): PrivateIdentifier; // eslint-disable-line @typescript-eslint/unified-signatures
 
         //
         // Punctuation
@@ -7861,6 +7928,8 @@ namespace ts {
         updateNonNullChain(node: NonNullChain, expression: Expression): NonNullChain;
         createMetaProperty(keywordToken: MetaProperty["keywordToken"], name: Identifier): MetaProperty;
         updateMetaProperty(node: MetaProperty, name: Identifier): MetaProperty;
+        createSatisfiesExpression(expression: Expression, type: TypeNode): SatisfiesExpression;
+        updateSatisfiesExpression(node: SatisfiesExpression, expression: Expression, type: TypeNode): SatisfiesExpression;
 
         //
         // Misc
@@ -8500,7 +8569,7 @@ namespace ts {
         <T extends Node>(nodes: NodeArray<T> | undefined, visitor: Visitor | undefined, test?: (node: Node) => boolean, start?: number, count?: number): NodeArray<T> | undefined;
     }
 
-    export type VisitResult<T extends Node> = T | T[] | undefined;
+    export type VisitResult<T extends Node> = T | readonly T[] | undefined;
 
     export interface Printer {
         /**

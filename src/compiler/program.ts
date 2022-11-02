@@ -187,10 +187,10 @@ namespace ts {
         const originalDirectoryExists = host.directoryExists;
         const originalCreateDirectory = host.createDirectory;
         const originalWriteFile = host.writeFile;
-        const readFileCache = new Map<string, string | false>();
-        const fileExistsCache = new Map<string, boolean>();
-        const directoryExistsCache = new Map<string, boolean>();
-        const sourceFileCache = new Map<string, SourceFile>();
+        const readFileCache = new Map<Path, string | false>();
+        const fileExistsCache = new Map<Path, boolean>();
+        const directoryExistsCache = new Map<Path, boolean>();
+        const sourceFileCache = new Map<SourceFile["impliedNodeFormat"], ESMap<Path, SourceFile>>();
 
         const readFileWithCache = (fileName: string): string | undefined => {
             const key = toPath(fileName);
@@ -215,14 +215,16 @@ namespace ts {
             return setReadFileCache(key, fileName);
         };
 
-        const getSourceFileWithCache: CompilerHost["getSourceFile"] | undefined = getSourceFile ? (fileName, languageVersion, onError, shouldCreateNewSourceFile) => {
+        const getSourceFileWithCache: CompilerHost["getSourceFile"] | undefined = getSourceFile ? (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
             const key = toPath(fileName);
-            const value = sourceFileCache.get(key);
+            const impliedNodeFormat: SourceFile["impliedNodeFormat"] = typeof languageVersionOrOptions === "object" ? languageVersionOrOptions.impliedNodeFormat : undefined;
+            const forImpliedNodeFormat = sourceFileCache.get(impliedNodeFormat);
+            const value = forImpliedNodeFormat?.get(key);
             if (value) return value;
 
-            const sourceFile = getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile);
+            const sourceFile = getSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
             if (sourceFile && (isDeclarationFileName(fileName) || fileExtensionIs(fileName, Extension.Json))) {
-                sourceFileCache.set(key, sourceFile);
+                sourceFileCache.set(impliedNodeFormat, (forImpliedNodeFormat || new Map()).set(key, sourceFile));
             }
             return sourceFile;
         } : undefined;
@@ -244,13 +246,15 @@ namespace ts {
                 const value = readFileCache.get(key);
                 if (value !== undefined && value !== data) {
                     readFileCache.delete(key);
-                    sourceFileCache.delete(key);
+                    sourceFileCache.forEach(map => map.delete(key));
                 }
                 else if (getSourceFileWithCache) {
-                    const sourceFile = sourceFileCache.get(key);
-                    if (sourceFile && sourceFile.text !== data) {
-                        sourceFileCache.delete(key);
-                    }
+                    sourceFileCache.forEach(map => {
+                        const sourceFile = map.get(key);
+                        if (sourceFile && sourceFile.text !== data) {
+                            map.delete(key);
+                        }
+                    });
                 }
                 originalWriteFile.call(host, fileName, data, ...rest);
             };
@@ -522,7 +526,7 @@ namespace ts {
         /* @internal */ imports: SourceFile["imports"];
         /* @internal */ moduleAugmentations: SourceFile["moduleAugmentations"];
         impliedNodeFormat?: SourceFile["impliedNodeFormat"];
-    };
+    }
 
     /**
      * Calculates the resulting resolution mode for some reference in some file - this is generally the explicitly
@@ -767,7 +771,7 @@ namespace ts {
         newOptions: CompilerOptions,
         getSourceVersion: (path: Path, fileName: string) => string | undefined,
         fileExists: (fileName: string) => boolean,
-        hasInvalidatedResolution: HasInvalidatedResolution,
+        hasInvalidatedResolutions: HasInvalidatedResolutions,
         hasChangedAutomaticTypeDirectiveNames: HasChangedAutomaticTypeDirectiveNames | undefined,
         getParsedCommandLine: (fileName: string) => ParsedCommandLine | undefined,
         projectReferences: readonly ProjectReference[] | undefined
@@ -801,7 +805,7 @@ namespace ts {
 
         function sourceFileNotUptoDate(sourceFile: SourceFile) {
             return !sourceFileVersionUptoDate(sourceFile) ||
-                hasInvalidatedResolution(sourceFile.path);
+                hasInvalidatedResolutions(sourceFile.path);
         }
 
         function sourceFileVersionUptoDate(sourceFile: SourceFile) {
@@ -868,7 +872,7 @@ namespace ts {
 
     /*@internal*/
     export function getImpliedNodeFormatForFileWorker(
-        fileName: Path,
+        fileName: string,
         packageJsonInfoCache: PackageJsonInfoCache | undefined,
         host: ModuleResolutionHost,
         options: CompilerOptions,
@@ -889,7 +893,7 @@ namespace ts {
             state.failedLookupLocations = packageJsonLocations;
             state.affectingLocations = packageJsonLocations;
             const packageJsonScope = getPackageScopeForPath(fileName, state);
-            const impliedNodeFormat = packageJsonScope?.packageJsonContent.type === "module" ? ModuleKind.ESNext : ModuleKind.CommonJS;
+            const impliedNodeFormat = packageJsonScope?.contents.packageJsonContent.type === "module" ? ModuleKind.ESNext : ModuleKind.CommonJS;
             return { impliedNodeFormat, packageJsonLocations, packageJsonScope };
         }
     }
@@ -1095,7 +1099,7 @@ namespace ts {
         let moduleResolutionCache: ModuleResolutionCache | undefined;
         let typeReferenceDirectiveResolutionCache: TypeReferenceDirectiveResolutionCache | undefined;
         let actualResolveModuleNamesWorker: (moduleNames: string[], containingFile: SourceFile, containingFileName: string, reusedNames?: string[], redirectedReference?: ResolvedProjectReference) => ResolvedModuleFull[];
-        const hasInvalidatedResolution = host.hasInvalidatedResolution || returnFalse;
+        const hasInvalidatedResolutions = host.hasInvalidatedResolutions || returnFalse;
         if (host.resolveModuleNames) {
             actualResolveModuleNamesWorker = (moduleNames, containingFile, containingFileName, reusedNames, redirectedReference) => host.resolveModuleNames!(Debug.checkEachDefined(moduleNames), containingFileName, reusedNames, redirectedReference, options, containingFile).map(resolved => {
                 // An older host may have omitted extension, in which case we should infer it from the file extension of resolvedFileName.
@@ -1576,7 +1580,7 @@ namespace ts {
             for (let i = 0; i < moduleNames.length; i++) {
                 const moduleName = moduleNames[i];
                 // If the source file is unchanged and doesnt have invalidated resolution, reuse the module resolutions
-                if (file === oldSourceFile && !hasInvalidatedResolution(oldSourceFile.path)) {
+                if (file === oldSourceFile && !hasInvalidatedResolutions(oldSourceFile.path)) {
                     const oldResolvedModule = getResolvedModule(oldSourceFile, moduleName, getModeForResolutionAtIndex(oldSourceFile, i));
                     if (oldResolvedModule) {
                         if (isTraceEnabled(options, host)) {
@@ -1841,7 +1845,7 @@ namespace ts {
                     // tentatively approve the file
                     modifiedSourceFiles.push({ oldFile: oldSourceFile, newFile: newSourceFile });
                 }
-                else if (hasInvalidatedResolution(oldSourceFile.path)) {
+                else if (hasInvalidatedResolutions(oldSourceFile.path)) {
                     // 'module/types' references could have changed
                     structureIsReused = StructureIsReused.SafeModules;
 
@@ -2393,6 +2397,9 @@ namespace ts {
                         case SyntaxKind.AsExpression:
                             diagnostics.push(createDiagnosticForNode((node as AsExpression).type, Diagnostics.Type_assertion_expressions_can_only_be_used_in_TypeScript_files));
                             return "skip";
+                        case SyntaxKind.SatisfiesExpression:
+                            diagnostics.push(createDiagnosticForNode((node as SatisfiesExpression).type, Diagnostics.Type_satisfaction_expressions_can_only_be_used_in_TypeScript_files));
+                            return "skip";
                         case SyntaxKind.TypeAssertionExpression:
                             Debug.fail(); // Won't parse these in a JS file anyway, as they are interpreted as JSX.
                     }
@@ -2431,7 +2438,9 @@ namespace ts {
                             // Check modifiers of property declaration
                             if (nodes === (parent as PropertyDeclaration).modifiers) {
                                 for (const modifier of nodes as NodeArray<ModifierLike>) {
-                                    if (isModifier(modifier) && modifier.kind !== SyntaxKind.StaticKeyword) {
+                                    if (isModifier(modifier)
+                                        && modifier.kind !== SyntaxKind.StaticKeyword
+                                        && modifier.kind !== SyntaxKind.AccessorKeyword) {
                                         diagnostics.push(createDiagnosticForNode(modifier, Diagnostics.The_0_modifier_can_only_be_used_in_TypeScript_files, tokenToString(modifier.kind)));
                                     }
                                 }
@@ -2485,6 +2494,7 @@ namespace ts {
                             case SyntaxKind.StaticKeyword:
                             case SyntaxKind.ExportKeyword:
                             case SyntaxKind.DefaultKeyword:
+                            case SyntaxKind.AccessorKeyword:
                         }
                     }
                 }
@@ -2849,7 +2859,7 @@ namespace ts {
             // It's a _little odd_ that we can't set `impliedNodeFormat` until the program step - but it's the first and only time we have a resolution cache
             // and a freshly made source file node on hand at the same time, and we need both to set the field. Persisting the resolution cache all the way
             // to the check and emit steps would be bad - so we much prefer detecting and storing the format information on the source file node upfront.
-            const result = getImpliedNodeFormatForFileWorker(toPath(fileName), moduleResolutionCache?.getPackageJsonInfoCache(), host, options);
+            const result = getImpliedNodeFormatForFileWorker(getNormalizedAbsolutePath(fileName, currentDirectory), moduleResolutionCache?.getPackageJsonInfoCache(), host, options);
             const languageVersion = getEmitScriptTarget(options);
             const setExternalModuleIndicator = getSetExternalModuleIndicator(options);
             return typeof result === "object" ?
@@ -3553,11 +3563,12 @@ namespace ts {
                     createDiagnosticForOptionName(Diagnostics.Option_preserveConstEnums_cannot_be_disabled_when_isolatedModules_is_enabled, "preserveConstEnums", "isolatedModules");
                 }
 
-                const firstNonExternalModuleSourceFile = find(files, f => !isExternalModule(f) && !isSourceFileJS(f) && !f.isDeclarationFile && f.scriptKind !== ScriptKind.JSON);
-                if (firstNonExternalModuleSourceFile) {
-                    const span = getErrorSpanForNode(firstNonExternalModuleSourceFile, firstNonExternalModuleSourceFile);
-                    programDiagnostics.add(createFileDiagnostic(firstNonExternalModuleSourceFile, span.start, span.length,
-                        Diagnostics._0_cannot_be_compiled_under_isolatedModules_because_it_is_considered_a_global_script_file_Add_an_import_export_or_an_empty_export_statement_to_make_it_a_module, getBaseFileName(firstNonExternalModuleSourceFile.fileName)));
+                for (const file of files) {
+                    if (!isExternalModule(file) && !isSourceFileJS(file) && !file.isDeclarationFile && file.scriptKind !== ScriptKind.JSON) {
+                        const span = getErrorSpanForNode(file, file);
+                        programDiagnostics.add(createFileDiagnostic(file, span.start, span.length,
+                            Diagnostics._0_cannot_be_compiled_under_isolatedModules_because_it_is_considered_a_global_script_file_Add_an_import_export_or_an_empty_export_statement_to_make_it_a_module, getBaseFileName(file.fileName)));
+                    }
                 }
             }
             else if (firstNonAmbientExternalModuleSourceFile && languageVersion < ScriptTarget.ES2015 && options.module === ModuleKind.None) {
